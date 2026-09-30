@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   BoxesIcon,
   CpuIcon,
+  FileCogIcon,
   LayoutDashboardIcon,
   LogOutIcon,
   RssIcon,
@@ -58,9 +59,14 @@ export function AppLayout() {
             </NavLink>
           ))}
           {core.isSuccess && (
-            <NavLink to="/sing-box" exact={false}>
-              <CpuIcon className="size-4" /> sing-box
-            </NavLink>
+            <>
+              <NavLink to="/sing-box" exact>
+                <CpuIcon className="size-4" /> sing-box
+              </NavLink>
+              <NavLink to="/sing-box/config" exact>
+                <FileCogIcon className="size-4" /> sing-box config
+              </NavLink>
+            </>
           )}
         </nav>
         <div className="mt-auto">

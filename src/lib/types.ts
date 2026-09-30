@@ -183,6 +183,37 @@ export interface Releases {
 }
 
 export interface Saved {
-  unchecked: unknown[];
+  unchecked: { what: string; fix: string }[];
   warnings: string[];
+}
+
+export interface Versioned<T> {
+  value: T;
+  etag: string | null;
+}
+
+export interface Tag {
+  tag: string;
+  space: "outbound" | "inbound";
+  kind: string | null;
+  path: string;
+}
+
+export interface References {
+  tags: Tag[];
+  unchecked: { what: string; reason: string }[];
+}
+
+export type GenerateCommand =
+  | "uuid"
+  | "rand"
+  | "reality-keypair"
+  | "tls-keypair"
+  | "ech-keypair"
+  | "wg-keypair"
+  | "vapid-keypair";
+
+export interface Generated {
+  command: string;
+  output: string;
 }

@@ -16,6 +16,7 @@ import { OverviewPage } from "@/pages/overview";
 import { ProviderPage } from "@/pages/providers/detail";
 import { ProvidersPage } from "@/pages/providers";
 import { SingboxPage } from "@/pages/singbox";
+import { SingboxConfigPage } from "@/pages/singbox-config";
 
 const rootRoute = createRootRoute({ component: Outlet });
 
@@ -70,9 +71,16 @@ const singboxRoute = createRoute({
   component: SingboxPage,
 });
 
+const singboxConfigRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/sing-box/config",
+  component: SingboxConfigPage,
+});
+
 const routeTree = rootRoute.addChildren([
   loginRoute,
   appRoute.addChildren([
+    singboxConfigRoute,
     overviewRoute,
     providersRoute,
     providerRoute,
