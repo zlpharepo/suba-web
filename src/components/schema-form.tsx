@@ -1,4 +1,4 @@
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useId, useState } from "react";
 import { ChevronRightIcon, PlusIcon, XIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -16,10 +16,12 @@ import {
   defaultFor,
   discriminate,
   isCompound,
+  isInline,
   isLooseInteger,
   isObject,
   keysOf,
   kindOf,
+  looseSpellings,
   matchBranch,
   oneOrMany,
   ownProperties,
@@ -206,35 +208,77 @@ function ScalarListField({
   onChange: Change;
   collapse: boolean;
 }) {
+  const { tree } = useForm();
   const values =
     value === undefined ? [] : Array.isArray(value) ? value : [value];
   const commit = (next: unknown[]) => {
     if (next.length === 0) return onChange(undefined);
     onChange(collapse && next.length === 1 ? next[0] : next);
   };
+  const loose = isLooseInteger(tree, item);
 
   return (
     <div className="grid gap-1.5">
-      {values.map((held, index) => (
-        <div key={index} className="flex items-center gap-1.5">
-          <ScalarField
-            schema={item}
-            value={held}
-            onChange={(next) =>
-              commit(
-                next === undefined
-                  ? values.filter((_, at) => at !== index)
-                  : values.map((old, at) => (at === index ? next : old)),
-              )
-            }
-          />
-          <RemoveButton
-            onClick={() => commit(values.filter((_, at) => at !== index))}
-          />
-        </div>
-      ))}
-      <AddButton onClick={() => commit([...values, emptyScalar(item)])} />
+      {values.map((held, index) => {
+        const change = (next: unknown) =>
+          commit(
+            next === undefined
+              ? values.filter((_, at) => at !== index)
+              : values.map((old, at) => (at === index ? next : old)),
+          );
+        return (
+          <div key={index} className="flex items-center gap-1.5">
+            {loose ? (
+              <LooseIntegerField schema={item} value={held} onChange={change} />
+            ) : (
+              <ScalarField schema={item} value={held} onChange={change} />
+            )}
+            <RemoveButton
+              onClick={() => commit(values.filter((_, at) => at !== index))}
+            />
+          </div>
+        );
+      })}
+      <AddButton
+        onClick={() => commit([...values, loose ? "" : emptyScalar(item)])}
+      />
     </div>
+  );
+}
+
+function LooseIntegerField({
+  schema,
+  value,
+  onChange,
+}: {
+  schema: JsonSchema;
+  value: unknown;
+  onChange: Change;
+}) {
+  const { tree } = useForm();
+  const spellings = looseSpellings(tree, schema);
+  const list = useId();
+
+  return (
+    <>
+      <Input
+        list={spellings.length ? list : undefined}
+        className="h-8 max-w-96"
+        value={value === undefined ? "" : String(value)}
+        onChange={(event) => {
+          const text = event.target.value;
+          if (text === "") return onChange(undefined);
+          onChange(/^-?\d+$/.test(text) ? Number(text) : text);
+        }}
+      />
+      {spellings.length > 0 && (
+        <datalist id={list}>
+          {spellings.map((spelling) => (
+            <option key={spelling} value={spelling} />
+          ))}
+        </datalist>
+      )}
+    </>
   );
 }
 
@@ -260,7 +304,7 @@ function AnyOfField({
   const [picked, setPicked] = useState(0);
 
   const single = oneOrMany(tree, schema);
-  if (single && scalarKind(tree, single)) {
+  if (single && isInline(tree, single)) {
     return (
       <ScalarListField
         item={single}
@@ -273,15 +317,7 @@ function AnyOfField({
 
   if (isLooseInteger(tree, schema)) {
     return (
-      <Input
-        className="h-8 max-w-96"
-        value={value === undefined ? "" : String(value)}
-        onChange={(event) => {
-          const text = event.target.value;
-          if (text === "") return onChange(undefined);
-          onChange(/^-?\d+$/.test(text) ? Number(text) : text);
-        }}
-      />
+      <LooseIntegerField schema={schema} value={value} onChange={onChange} />
     );
   }
 
@@ -576,7 +612,7 @@ function ArrayField({
     return <RawField value={value} onChange={onChange} />;
   }
 
-  if (scalarKind(tree, item)) {
+  if (isInline(tree, item)) {
     return (
       <ScalarListField
         item={tree.resolve(item)}

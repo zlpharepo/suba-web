@@ -103,14 +103,31 @@ export function oneOrMany(
   return JSON.stringify(item) === JSON.stringify(single) ? single : null;
 }
 
-/** `integer | string`: a number, or a spelling the core parses itself. */
+/**
+ * `integer | string`: a number, or a spelling the core parses itself. The string
+ * may be an enum (DNS query types: `28` or `"AAAA"`), whose values are suggestions.
+ */
 export function isLooseInteger(tree: SchemaTree, node: JsonSchema): boolean {
-  if (node.anyOf?.length !== 2) return false;
-  const types = node.anyOf
-    .map((branch) => tree.resolve(branch))
-    .map((branch) => (branch.enum ? "enum" : branch.type))
+  const resolved = tree.resolve(node);
+  if (resolved.anyOf?.length !== 2) return false;
+  const types = resolved.anyOf
+    .map((branch) => tree.resolve(branch).type)
     .sort();
   return types[0] === "integer" && types[1] === "string";
+}
+
+/** The spellings a loose integer's string branch is limited to, if any. */
+export function looseSpellings(tree: SchemaTree, node: JsonSchema): string[] {
+  const text = tree
+    .resolve(node)
+    .anyOf?.map((branch) => tree.resolve(branch))
+    .find((branch) => branch.type === "string");
+  return (text?.enum ?? []).map(String);
+}
+
+/** A single value the form edits on one line. */
+export function isInline(tree: SchemaTree, node: JsonSchema): boolean {
+  return scalarKind(tree, node) !== null || isLooseInteger(tree, node);
 }
 
 /** Whether a field needs a block of its own rather than one line. */
@@ -120,11 +137,11 @@ export function isCompound(tree: SchemaTree, node: JsonSchema): boolean {
   if (resolved.anyOf) {
     const single = oneOrMany(tree, resolved);
     return (
-      !(single && scalarKind(tree, single)) && !isLooseInteger(tree, resolved)
+      !(single && isInline(tree, single)) && !isLooseInteger(tree, resolved)
     );
   }
   if (resolved.type === "object") return true;
-  if (resolved.type === "array") return !scalarKind(tree, resolved.items ?? {});
+  if (resolved.type === "array") return !isInline(tree, resolved.items ?? {});
   return false;
 }
 
