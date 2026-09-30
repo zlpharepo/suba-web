@@ -557,24 +557,38 @@ function MapField({
   value: JsonObject;
   onChange: Change;
 }) {
-  const { tree } = useForm();
   const [name, setName] = useState("");
-  const entries = Object.entries(value);
+  // A new key is written only once it holds something, so no empty value is saved.
+  const [pending, setPending] = useState<string[]>([]);
+  const keys = [
+    ...Object.keys(value),
+    ...pending.filter((key) => !(key in value)),
+  ];
 
   return (
     <div className="grid gap-2">
-      {entries.map(([key, held]) => (
+      {keys.map((key) => (
         <Block
           key={key}
           name={key}
           present
           onAdd={() => undefined}
-          onRemove={() => onChange(omit(value, new Set([key])))}
+          onRemove={() => {
+            setPending(pending.filter((held) => held !== key));
+            onChange(omit(value, new Set([key])));
+          }}
         >
           <SchemaField
             schema={schema}
-            value={held}
-            onChange={(next) => onChange({ ...value, [key]: next })}
+            value={value[key]}
+            onChange={(next) => {
+              setPending(pending.filter((held) => held !== key));
+              onChange(
+                next === undefined
+                  ? omit(value, new Set([key]))
+                  : { ...value, [key]: next },
+              );
+            }}
           />
         </Block>
       ))}
@@ -587,8 +601,8 @@ function MapField({
         />
         <AddButton
           onClick={() => {
-            if (!name || name in value) return;
-            onChange({ ...value, [name]: defaultFor(tree, schema) });
+            if (!name || keys.includes(name)) return;
+            setPending([...pending, name]);
             setName("");
           }}
         />
