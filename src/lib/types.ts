@@ -20,7 +20,9 @@ export interface RemoteProvider extends ProviderShared {
   type: "remote";
   url: string;
   interval?: number;
-  headers?: Record<string, string>;
+  /** A header sent more than once is a list of its values. */
+  headers?: Record<string, string | string[]>;
+  /** Milliseconds. */
   timeout?: number;
 }
 

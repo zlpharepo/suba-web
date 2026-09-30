@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { PlusIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { PatternsEditor } from "@/components/patterns-editor";
@@ -24,7 +25,12 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/lib/api";
-import type { Pattern, Provider, ProviderType } from "@/lib/types";
+import type {
+  Pattern,
+  Provider,
+  ProviderType,
+  RemoteProvider,
+} from "@/lib/types";
 
 const DEFAULT_INTERVAL = 3600;
 
@@ -101,6 +107,14 @@ function ProviderForm({
         : DEFAULT_INTERVAL,
     ),
   );
+  const [headers, setHeaders] = useState<Header[]>(
+    provider?.type === "remote" ? headerRows(provider.headers) : [],
+  );
+  const [timeout, setTimeout] = useState(
+    provider?.type === "remote" && provider.timeout !== undefined
+      ? String(provider.timeout)
+      : "",
+  );
   const [format, setFormat] = useState(provider?.format ?? "links");
   const [disabled, setDisabled] = useState(provider?.disabled ?? false);
   const [includes, setIncludes] = useState<Pattern[]>(provider?.includes ?? []);
@@ -114,15 +128,20 @@ function ProviderForm({
         includes,
         excludes,
       };
-      // Fields this form does not show (headers, timeout) are kept as they were.
-      const kept = provider && provider.type === type ? provider : {};
       let next: Provider;
       switch (type) {
         case "remote":
-          next = { ...kept, ...shared, type, url, interval: Number(interval) };
+          next = {
+            ...shared,
+            type,
+            url,
+            interval: Number(interval),
+            headers: headerMap(headers),
+            timeout: timeout === "" ? undefined : Number(timeout),
+          };
           break;
         case "local":
-          next = { ...kept, ...shared, type, path, interval: Number(interval) };
+          next = { ...shared, type, path, interval: Number(interval) };
           break;
         case "inline":
           next = { ...shared, type, payload };
@@ -213,6 +232,24 @@ function ProviderForm({
         </div>
       )}
 
+      {type === "remote" && (
+        <>
+          <HeadersEditor value={headers} onChange={setHeaders} />
+          <div className="grid gap-2">
+            <Label htmlFor="provider-timeout">
+              Timeout (milliseconds, empty = client default)
+            </Label>
+            <Input
+              id="provider-timeout"
+              type="number"
+              min={1}
+              value={timeout}
+              onChange={(event) => setTimeout(event.target.value)}
+            />
+          </div>
+        </>
+      )}
+
       <div className="grid grid-cols-2 gap-4">
         {type !== "inline" && (
           <div className="grid gap-2">
@@ -277,5 +314,94 @@ function ProviderForm({
         </Button>
       </DialogFooter>
     </form>
+  );
+}
+
+interface Header {
+  name: string;
+  value: string;
+}
+
+function headerRows(headers: RemoteProvider["headers"]): Header[] {
+  return Object.entries(headers ?? {}).flatMap(([name, value]) =>
+    (Array.isArray(value) ? value : [value]).map((one) => ({
+      name,
+      value: one,
+    })),
+  );
+}
+
+// A repeated name is sent once per value, as the server's header map reads it.
+function headerMap(rows: Header[]): RemoteProvider["headers"] {
+  const map: Record<string, string[]> = {};
+  for (const { name, value } of rows) {
+    const key = name.trim();
+    if (key) (map[key] ??= []).push(value);
+  }
+  const entries = Object.entries(map);
+  if (entries.length === 0) return undefined;
+  return Object.fromEntries(
+    entries.map(([name, values]) => [
+      name,
+      values.length === 1 ? values[0] : values,
+    ]),
+  );
+}
+
+function HeadersEditor({
+  value,
+  onChange,
+}: {
+  value: Header[];
+  onChange: (value: Header[]) => void;
+}) {
+  const replace = (index: number, header: Header) =>
+    onChange(value.map((item, at) => (at === index ? header : item)));
+
+  return (
+    <div className="grid gap-2">
+      <div className="flex items-center justify-between">
+        <Label>Request headers</Label>
+        <Button
+          type="button"
+          variant="ghost"
+          size="xs"
+          onClick={() => onChange([...value, { name: "", value: "" }])}
+        >
+          <PlusIcon /> Add
+        </Button>
+      </div>
+      {value.length === 0 && (
+        <p className="text-muted-foreground text-xs">None.</p>
+      )}
+      {value.map((header, index) => (
+        <div key={index} className="flex gap-2">
+          <Input
+            className="w-48"
+            placeholder="Name"
+            value={header.name}
+            onChange={(event) =>
+              replace(index, { ...header, name: event.target.value })
+            }
+          />
+          <Input
+            placeholder="Value"
+            value={header.value}
+            onChange={(event) =>
+              replace(index, { ...header, value: event.target.value })
+            }
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label="Remove header"
+            onClick={() => onChange(value.filter((_, at) => at !== index))}
+          >
+            <XIcon />
+          </Button>
+        </div>
+      ))}
+    </div>
   );
 }

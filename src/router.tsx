@@ -3,20 +3,14 @@ import {
   createRootRoute,
   createRoute,
   createRouter,
+  lazyRouteComponent,
   Outlet,
   redirect,
 } from "@tanstack/react-router";
 
 import { session } from "@/lib/api";
-import { CollectionPage } from "@/pages/collections/detail";
-import { CollectionsPage } from "@/pages/collections";
 import { AppLayout } from "@/pages/layout";
 import { LoginPage } from "@/pages/login";
-import { OverviewPage } from "@/pages/overview";
-import { ProviderPage } from "@/pages/providers/detail";
-import { ProvidersPage } from "@/pages/providers";
-import { SingboxPage } from "@/pages/singbox";
-import { SingboxConfigPage } from "@/pages/singbox-config";
 
 const rootRoute = createRootRoute({ component: Outlet });
 
@@ -38,43 +32,61 @@ const appRoute = createRoute({
 const overviewRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "/",
-  component: OverviewPage,
+  component: lazyRouteComponent(
+    () => import("@/pages/overview"),
+    "OverviewPage",
+  ),
 });
 
 const providersRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "/providers",
-  component: ProvidersPage,
+  component: lazyRouteComponent(
+    () => import("@/pages/providers"),
+    "ProvidersPage",
+  ),
 });
 
 const providerRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "/providers/$name",
-  component: ProviderPage,
+  component: lazyRouteComponent(
+    () => import("@/pages/providers/detail"),
+    "ProviderPage",
+  ),
 });
 
 const collectionsRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "/collections",
-  component: CollectionsPage,
+  component: lazyRouteComponent(
+    () => import("@/pages/collections"),
+    "CollectionsPage",
+  ),
 });
 
 const collectionRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "/collections/$name",
-  component: CollectionPage,
+  component: lazyRouteComponent(
+    () => import("@/pages/collections/detail"),
+    "CollectionPage",
+  ),
 });
 
 const singboxRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "/sing-box",
-  component: SingboxPage,
+  component: lazyRouteComponent(() => import("@/pages/singbox"), "SingboxPage"),
 });
 
 const singboxConfigRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "/sing-box/config",
-  component: SingboxConfigPage,
+  component: lazyRouteComponent(
+    () => import("@/pages/singbox-config"),
+    "SingboxConfigPage",
+  ),
 });
 
 const routeTree = rootRoute.addChildren([
