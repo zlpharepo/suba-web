@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { PlusIcon } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
+import { toast } from "sonner";
 
+import { ConfirmButton } from "@/components/confirm-button";
 import { ErrorAlert, Loading, PageHeader } from "@/components/page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,14 +17,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { api } from "@/lib/api";
+import { api, errorMessage } from "@/lib/api";
 import { formatInterval } from "@/lib/format";
 import type { Provider } from "@/lib/types";
 
 import { ProviderDialog } from "./provider-dialog";
 
 export function ProvidersPage() {
+  const queryClient = useQueryClient();
   const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState<string | null>(null);
   const providers = useQuery({
     queryKey: ["providers"],
     queryFn: api.providers.list,
@@ -30,6 +34,16 @@ export function ProvidersPage() {
   const entries = Object.entries(providers.data ?? {}).sort(([a], [b]) =>
     a.localeCompare(b),
   );
+
+  const remove = useMutation({
+    mutationFn: (name: string) => api.providers.remove(name),
+    onSuccess: (_, name) => {
+      toast.success(`Deleted ${name}`);
+      void queryClient.invalidateQueries({ queryKey: ["providers"] });
+      void queryClient.invalidateQueries({ queryKey: ["collections"] });
+    },
+    onError: (error) => toast.error(errorMessage(error)),
+  });
 
   return (
     <>
@@ -54,12 +68,13 @@ export function ProvidersPage() {
                 <TableHead>Source</TableHead>
                 <TableHead>Format</TableHead>
                 <TableHead>Interval</TableHead>
+                <TableHead className="pr-4 text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {entries.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-muted-foreground pl-4">
+                  <TableCell colSpan={6} className="text-muted-foreground pl-4">
                     No providers yet.
                   </TableCell>
                 </TableRow>
@@ -88,6 +103,29 @@ export function ProvidersPage() {
                   </TableCell>
                   <TableCell>{provider.format ?? "links"}</TableCell>
                   <TableCell>{formatInterval(provider)}</TableCell>
+                  <TableCell className="pr-4">
+                    <div className="flex justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`Edit ${name}`}
+                        onClick={() => setEditing(name)}
+                      >
+                        <PencilIcon />
+                      </Button>
+                      <ConfirmButton
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`Delete ${name}`}
+                        title={`Delete ${name}?`}
+                        description="The definition and its cached payload are removed. Collections that name it will report it as unresolved."
+                        confirmLabel="Delete"
+                        onConfirm={() => remove.mutate(name)}
+                      >
+                        <Trash2Icon />
+                      </ConfirmButton>
+                    </div>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -95,6 +133,12 @@ export function ProvidersPage() {
         </Card>
       )}
       <ProviderDialog open={creating} onOpenChange={setCreating} />
+      <ProviderDialog
+        open={editing !== null}
+        onOpenChange={(open) => !open && setEditing(null)}
+        name={editing ?? undefined}
+        provider={editing ? providers.data?.[editing] : undefined}
+      />
     </>
   );
 }

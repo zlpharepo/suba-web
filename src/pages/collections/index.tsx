@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { PlusIcon } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
+import { toast } from "sonner";
 
+import { ConfirmButton } from "@/components/confirm-button";
 import { ErrorAlert, Loading, PageHeader } from "@/components/page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,12 +17,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { api } from "@/lib/api";
+import { api, errorMessage } from "@/lib/api";
 
 import { CollectionDialog } from "./collection-dialog";
 
 export function CollectionsPage() {
+  const queryClient = useQueryClient();
   const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState<string | null>(null);
   const collections = useQuery({
     queryKey: ["collections"],
     queryFn: api.collections.list,
@@ -28,6 +32,15 @@ export function CollectionsPage() {
   const entries = Object.entries(collections.data ?? {}).sort(([a], [b]) =>
     a.localeCompare(b),
   );
+
+  const remove = useMutation({
+    mutationFn: (name: string) => api.collections.remove(name),
+    onSuccess: (_, name) => {
+      toast.success(`Deleted ${name}`);
+      void queryClient.invalidateQueries({ queryKey: ["collections"] });
+    },
+    onError: (error) => toast.error(errorMessage(error)),
+  });
 
   return (
     <>
@@ -51,12 +64,13 @@ export function CollectionsPage() {
                 <TableHead>Providers</TableHead>
                 <TableHead>Format</TableHead>
                 <TableHead>Tokens</TableHead>
+                <TableHead className="pr-4 text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {entries.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-muted-foreground pl-4">
+                  <TableCell colSpan={5} className="text-muted-foreground pl-4">
                     No collections yet.
                   </TableCell>
                 </TableRow>
@@ -85,6 +99,29 @@ export function CollectionsPage() {
                   <TableCell>
                     {Object.keys(collection.tokens ?? {}).length}
                   </TableCell>
+                  <TableCell className="pr-4">
+                    <div className="flex justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`Edit ${name}`}
+                        onClick={() => setEditing(name)}
+                      >
+                        <PencilIcon />
+                      </Button>
+                      <ConfirmButton
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`Delete ${name}`}
+                        title={`Delete ${name}?`}
+                        description="Every delivery URL of this collection stops working."
+                        confirmLabel="Delete"
+                        onConfirm={() => remove.mutate(name)}
+                      >
+                        <Trash2Icon />
+                      </ConfirmButton>
+                    </div>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -92,6 +129,12 @@ export function CollectionsPage() {
         </Card>
       )}
       <CollectionDialog open={creating} onOpenChange={setCreating} />
+      <CollectionDialog
+        open={editing !== null}
+        onOpenChange={(open) => !open && setEditing(null)}
+        name={editing ?? undefined}
+        collection={editing ? collections.data?.[editing] : undefined}
+      />
     </>
   );
 }
