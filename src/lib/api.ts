@@ -6,7 +6,7 @@ import type {
   CoreAction,
   Generated,
   GenerateCommand,
-  Minted,
+  DeliveryToken,
   Provider,
   ProviderNodes,
   References,
@@ -198,9 +198,9 @@ export const api = {
       };
     },
     tokens: (name: string) =>
-      json<string[]>("GET", `/collections/${segment(name)}/tokens`),
+      json<DeliveryToken[]>("GET", `/collections/${segment(name)}/tokens`),
     mintToken: (name: string, label: string) =>
-      json<Minted>(
+      json<DeliveryToken>(
         "PUT",
         `/collections/${segment(name)}/tokens/${segment(label)}`,
       ),

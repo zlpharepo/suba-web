@@ -36,7 +36,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api, errorMessage } from "@/lib/api";
 import { patternKind, patternText } from "@/lib/pattern";
-import type { Minted } from "@/lib/types";
+import type { DeliveryToken } from "@/lib/types";
 
 import { CollectionDialog } from "./collection-dialog";
 
@@ -241,9 +241,6 @@ function Content({ name }: { name: string }) {
 function Tokens({ name }: { name: string }) {
   const queryClient = useQueryClient();
   const [label, setLabel] = useState("");
-  const [minted, setMinted] = useState<(Minted & { label: string }) | null>(
-    null,
-  );
 
   const tokens = useQuery({
     queryKey: ["collections", name, "tokens"],
@@ -256,8 +253,8 @@ function Tokens({ name }: { name: string }) {
 
   const mint = useMutation({
     mutationFn: (label: string) => api.collections.mintToken(name, label),
-    onSuccess: (result, label) => {
-      setMinted({ ...result, label });
+    onSuccess: (result) => {
+      toast.success(`Minted ${result.name}`);
       setLabel("");
       invalidate();
     },
@@ -268,7 +265,6 @@ function Tokens({ name }: { name: string }) {
     mutationFn: (label: string) => api.collections.revokeToken(name, label),
     onSuccess: (_, label) => {
       toast.success(`Revoked ${label}`);
-      if (minted?.label === label) setMinted(null);
       invalidate();
     },
     onError: (error) => toast.error(errorMessage(error)),
@@ -279,15 +275,13 @@ function Tokens({ name }: { name: string }) {
     mint.mutate(label.trim());
   };
 
-  const url = minted && `${window.location.origin}${minted.path}`;
-
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-sm">Delivery tokens</CardTitle>
         <CardDescription>
-          One per device or person. A token is shown once when it is minted;
-          only its hash is kept.
+          One per device or person, so one can be revoked without changing the
+          others.
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-4">
@@ -306,53 +300,6 @@ function Tokens({ name }: { name: string }) {
           </Button>
         </form>
 
-        {minted && url && (
-          <Alert>
-            <KeyRoundIcon />
-            <AlertTitle>Subscription URL for {minted.label}</AlertTitle>
-            <AlertDescription className="grid gap-2">
-              <span>Copy it now: it cannot be shown again.</span>
-              <div className="flex items-center gap-2">
-                <code className="bg-muted rounded px-2 py-1 font-mono text-xs break-all">
-                  {url}
-                </code>
-                <Button
-                  variant="outline"
-                  size="icon-sm"
-                  aria-label="Copy URL"
-                  onClick={() => {
-                    void navigator.clipboard
-                      .writeText(url)
-                      .then(() => toast.success("Copied"));
-                  }}
-                >
-                  <CopyIcon />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon-sm"
-                  aria-label="Open URL"
-                  asChild
-                >
-                  <a href={url} target="_blank" rel="noopener noreferrer">
-                    <ExternalLinkIcon />
-                  </a>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon-sm"
-                  aria-label="Download"
-                  asChild
-                >
-                  <a href={`${url}/download`} rel="noopener noreferrer">
-                    <DownloadIcon />
-                  </a>
-                </Button>
-              </div>
-            </AlertDescription>
-          </Alert>
-        )}
-
         {tokens.isPending && <Loading />}
         {tokens.error && <ErrorAlert error={tokens.error} />}
         {tokens.data && tokens.data.length === 0 && (
@@ -363,38 +310,95 @@ function Tokens({ name }: { name: string }) {
         {tokens.data && tokens.data.length > 0 && (
           <ul className="divide-y rounded-md border">
             {tokens.data.map((token) => (
-              <li
-                key={token}
-                className="flex items-center justify-between px-3 py-2"
-              >
-                <span className="font-mono text-sm">{token}</span>
-                <div className="flex gap-2">
-                  <ConfirmButton
-                    variant="outline"
-                    size="sm"
-                    title={`Rotate ${token}?`}
-                    description="The current URL for this token stops working and a new one is issued."
-                    confirmLabel="Rotate"
-                    onConfirm={() => mint.mutate(token)}
-                  >
-                    <RotateCwIcon /> Rotate
-                  </ConfirmButton>
-                  <ConfirmButton
-                    variant="destructive"
-                    size="sm"
-                    title={`Revoke ${token}?`}
-                    description="The URL for this token stops working."
-                    confirmLabel="Revoke"
-                    onConfirm={() => revoke.mutate(token)}
-                  >
-                    <Trash2Icon /> Revoke
-                  </ConfirmButton>
-                </div>
-              </li>
+              <TokenRow
+                key={token.name}
+                token={token}
+                onRotate={() => mint.mutate(token.name)}
+                onRevoke={() => revoke.mutate(token.name)}
+              />
             ))}
           </ul>
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function TokenRow({
+  token,
+  onRotate,
+  onRevoke,
+}: {
+  token: DeliveryToken;
+  onRotate: () => void;
+  onRevoke: () => void;
+}) {
+  const url = `${window.location.origin}${token.path}`;
+
+  return (
+    <li className="grid gap-2 px-3 py-2">
+      <div className="flex items-center justify-between gap-2">
+        <span className="font-mono text-sm font-medium">{token.name}</span>
+        <div className="flex gap-2">
+          <ConfirmButton
+            variant="outline"
+            size="sm"
+            title={`Rotate ${token.name}?`}
+            description="The current URL for this token stops working and a new one is issued."
+            confirmLabel="Rotate"
+            onConfirm={onRotate}
+          >
+            <RotateCwIcon /> Rotate
+          </ConfirmButton>
+          <ConfirmButton
+            variant="destructive"
+            size="sm"
+            title={`Revoke ${token.name}?`}
+            description="The URL for this token stops working."
+            confirmLabel="Revoke"
+            onConfirm={onRevoke}
+          >
+            <Trash2Icon /> Revoke
+          </ConfirmButton>
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        <code className="bg-muted min-w-0 flex-1 truncate rounded px-2 py-1 font-mono text-xs">
+          {url}
+        </code>
+        <Button
+          variant="outline"
+          size="icon-sm"
+          aria-label={`Copy URL of ${token.name}`}
+          onClick={() => {
+            void navigator.clipboard
+              .writeText(url)
+              .then(() => toast.success("Copied"));
+          }}
+        >
+          <CopyIcon />
+        </Button>
+        <Button
+          variant="outline"
+          size="icon-sm"
+          aria-label={`Open URL of ${token.name}`}
+          asChild
+        >
+          <a href={url} target="_blank" rel="noopener noreferrer">
+            <ExternalLinkIcon />
+          </a>
+        </Button>
+        <Button
+          variant="outline"
+          size="icon-sm"
+          aria-label={`Download ${token.name}`}
+          asChild
+        >
+          <a href={`${url}/download`} rel="noopener noreferrer">
+            <DownloadIcon />
+          </a>
+        </Button>
+      </div>
+    </li>
   );
 }

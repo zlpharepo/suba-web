@@ -89,7 +89,8 @@ export interface CollectionNodes {
   unresolved: string[];
 }
 
-export interface Minted {
+export interface DeliveryToken {
+  name: string;
   token: string;
   path: string;
 }
