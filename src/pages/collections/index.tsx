@@ -46,7 +46,7 @@ export function CollectionsPage() {
     <>
       <PageHeader
         title="Collections"
-        description="Subscriptions handed to clients: providers assembled, filtered and written in one format."
+        description="Subscriptions handed to clients: providers assembled and filtered; each client gets the format it reads."
         actions={
           <Button onClick={() => setCreating(true)}>
             <PlusIcon /> New collection
@@ -62,7 +62,6 @@ export function CollectionsPage() {
               <TableRow>
                 <TableHead className="pl-4">Name</TableHead>
                 <TableHead>Providers</TableHead>
-                <TableHead>Format</TableHead>
                 <TableHead>Tokens</TableHead>
                 <TableHead className="pr-4 text-right">Actions</TableHead>
               </TableRow>
@@ -70,7 +69,7 @@ export function CollectionsPage() {
             <TableBody>
               {entries.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-muted-foreground pl-4">
+                  <TableCell colSpan={4} className="text-muted-foreground pl-4">
                     No collections yet.
                   </TableCell>
                 </TableRow>
@@ -95,7 +94,6 @@ export function CollectionsPage() {
                       ))}
                     </div>
                   </TableCell>
-                  <TableCell>{collection.format ?? "base64"}</TableCell>
                   <TableCell>
                     {Object.keys(collection.tokens ?? {}).length}
                   </TableCell>

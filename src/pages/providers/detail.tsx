@@ -70,8 +70,7 @@ function Provider({ name }: { name: string }) {
         description={
           <span className="flex items-center gap-2">
             <Badge variant="secondary">{definition.type}</Badge>
-            <span>format {definition.format ?? "links"}</span>
-            <span>· interval {formatInterval(definition)}</span>
+            <span>interval {formatInterval(definition)}</span>
             {definition.disabled && <Badge variant="outline">disabled</Badge>}
           </span>
         }
@@ -124,7 +123,7 @@ function Provider({ name }: { name: string }) {
                     {nodes.data.nodes.length} nodes · {nodes.data.passed_over}{" "}
                     passed over by filters · {nodes.data.orphans} orphans
                     {nodes.data.unreadable &&
-                      ` · payload unreadable as ${nodes.data.unreadable}`}
+                      " · the payload is a clash document, which this build does not read"}
                   </p>
                   <NodeTable nodes={nodes.data.nodes} />
                 </>

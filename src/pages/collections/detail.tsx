@@ -80,8 +80,6 @@ function CollectionView({ name }: { name: string }) {
         title={name}
         description={
           <span className="flex flex-wrap items-center gap-2">
-            <span>format {definition.format ?? "base64"}</span>
-            <span>·</span>
             {(definition.providers ?? []).map((member) => (
               <Badge key={member} variant="secondary">
                 {member}
@@ -122,7 +120,7 @@ function CollectionView({ name }: { name: string }) {
           <Nodes name={name} />
         </TabsContent>
         <TabsContent value="content">
-          <Content name={name} declared={definition.format ?? "base64"} />
+          <Content name={name} />
         </TabsContent>
         <TabsContent value="tokens">
           <Tokens name={name} />
@@ -174,12 +172,15 @@ function Nodes({ name }: { name: string }) {
 }
 
 // Fetched only when asked for: the artifact carries every node's credentials.
-function Content({ name, declared }: { name: string; declared: string }) {
+// The default matches delivery: a client that names no format gets base64.
+const DEFAULT_FORMAT = "base64";
+
+function Content({ name }: { name: string }) {
   const info = useQuery({
     queryKey: ["system", "info"],
     queryFn: api.system.info,
   });
-  const [format, setFormat] = useState(declared);
+  const [format, setFormat] = useState(DEFAULT_FORMAT);
   const [shown, setShown] = useState(false);
   const content = useQuery({
     queryKey: ["collections", name, "content", format],
@@ -202,12 +203,14 @@ function Content({ name, declared }: { name: string; declared: string }) {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {(info.data?.formats ?? [{ name: declared }]).map(({ name }) => (
-                <SelectItem key={name} value={name}>
-                  {name}
-                  {name === declared && " (declared)"}
-                </SelectItem>
-              ))}
+              {(info.data?.formats ?? [{ name: DEFAULT_FORMAT }]).map(
+                ({ name }) => (
+                  <SelectItem key={name} value={name}>
+                    {name}
+                    {name === DEFAULT_FORMAT && " (default)"}
+                  </SelectItem>
+                ),
+              )}
             </SelectContent>
           </Select>
           {!shown && (

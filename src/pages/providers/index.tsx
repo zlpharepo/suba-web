@@ -66,7 +66,6 @@ export function ProvidersPage() {
                 <TableHead className="pl-4">Name</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Source</TableHead>
-                <TableHead>Format</TableHead>
                 <TableHead>Interval</TableHead>
                 <TableHead className="pr-4 text-right">Actions</TableHead>
               </TableRow>
@@ -74,7 +73,7 @@ export function ProvidersPage() {
             <TableBody>
               {entries.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-muted-foreground pl-4">
+                  <TableCell colSpan={5} className="text-muted-foreground pl-4">
                     No providers yet.
                   </TableCell>
                 </TableRow>
@@ -101,7 +100,6 @@ export function ProvidersPage() {
                   <TableCell className="text-muted-foreground max-w-80 truncate text-xs">
                     {source(provider)}
                   </TableCell>
-                  <TableCell>{provider.format ?? "links"}</TableCell>
                   <TableCell>{formatInterval(provider)}</TableCell>
                   <TableCell className="pr-4">
                     <div className="flex justify-end gap-1">

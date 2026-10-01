@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { PlusIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
 
@@ -33,9 +33,6 @@ import type {
 } from "@/lib/types";
 
 const DEFAULT_INTERVAL = 3600;
-
-// A provider declares how its payload is read; only these shapes have a declaration.
-const READABLE = ["links", "clash", "singbox"];
 
 export function ProviderDialog({
   open,
@@ -79,15 +76,6 @@ function ProviderForm({
   onDone: () => void;
 }) {
   const queryClient = useQueryClient();
-  const info = useQuery({
-    queryKey: ["system", "info"],
-    queryFn: api.system.info,
-  });
-  const declarable = READABLE.filter(
-    (format) =>
-      format === "links" ||
-      info.data?.formats.some((known) => known.name === format),
-  );
 
   const [name, setName] = useState(initialName ?? "");
   const [type, setType] = useState<ProviderType>(provider?.type ?? "remote");
@@ -115,7 +103,6 @@ function ProviderForm({
       ? String(provider.timeout)
       : "",
   );
-  const [format, setFormat] = useState(provider?.format ?? "links");
   const [disabled, setDisabled] = useState(provider?.disabled ?? false);
   const [includes, setIncludes] = useState<Pattern[]>(provider?.includes ?? []);
   const [excludes, setExcludes] = useState<Pattern[]>(provider?.excludes ?? []);
@@ -124,7 +111,6 @@ function ProviderForm({
     mutationFn: () => {
       const shared = {
         disabled: disabled || undefined,
-        format: format === "links" ? undefined : format,
         includes,
         excludes,
       };
@@ -250,38 +236,21 @@ function ProviderForm({
         </>
       )}
 
-      <div className="grid grid-cols-2 gap-4">
-        {type !== "inline" && (
-          <div className="grid gap-2">
-            <Label htmlFor="provider-interval">
-              Interval (seconds, 0 = manual)
-            </Label>
-            <Input
-              id="provider-interval"
-              type="number"
-              min={0}
-              value={interval}
-              onChange={(event) => setInterval(event.target.value)}
-              required
-            />
-          </div>
-        )}
+      {type !== "inline" && (
         <div className="grid gap-2">
-          <Label>Payload format</Label>
-          <Select value={format} onValueChange={setFormat}>
-            <SelectTrigger className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {declarable.map((value) => (
-                <SelectItem key={value} value={value}>
-                  {value}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Label htmlFor="provider-interval">
+            Interval (seconds, 0 = manual)
+          </Label>
+          <Input
+            id="provider-interval"
+            type="number"
+            min={0}
+            value={interval}
+            onChange={(event) => setInterval(event.target.value)}
+            required
+          />
         </div>
-      </div>
+      )}
 
       <PatternsEditor
         label="Excludes (applied first)"

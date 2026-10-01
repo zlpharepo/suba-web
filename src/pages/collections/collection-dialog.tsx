@@ -15,13 +15,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { api } from "@/lib/api";
 import type { Collection, Pattern } from "@/lib/types";
 
@@ -66,10 +59,6 @@ function CollectionForm({
   onDone: () => void;
 }) {
   const queryClient = useQueryClient();
-  const info = useQuery({
-    queryKey: ["system", "info"],
-    queryFn: api.system.info,
-  });
   const providers = useQuery({
     queryKey: ["providers"],
     queryFn: api.providers.list,
@@ -77,7 +66,6 @@ function CollectionForm({
 
   const [name, setName] = useState(initialName ?? "");
   const [members, setMembers] = useState<string[]>(collection?.providers ?? []);
-  const [format, setFormat] = useState(collection?.format ?? "base64");
   const [includes, setIncludes] = useState<Pattern[]>(
     collection?.includes ?? [],
   );
@@ -103,7 +91,6 @@ function CollectionForm({
         providers: members,
         includes,
         excludes,
-        format,
         tokens: current?.tokens,
       });
     },
@@ -128,32 +115,15 @@ function CollectionForm({
 
   return (
     <form className="grid gap-4" onSubmit={submit}>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="grid gap-2">
-          <Label htmlFor="collection-name">Name</Label>
-          <Input
-            id="collection-name"
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            disabled={initialName !== undefined}
-            required
-          />
-        </div>
-        <div className="grid gap-2">
-          <Label>Format</Label>
-          <Select value={format} onValueChange={setFormat}>
-            <SelectTrigger className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {(info.data?.formats ?? [{ name: format }]).map(({ name }) => (
-                <SelectItem key={name} value={name}>
-                  {name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+      <div className="grid gap-2">
+        <Label htmlFor="collection-name">Name</Label>
+        <Input
+          id="collection-name"
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          disabled={initialName !== undefined}
+          required
+        />
       </div>
 
       <div className="grid gap-2">

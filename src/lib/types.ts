@@ -10,8 +10,6 @@ export type Pattern =
 
 interface ProviderShared {
   disabled?: boolean;
-  /** Absent means `links`. */
-  format?: string;
   includes?: Pattern[];
   excludes?: Pattern[];
 }
@@ -79,8 +77,6 @@ export interface Collection {
   providers?: string[];
   includes?: Pattern[];
   excludes?: Pattern[];
-  /** Absent means `base64`. */
-  format?: string;
   /** Token name to the sha256 of the token; the token itself is never kept. */
   tokens?: Record<string, string>;
 }
