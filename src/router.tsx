@@ -47,15 +47,6 @@ const providersRoute = createRoute({
   ),
 });
 
-const providerRoute = createRoute({
-  getParentRoute: () => appRoute,
-  path: "/providers/$name",
-  component: lazyRouteComponent(
-    () => import("@/pages/providers/detail"),
-    "ProviderPage",
-  ),
-});
-
 const collectionsRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "/collections",
@@ -65,39 +56,18 @@ const collectionsRoute = createRoute({
   ),
 });
 
-const collectionRoute = createRoute({
-  getParentRoute: () => appRoute,
-  path: "/collections/$name",
-  component: lazyRouteComponent(
-    () => import("@/pages/collections/detail"),
-    "CollectionPage",
-  ),
-});
-
 const singboxRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "/sing-box",
   component: lazyRouteComponent(() => import("@/pages/singbox"), "SingboxPage"),
 });
 
-const singboxConfigRoute = createRoute({
-  getParentRoute: () => appRoute,
-  path: "/sing-box/config",
-  component: lazyRouteComponent(
-    () => import("@/pages/singbox-config"),
-    "SingboxConfigPage",
-  ),
-});
-
 const routeTree = rootRoute.addChildren([
   loginRoute,
   appRoute.addChildren([
-    singboxConfigRoute,
     overviewRoute,
     providersRoute,
-    providerRoute,
     collectionsRoute,
-    collectionRoute,
     singboxRoute,
   ]),
 ]);

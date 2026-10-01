@@ -1,16 +1,14 @@
-import { createContext, useContext, useId, useState } from "react";
-import { ChevronRightIcon, PlusIcon, XIcon } from "lucide-react";
-
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
+  createContext,
+  useContext,
+  useId,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
+import { ChevronRightIcon, PlusIcon, SearchIcon, XIcon } from "lucide-react";
+
+import { cx } from "@/lib/cx";
 import {
   branchKind,
   defaultFor,
@@ -31,10 +29,16 @@ import {
   type JsonSchema,
   type SchemaTree,
 } from "@/lib/schema";
+import { humanize } from "@/lib/humanize";
+import { Button, IconButton } from "@/ui/button";
+import { Input, Textarea } from "@/ui/input";
+import { Popover } from "@/ui/popover";
+import { Select } from "@/ui/select";
+import { Switch as BaseSwitch } from "@base-ui/react/switch";
 
 interface FormContext {
   tree: SchemaTree;
-  /** Tags the document declares, by reference space, for dropdowns. */
+  /** Tags the document declares, by reference space, for suggestions. */
   tags: Record<string, string[]>;
 }
 
@@ -46,12 +50,9 @@ function useForm(): FormContext {
   return context;
 }
 
-// A select cannot hold an empty string as an item value.
-const UNSET = "__unset__";
-
 type Change = (value: unknown) => void;
 
-/** A form for `value` as `schema` describes it; labels are the keys themselves. */
+/** A form for `value` as `schema` describes it. */
 export function SchemaForm({
   tree,
   tags,
@@ -120,21 +121,13 @@ function ScalarField({
 
   if (kind === "boolean") {
     return (
-      <Select
-        value={value === undefined ? UNSET : String(value)}
-        onValueChange={(next) =>
-          onChange(next === UNSET ? undefined : next === "true")
-        }
+      <BaseSwitch.Root
+        checked={value === true}
+        onCheckedChange={(checked) => onChange(checked)}
+        className="relative inline-flex h-5 w-9 shrink-0 rounded-full bg-bg-emphasis p-0.5 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40 data-checked:bg-fg"
       >
-        <SelectTrigger className="w-32" size="sm">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={UNSET}>unset</SelectItem>
-          <SelectItem value="true">true</SelectItem>
-          <SelectItem value="false">false</SelectItem>
-        </SelectContent>
-      </Select>
+        <BaseSwitch.Thumb className="size-4 rounded-full bg-bg shadow-sm transition-transform data-checked:translate-x-4" />
+      </BaseSwitch.Root>
     );
   }
 
@@ -142,29 +135,19 @@ function ScalarField({
     const options = (node.enum ?? [])
       .filter((option) => option !== "")
       .map((option) => String(option));
-    const held = value === undefined ? undefined : String(value);
-    if (held !== undefined && !options.includes(held)) options.push(held);
+    const held = value === undefined ? null : String(value);
+    if (held !== null && !options.includes(held)) options.push(held);
     return (
       <Select
-        value={held ?? UNSET}
-        onValueChange={(next) => {
-          if (next === UNSET) return onChange(undefined);
+        className="max-w-72"
+        value={held}
+        placeholder="Choose"
+        onChange={(next) => {
           const original = node.enum?.find((option) => String(option) === next);
           onChange(original ?? next);
         }}
-      >
-        <SelectTrigger className="w-full max-w-72" size="sm">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={UNSET}>unset</SelectItem>
-          {options.map((option) => (
-            <SelectItem key={option} value={option}>
-              {option}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+        options={options.map((option) => ({ value: option, label: option }))}
+      />
     );
   }
 
@@ -174,13 +157,19 @@ function ScalarField({
   return (
     <Input
       list={suggestions}
-      className="h-8 max-w-96"
+      className={cx(
+        "font-mono",
+        numeric ? "max-w-40 tabular-nums" : "max-w-md",
+      )}
       type={numeric ? "number" : "text"}
       min={node.minimum}
       max={node.maximum}
       step={kind === "integer" ? 1 : undefined}
       pattern={node.pattern}
-      placeholder={node.examples?.map(String).join(", ")}
+      placeholder={
+        node.examples?.map(String).join(", ") ??
+        (reference ? `${reference} tag` : undefined)
+      }
       value={value === undefined ? "" : String(value)}
       onChange={(event) => {
         const text = event.target.value;
@@ -218,7 +207,7 @@ function ScalarListField({
   const loose = isLooseInteger(tree, item);
 
   return (
-    <div className="grid gap-1.5">
+    <div className="grid max-w-md gap-1.5">
       {values.map((held, index) => {
         const change = (next: unknown) =>
           commit(
@@ -227,21 +216,27 @@ function ScalarListField({
               : values.map((old, at) => (at === index ? next : old)),
           );
         return (
-          <div key={index} className="flex items-center gap-1.5">
+          <div key={index} className="flex items-center gap-1">
             {loose ? (
               <LooseIntegerField schema={item} value={held} onChange={change} />
             ) : (
               <ScalarField schema={item} value={held} onChange={change} />
             )}
-            <RemoveButton
+            <IconButton
+              label="Remove"
+              size="sm"
               onClick={() => commit(values.filter((_, at) => at !== index))}
-            />
+            >
+              <XIcon />
+            </IconButton>
           </div>
         );
       })}
-      <AddButton
+      <AddLink
         onClick={() => commit([...values, loose ? "" : emptyScalar(item)])}
-      />
+      >
+        {values.length === 0 ? "Add value" : "Add another"}
+      </AddLink>
     </div>
   );
 }
@@ -263,7 +258,7 @@ function LooseIntegerField({
     <>
       <Input
         list={spellings.length ? list : undefined}
-        className="h-8 max-w-96"
+        className="max-w-md font-mono"
         value={value === undefined ? "" : String(value)}
         onChange={(event) => {
           const text = event.target.value;
@@ -331,37 +326,53 @@ function AnyOfField({
 
   return (
     <div className="grid gap-2">
-      <Select
+      <Segmented
+        options={kinds.map((kind, index) => ({
+          value: String(index),
+          label: kind,
+        }))}
         value={String(current)}
-        onValueChange={(next) => {
+        onChange={(next) => {
           const index = Number(next);
           setPicked(index);
-          if (value !== undefined) onChange(defaultFor(tree, branches[index]));
+          onChange(defaultFor(tree, branches[index]));
         }}
-      >
-        <SelectTrigger className="w-40" size="sm">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {kinds.map((kind, index) => (
-            <SelectItem key={index} value={String(index)}>
-              {kind}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      {value === undefined && isCompound(tree, branches[current]) ? (
-        <AddButton
-          label="Set"
-          onClick={() => onChange(defaultFor(tree, branches[current]))}
-        />
-      ) : (
-        <SchemaField
-          schema={branches[current]}
-          value={value}
-          onChange={onChange}
-        />
-      )}
+      />
+      <SchemaField
+        schema={branches[current]}
+        value={value ?? defaultFor(tree, branches[current])}
+        onChange={onChange}
+      />
+    </div>
+  );
+}
+
+function Segmented({
+  options,
+  value,
+  onChange,
+}: {
+  options: { value: string; label: ReactNode }[];
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="flex w-fit gap-0.5 rounded-md bg-bg-muted p-0.5 text-xs">
+      {options.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          onClick={() => onChange(option.value)}
+          className={cx(
+            "rounded-[5px] px-2.5 py-1 font-medium transition-colors",
+            value === option.value
+              ? "bg-bg text-fg shadow-sm"
+              : "text-fg-muted hover:text-fg",
+          )}
+        >
+          {option.label}
+        </button>
+      ))}
     </div>
   );
 }
@@ -388,31 +399,27 @@ function OneOfField({
   const branch = index === -1 ? undefined : choice.branches[index];
 
   return (
-    <div className="grid gap-2">
-      <div className="flex items-center gap-2">
-        <span className="text-muted-foreground w-40 shrink-0 font-mono text-xs">
-          {choice.keys.join(" / ")}
-        </span>
+    <div className="grid gap-4">
+      <FieldRow
+        label={humanize(choice.keys[0] ?? "type")}
+        name={choice.keys.join(" / ")}
+        required
+      >
         <Select
-          value={index === -1 ? UNSET : String(index)}
-          onValueChange={(next) =>
+          className="max-w-72"
+          value={index === -1 ? null : String(index)}
+          placeholder="Choose"
+          onChange={(next) =>
             onChange(
               switchBranch(tree, value, branch, choice.branches[Number(next)]),
             )
           }
-        >
-          <SelectTrigger className="w-56" size="sm">
-            <SelectValue placeholder="choose" />
-          </SelectTrigger>
-          <SelectContent>
-            {choice.branches.map((option, at) => (
-              <SelectItem key={at} value={String(at)}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+          options={choice.branches.map((option, at) => ({
+            value: String(at),
+            label: option.label,
+          }))}
+        />
+      </FieldRow>
       {branch && (
         <ObjectField
           schema={branch.schema}
@@ -438,6 +445,8 @@ function ObjectField({
 }) {
   const { tree } = useForm();
   const node = tree.resolve(schema);
+  // Fields added this session stay visible while empty, so typing can start.
+  const [shown, setShown] = useState<string[]>([]);
   if (value !== undefined && !isObject(value)) {
     return <RawField value={value} onChange={onChange} />;
   }
@@ -475,21 +484,47 @@ function ObjectField({
     return <MapField schema={additional} value={object} onChange={onChange} />;
   }
 
-  const inline = fields.filter(([, field]) => !isCompound(tree, field));
-  const blocks = fields.filter(([, field]) => isCompound(tree, field));
+  // What is shown: the required fields, the ones that hold a value, and the
+  // ones just added. Everything else waits behind "Add field".
+  const visible = fields.filter(
+    ([key]) =>
+      required.has(key) || object[key] !== undefined || shown.includes(key),
+  );
+  const hiddenFields = fields.filter(
+    ([key]) => !visible.some(([seen]) => seen === key),
+  );
+
+  const inline = visible.filter(([, field]) => !isCompound(tree, field));
+  const blocks = visible.filter(([, field]) => isCompound(tree, field));
+
+  const add = (key: string) => {
+    const field = properties[key];
+    setShown([...shown, key]);
+    if (field && isCompound(tree, field)) set(key, defaultFor(tree, field));
+  };
+  const remove = (key: string) => {
+    setShown(shown.filter((held) => held !== key));
+    set(key, undefined);
+  };
 
   return (
-    <div className="grid gap-2">
+    <div className="grid gap-4">
       {inline.length > 0 && (
-        <div className="grid gap-x-3 gap-y-1.5 sm:grid-cols-[minmax(8rem,auto)_1fr]">
+        <div className="grid gap-3.5">
           {inline.map(([key, field]) => (
-            <Row key={key} name={key} required={required.has(key)}>
+            <FieldRow
+              key={key}
+              name={key}
+              label={humanize(key)}
+              required={required.has(key)}
+              onRemove={required.has(key) ? undefined : () => remove(key)}
+            >
               <SchemaField
                 schema={field}
                 value={object[key]}
                 onChange={(next) => set(key, next)}
               />
-            </Row>
+            </FieldRow>
           ))}
         </div>
       )}
@@ -505,33 +540,105 @@ function ObjectField({
         />
       ))}
       {blocks.map(([key, field]) => (
-        <Block
+        <Group
           key={key}
           name={key}
+          title={humanize(key)}
           required={required.has(key)}
-          present={object[key] !== undefined}
-          onAdd={() => set(key, defaultFor(tree, field))}
-          onRemove={() => set(key, undefined)}
+          onRemove={required.has(key) ? undefined : () => remove(key)}
         >
           <SchemaField
             schema={field}
-            value={object[key]}
+            value={object[key] ?? defaultFor(tree, field)}
             onChange={(next) => set(key, next)}
           />
-        </Block>
+        </Group>
       ))}
       {extra.map((key) => (
-        <Block
+        <Group
           key={key}
-          name={`${key} (not in schema)`}
-          present
-          onAdd={() => undefined}
+          name={key}
+          title={`${key} (not in schema)`}
           onRemove={() => set(key, undefined)}
         >
           <RawField value={object[key]} onChange={(next) => set(key, next)} />
-        </Block>
+        </Group>
       ))}
+      {hiddenFields.length > 0 && (
+        <AddField keys={hiddenFields.map(([key]) => key)} onAdd={add} />
+      )}
     </div>
+  );
+}
+
+/** A searchable list of the optional fields not shown yet. */
+function AddField({
+  keys,
+  onAdd,
+}: {
+  keys: string[];
+  onAdd: (key: string) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const matches = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    return needle
+      ? keys.filter(
+          (key) =>
+            key.includes(needle) ||
+            humanize(key).toLowerCase().includes(needle),
+        )
+      : keys;
+  }, [keys, query]);
+
+  return (
+    <Popover
+      className="w-72 p-0"
+      trigger={
+        <button
+          type="button"
+          className="flex w-fit items-center gap-1.5 text-[13px] font-medium text-fg-muted transition-colors hover:text-fg"
+        >
+          <PlusIcon className="size-3.5" />
+          Add field
+          <span className="text-fg-subtle tabular-nums">{keys.length}</span>
+        </button>
+      }
+    >
+      <div className="flex items-center gap-2 border-b border-border px-2.5">
+        <SearchIcon className="size-3.5 shrink-0 text-fg-subtle" />
+        <input
+          autoFocus
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Search fields"
+          className="h-9 w-full bg-transparent text-[13px] text-fg outline-none placeholder:text-fg-subtle"
+        />
+      </div>
+      <div className="max-h-72 overflow-y-auto p-1">
+        {matches.length === 0 && (
+          <p className="px-2 py-3 text-center text-xs text-fg-subtle">
+            No match
+          </p>
+        )}
+        {matches.map((key) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => {
+              onAdd(key);
+              setQuery("");
+            }}
+            className="flex w-full items-baseline justify-between gap-3 rounded-sm px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-muted"
+          >
+            <span className="truncate">{humanize(key)}</span>
+            <span className="shrink-0 font-mono text-2xs text-fg-subtle">
+              {key}
+            </span>
+          </button>
+        ))}
+      </div>
+    </Popover>
   );
 }
 
@@ -566,13 +673,12 @@ function MapField({
   ];
 
   return (
-    <div className="grid gap-2">
+    <div className="grid gap-3">
       {keys.map((key) => (
-        <Block
+        <FieldRow
           key={key}
           name={key}
-          present
-          onAdd={() => undefined}
+          label={key}
           onRemove={() => {
             setPending(pending.filter((held) => held !== key));
             onChange(omit(value, new Set([key])));
@@ -590,23 +696,27 @@ function MapField({
               );
             }}
           />
-        </Block>
+        </FieldRow>
       ))}
-      <div className="flex gap-2">
+      <form
+        className="flex max-w-md gap-2"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (!name || keys.includes(name)) return;
+          setPending([...pending, name]);
+          setName("");
+        }}
+      >
         <Input
-          className="h-8 max-w-48"
-          placeholder="key"
+          className="font-mono"
+          placeholder="New key"
           value={name}
           onChange={(event) => setName(event.target.value)}
         />
-        <AddButton
-          onClick={() => {
-            if (!name || keys.includes(name)) return;
-            setPending([...pending, name]);
-            setName("");
-          }}
-        />
-      </div>
+        <Button type="submit" size="md">
+          Add
+        </Button>
+      </form>
     </div>
   );
 }
@@ -643,11 +753,10 @@ function ArrayField({
   return (
     <div className="grid gap-2">
       {entries.map((entry, index) => (
-        <Block
+        <Group
           key={index}
-          name={entryLabel(entry, index)}
-          present
-          onAdd={() => undefined}
+          name={String(index)}
+          title={entryLabel(entry, index)}
           onRemove={() => commit(entries.filter((_, at) => at !== index))}
         >
           <SchemaField
@@ -657,9 +766,11 @@ function ArrayField({
               commit(entries.map((old, at) => (at === index ? next : old)))
             }
           />
-        </Block>
+        </Group>
       ))}
-      <AddButton onClick={() => commit([...entries, defaultFor(tree, item)])} />
+      <AddLink onClick={() => commit([...entries, defaultFor(tree, item)])}>
+        Add item
+      </AddLink>
     </div>
   );
 }
@@ -668,12 +779,11 @@ function entryLabel(entry: unknown, index: number): string {
   if (isObject(entry)) {
     const tag = typeof entry.tag === "string" ? entry.tag : undefined;
     const type = typeof entry.type === "string" ? entry.type : undefined;
-    if (tag || type)
-      return [`#${index + 1}`, tag, type && `(${type})`]
-        .filter(Boolean)
-        .join(" ");
+    const action = typeof entry.action === "string" ? entry.action : undefined;
+    const label = [tag, type ?? action].filter(Boolean).join(" · ");
+    if (label) return label;
   }
-  return `#${index + 1}`;
+  return `Item ${index + 1}`;
 }
 
 /** JSON text for anything the form does not render; applied only when it parses. */
@@ -691,8 +801,9 @@ export function RawField({
 
   return (
     <Textarea
-      className="min-h-20 font-mono text-xs"
+      className="min-h-24 font-mono text-xs"
       aria-invalid={invalid}
+      spellCheck={false}
       value={text}
       onChange={(event) => {
         const next = event.target.value;
@@ -712,108 +823,112 @@ export function RawField({
   );
 }
 
-function Row({
+/** A label above its control; the schema key is shown on hover. */
+function FieldRow({
+  label,
   name,
   required,
-  children,
-}: {
-  name: string;
-  required?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <>
-      <label className="self-center font-mono text-xs">
-        {name}
-        {required && <span className="text-destructive">*</span>}
-      </label>
-      <div className="min-w-0">{children}</div>
-    </>
-  );
-}
-
-function Block({
-  name,
-  required,
-  present,
-  onAdd,
   onRemove,
   children,
 }: {
+  label: string;
   name: string;
   required?: boolean;
-  present: boolean;
-  onAdd: () => void;
-  onRemove: () => void;
-  children: React.ReactNode;
+  onRemove?: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div className="group grid gap-1.5">
+      <div className="flex min-h-5 items-center gap-1.5">
+        <span className="text-[13px] font-medium text-fg" title={name}>
+          {label}
+        </span>
+        {required && <span className="text-2xs text-fg-subtle">required</span>}
+        <span className="hidden font-mono text-2xs text-fg-subtle group-hover:inline">
+          {name}
+        </span>
+        {onRemove && (
+          <button
+            type="button"
+            aria-label={`Remove ${label}`}
+            onClick={onRemove}
+            className="ml-auto rounded-sm p-0.5 text-fg-subtle opacity-0 transition-opacity group-hover:opacity-100 hover:text-fg focus-visible:opacity-100 max-sm:opacity-100"
+          >
+            <XIcon className="size-3.5" />
+          </button>
+        )}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+/** A nested object or list, collapsible, with its own border. */
+function Group({
+  title,
+  name,
+  required,
+  onRemove,
+  children,
+}: {
+  title: string;
+  name: string;
+  required?: boolean;
+  onRemove?: () => void;
+  children: ReactNode;
 }) {
   const [open, setOpen] = useState(true);
 
-  if (!present) {
-    return (
-      <div className="flex items-center gap-2">
-        <span className="font-mono text-xs">
-          {name}
-          {required && <span className="text-destructive">*</span>}
-        </span>
-        <AddButton label="Set" onClick={onAdd} />
-      </div>
-    );
-  }
-
   return (
-    <div className="rounded-md border">
-      <div className="flex items-center gap-1 px-2 py-1">
-        <Button
+    <div className="rounded-md border border-border">
+      <div className="flex items-center gap-1 py-1 pr-1 pl-1.5">
+        <button
           type="button"
-          variant="ghost"
-          size="icon-xs"
-          aria-label={open ? `Collapse ${name}` : `Expand ${name}`}
           onClick={() => setOpen(!open)}
+          className="flex min-w-0 flex-1 items-center gap-1.5 rounded-sm px-1 py-1 text-left"
+          title={name}
         >
           <ChevronRightIcon
-            className={
-              open ? "rotate-90 transition-transform" : "transition-transform"
-            }
+            className={cx(
+              "size-3.5 shrink-0 text-fg-subtle transition-transform",
+              open && "rotate-90",
+            )}
           />
-        </Button>
-        <span className="flex-1 font-mono text-xs">
-          {name}
-          {required && <span className="text-destructive">*</span>}
-        </span>
-        <RemoveButton onClick={onRemove} />
+          <span className="truncate text-[13px] font-medium text-fg">
+            {title}
+          </span>
+          {required && (
+            <span className="text-2xs text-fg-subtle">required</span>
+          )}
+        </button>
+        {onRemove && (
+          <IconButton label={`Remove ${title}`} size="sm" onClick={onRemove}>
+            <XIcon />
+          </IconButton>
+        )}
       </div>
-      {open && <div className="border-t p-2">{children}</div>}
+      {open && (
+        <div className="border-t border-border p-3 sm:p-4">{children}</div>
+      )}
     </div>
   );
 }
 
-function AddButton({
+function AddLink({
   onClick,
-  label = "Add",
+  children,
 }: {
   onClick: () => void;
-  label?: string;
+  children: ReactNode;
 }) {
   return (
-    <div>
-      <Button type="button" variant="outline" size="xs" onClick={onClick}>
-        <PlusIcon /> {label}
-      </Button>
-    </div>
-  );
-}
-
-function RemoveButton({ onClick }: { onClick: () => void }) {
-  return (
-    <Button
+    <button
       type="button"
-      variant="ghost"
-      size="icon-xs"
-      aria-label="Remove"
       onClick={onClick}
+      className="flex w-fit items-center gap-1.5 text-[13px] font-medium text-fg-muted transition-colors hover:text-fg"
     >
-      <XIcon />
-    </Button>
+      <PlusIcon className="size-3.5" />
+      {children}
+    </button>
   );
 }

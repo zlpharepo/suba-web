@@ -2,6 +2,8 @@ import type {
   Artifact,
   Collection,
   CollectionNodes,
+  CollectionSummary,
+  Metrics,
   Core,
   CoreAction,
   Generated,
@@ -146,6 +148,7 @@ export const api = {
   system: {
     status: () => json<SystemStatus>("GET", "/system/status"),
     info: () => json<SystemInfo>("GET", "/system/info"),
+    metrics: () => json<Metrics>("GET", "/system/metrics"),
   },
 
   auth: {
@@ -172,7 +175,7 @@ export const api = {
   },
 
   collections: {
-    list: () => json<Record<string, Collection>>("GET", "/collections"),
+    list: () => json<Record<string, CollectionSummary>>("GET", "/collections"),
     get: (name: string) =>
       json<Collection>("GET", `/collections/${segment(name)}`),
     put: (name: string, collection: Collection) =>

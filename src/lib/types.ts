@@ -77,8 +77,39 @@ export interface Collection {
   providers?: string[];
   includes?: Pattern[];
   excludes?: Pattern[];
-  /** Token name to the sha256 of the token; the token itself is never kept. */
+  /** Token name to the token. */
   tokens?: Record<string, string>;
+}
+
+/** A collection as the list answers it: the definition and what it serves now. */
+export interface CollectionSummary extends Collection {
+  nodes: number;
+  unresolved: string[];
+  links: DeliveryToken[];
+}
+
+export interface Metrics {
+  host: {
+    name: string | null;
+    os: string | null;
+    kernel: string | null;
+    arch: string;
+    uptime: number;
+  };
+  cpu: { cores: number; usage: number | null; load: [number, number, number] };
+  memory: {
+    total: number;
+    used: number;
+    swap_total: number;
+    swap_used: number;
+  };
+  disk: { total: number; available: number } | null;
+  network: {
+    received: number;
+    transmitted: number;
+    receive_rate: number | null;
+    transmit_rate: number | null;
+  };
 }
 
 export interface CollectionNodes {
