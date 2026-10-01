@@ -3,6 +3,8 @@ import { getRouteApi, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CopyIcon,
+  DownloadIcon,
+  ExternalLinkIcon,
   KeyRoundIcon,
   PencilIcon,
   RotateCwIcon,
@@ -325,6 +327,26 @@ function Tokens({ name }: { name: string }) {
                   }}
                 >
                   <CopyIcon />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon-sm"
+                  aria-label="Open URL"
+                  asChild
+                >
+                  <a href={url} target="_blank" rel="noopener noreferrer">
+                    <ExternalLinkIcon />
+                  </a>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon-sm"
+                  aria-label="Download"
+                  asChild
+                >
+                  <a href={`${url}/download`} rel="noopener noreferrer">
+                    <DownloadIcon />
+                  </a>
                 </Button>
               </div>
             </AlertDescription>
