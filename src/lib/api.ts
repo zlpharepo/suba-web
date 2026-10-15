@@ -12,6 +12,7 @@ import type {
   DeliveryToken,
   Provider,
   ProviderNodes,
+  Privilege,
   References,
   Refresh,
   Releases,
@@ -217,6 +218,7 @@ export const api = {
     choose: (settings: {
       version: string | null;
       config: string;
+      privilege: Privilege;
       collections: string[];
     }) => json<Core>("PUT", "/cores/sing-box", settings),
     status: (tail?: number) =>

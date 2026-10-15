@@ -11,13 +11,14 @@ import {
   PencilIcon,
   PlayIcon,
   RotateCwIcon,
+  ShieldIcon,
   SquareIcon,
   Trash2Icon,
 } from "lucide-react";
 
 import { ConfigEditor } from "@/components/config-editor";
 import { CopyButton } from "@/components/shared";
-import { api, errorMessage } from "@/lib/api";
+import { ApiError, api, errorMessage } from "@/lib/api";
 import { cx } from "@/lib/cx";
 import { ago, stripAnsi } from "@/lib/format";
 import type {
@@ -25,6 +26,8 @@ import type {
   Core,
   CoreAction,
   GenerateCommand,
+  Privilege,
+  Running,
   VersionView,
 } from "@/lib/types";
 import { Button, IconButton } from "@/ui/button";
@@ -35,11 +38,19 @@ import { PageHeader } from "@/ui/layout";
 import { Badge, Dot, Empty, ErrorNote, Skeleton } from "@/ui/misc";
 import { Menu, Popover } from "@/ui/popover";
 import { Select } from "@/ui/select";
-import { Checkbox } from "@/ui/toggle";
+import { Checkbox, Switch } from "@/ui/toggle";
 import { toast } from "@/ui/notify";
 
 export function SingboxPage() {
   const core = useQuery({ queryKey: ["singbox"], queryFn: api.singbox.get });
+  // Polled so a core that dies a moment after it was started is a thing this
+  // page can say, rather than a start that looks like it worked.
+  const status = useQuery({
+    queryKey: ["singbox", "status"],
+    queryFn: () => api.singbox.status(),
+    refetchInterval: 3000,
+  });
+  const dead = status.data && !status.data.running ? died(status.data) : null;
 
   return (
     <>
@@ -48,7 +59,10 @@ export function SingboxPage() {
         actions={
           core.data && (
             <Controls
-              running={core.data.running}
+              // The polled status is the fresher answer: the module view is a
+              // snapshot, and a core that died since it was taken is exactly
+              // the case this page has to get right.
+              running={status.data?.running ?? core.data.running}
               hasVersion={core.data.version !== null}
             />
           )
@@ -60,6 +74,7 @@ export function SingboxPage() {
           <div className="mb-6 flex flex-wrap items-center gap-2">
             <VersionChip current={core.data.version} />
             <ConfigChip core={core.data} />
+            <PrivilegesChip core={core.data} />
             <CollectionsChip core={core.data} />
             {core.data.note && (
               <span className="text-xs text-warning">
@@ -67,6 +82,7 @@ export function SingboxPage() {
               </span>
             )}
           </div>
+          {dead && <p className="mb-6 text-[13px] text-danger">{dead}</p>}
           {core.data.version ? (
             <ConfigEditor name={core.data.config} />
           ) : (
@@ -77,6 +93,26 @@ export function SingboxPage() {
       {core.isPending && <Skeleton className="h-96" />}
     </>
   );
+}
+
+/**
+ * Why the last run ended, when it did not end because it was asked to stop.
+ *
+ * The reason printed is the core's own last line: this page cannot know why a
+ * process gave up, and inventing one is how a tun that could not be created
+ * turns into a page that says nothing at all.
+ */
+function died(status: Running): string | null {
+  const exit = status.exits.at(-1);
+  if (!exit || (exit.code === 0 && exit.signal === null)) return null;
+
+  const how =
+    exit.signal !== null ? `signal ${exit.signal}` : `status ${exit.code}`;
+  const said = [...status.log]
+    .reverse()
+    .find((line) => !line.startsWith("[suba]"));
+
+  return `The core exited with ${how}${said ? `: ${stripAnsi(said)}` : ""}`;
 }
 
 function NoVersion() {
@@ -108,7 +144,9 @@ function Controls({
     },
     onError: (error) => {
       toast.error(errorMessage(error));
-      setLog(true);
+      // The log is where a core's own reason is. A refusal never reached the
+      // core, so it has nothing to put there.
+      if (!(error instanceof ApiError && error.status === 409)) setLog(true);
     },
   });
 
@@ -281,6 +319,7 @@ function VersionsDialog({
       api.singbox.choose({
         version,
         config: core.data?.config ?? "default",
+        privilege: core.data?.privilege ?? "operator",
         collections: core.data?.collections ?? [],
       }),
     onSuccess: invalidate,
@@ -487,6 +526,7 @@ function ConfigsDialog({
       api.singbox.choose({
         version: core.version,
         config,
+        privilege: core.privilege,
         collections: core.collections,
       }),
     onSuccess: refresh,
@@ -513,6 +553,7 @@ function ConfigsDialog({
           await api.singbox.choose({
             version: core.version,
             config: target.name,
+            privilege: core.privilege,
             collections: core.collections,
           });
         }
@@ -678,6 +719,62 @@ function ConfigRow({
   );
 }
 
+/* ------------------------------------------------------------ privileges */
+
+/**
+ * Whether the core runs with the privileges this instance has.
+ *
+ * The switch is the operator's, not a reading of the configuration: whether an
+ * inbound needs a privilege is their business, and whether the server was
+ * started with one is not something the page can find out on its own. What the
+ * page can say is what will happen — a start that cannot be what it was asked
+ * to be is refused, and the answer names which way out to take.
+ */
+function PrivilegesChip({ core }: { core: Core }) {
+  const queryClient = useQueryClient();
+  const choose = useMutation({
+    mutationFn: (privilege: Privilege) =>
+      api.singbox.choose({
+        version: core.version,
+        config: core.config,
+        privilege,
+        collections: core.collections,
+      }),
+    onSuccess: (updated) => queryClient.setQueryData(["singbox"], updated),
+    onError: (error) => toast.error(errorMessage(error)),
+  });
+
+  return (
+    <Popover
+      className="w-80"
+      trigger={
+        <button type="button" className={buttonClass("secondary", "sm")}>
+          <ShieldIcon className="text-fg-subtle" />
+          <span className="text-fg-subtle">Privileges</span>
+          {core.privilege === "root" ? "Root" : "Operator"}
+          <ChevronDownIcon className="!size-3.5 text-fg-subtle" />
+        </button>
+      }
+    >
+      <div className="grid gap-2.5">
+        <Switch
+          checked={core.privilege === "root"}
+          onChange={(on) => choose.mutate(on ? "root" : "operator")}
+          label="Run Core as Root"
+        />
+        <p className="text-xs text-fg-subtle">
+          An inbound that creates an interface — <code>tun</code>, or{" "}
+          <code>tproxy</code> and <code>redirect</code> on Linux — needs it, and
+          nothing else does. Off, the core is dropped to the user this instance
+          works for. Either way the server has to have been started as root (
+          <code>--run-as-root</code>), and a start that cannot be what it was
+          asked to be says so.
+        </p>
+      </div>
+    </Popover>
+  );
+}
+
 /* ------------------------------------------------------------ collections */
 
 function CollectionsChip({ core }: { core: Core }) {
@@ -695,6 +792,7 @@ function CollectionsChip({ core }: { core: Core }) {
       api.singbox.choose({
         version: core.version,
         config: core.config,
+        privilege: core.privilege,
         collections: next,
       }),
     onSuccess: (updated) => {

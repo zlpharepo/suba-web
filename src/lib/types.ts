@@ -151,12 +151,20 @@ export interface SystemInfo extends SystemStatus {
 export interface Core {
   version: string | null;
   config: string;
+  privilege: Privilege;
   collections: string[];
   installed: boolean;
   assembled: boolean;
   running: boolean;
   note?: string;
 }
+
+/**
+ * Whether the core runs with this instance's privileges, which is the server's
+ * to say: a `tun` inbound needs root, and whether the server was started as
+ * root is not something a configuration can reveal.
+ */
+export type Privilege = "operator" | "root";
 
 export interface ConfigView {
   name: string;
