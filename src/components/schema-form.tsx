@@ -23,6 +23,7 @@ import {
   matchBranch,
   oneOrMany,
   ownProperties,
+  patternHolds,
   scalarKind,
   switchBranch,
   type JsonObject,
@@ -30,6 +31,7 @@ import {
   type SchemaTree,
 } from "@/lib/schema";
 import { humanize } from "@/lib/humanize";
+import type { FieldGroup } from "@/lib/sections";
 import { Button, IconButton } from "@/ui/button";
 import { Input, Textarea } from "@/ui/input";
 import { Popover } from "@/ui/popover";
@@ -40,6 +42,17 @@ interface FormContext {
   tree: SchemaTree;
   /** Tags the document declares, by reference space, for suggestions. */
   tags: Record<string, string[]>;
+  /**
+   * The fields this form groups behind one button, and what to call it. Which
+   * they are comes from the core's own documentation of its schema; see
+   * `lib/sections.ts`.
+   */
+  group?: FieldGroup;
+  /**
+   * Whether the form starts with nothing but the entry's tag, everything else
+   * behind "Add Field".
+   */
+  compact?: boolean;
 }
 
 const Context = createContext<FormContext | null>(null);
@@ -56,12 +69,14 @@ type Change = (value: unknown) => void;
 export function SchemaForm({
   tree,
   tags,
+  group,
+  compact,
   schema,
   value,
   onChange,
 }: FormContext & { schema: JsonSchema; value: unknown; onChange: Change }) {
   return (
-    <Context.Provider value={{ tree, tags }}>
+    <Context.Provider value={{ tree, tags, group, compact }}>
       <SchemaField schema={schema} value={value} onChange={onChange} />
       {Object.entries(tags).map(([space, names]) => (
         <datalist key={space} id={`tags-${space}`}>
@@ -154,9 +169,12 @@ function ScalarField({
   const numeric = kind === "integer" || kind === "number";
   // Free text with suggestions: a reference may name a tag defined later.
   const suggestions = reference ? `tags-${reference}` : undefined;
+  // The schema's own pattern, checked here: see `patternHolds`.
+  const holds = patternHolds(node.pattern, value);
   return (
     <Input
       list={suggestions}
+      aria-invalid={holds === false}
       className={cx(
         "font-mono",
         numeric ? "max-w-40 tabular-nums" : "max-w-md",
@@ -165,7 +183,6 @@ function ScalarField({
       min={node.minimum}
       max={node.maximum}
       step={kind === "integer" ? 1 : undefined}
-      pattern={node.pattern}
       placeholder={
         node.examples?.map(String).join(", ") ??
         (reference ? `${reference} tag` : undefined)
@@ -443,7 +460,7 @@ function ObjectField({
   onChange: Change;
   hidden?: string[];
 }) {
-  const { tree } = useForm();
+  const { tree, group, compact } = useForm();
   const node = tree.resolve(schema);
   // Fields added this session stay visible while empty, so typing can start.
   const [shown, setShown] = useState<string[]>([]);
@@ -484,15 +501,24 @@ function ObjectField({
     return <MapField schema={additional} value={object} onChange={onChange} />;
   }
 
-  // What is shown: the required fields, the ones that hold a value, and the
-  // ones just added. Everything else waits behind "Add field".
-  const visible = fields.filter(
-    ([key]) =>
-      required.has(key) || object[key] !== undefined || shown.includes(key),
+  // What is shown, and what waits behind a button. The tag is the entry's
+  // address, so it is never one of the things hidden — an entry that cannot be
+  // named cannot be saved.
+  const grouped = group
+    ? fields.filter(([key]) => group.keys.has(key))
+    : ([] as [string, JsonSchema][]);
+  const address = fields.filter(([key]) => key === "tag");
+  const rest = fields.filter(
+    ([key]) => !grouped.some(([held]) => held === key) && key !== "tag",
   );
-  const hiddenFields = fields.filter(
-    ([key]) => !visible.some(([seen]) => seen === key),
-  );
+  // A field the operator asked for is one they can also take back.
+  const added = rest.filter(([key]) => shown.includes(key));
+
+  const visible = compact ? [...added, ...address] : [...rest, ...address];
+  const hiddenFields = compact
+    ? rest.filter(([key]) => !shown.includes(key))
+    : [];
+  const addedKeys = new Set(added.map(([key]) => key));
 
   const inline = visible.filter(([, field]) => !isCompound(tree, field));
   const blocks = visible.filter(([, field]) => isCompound(tree, field));
@@ -517,7 +543,13 @@ function ObjectField({
               name={key}
               label={humanize(key)}
               required={required.has(key)}
-              onRemove={required.has(key) ? undefined : () => remove(key)}
+              // The tag addresses the entry, so it is not something to drop;
+              // every other field is only removable once it was asked for.
+              onRemove={
+                required.has(key) || !addedKeys.has(key)
+                  ? undefined
+                  : () => remove(key)
+              }
             >
               <SchemaField
                 schema={field}
@@ -545,7 +577,16 @@ function ObjectField({
           name={key}
           title={humanize(key)}
           required={required.has(key)}
-          onRemove={required.has(key) ? undefined : () => remove(key)}
+          // A block that holds nothing starts folded, so a form that shows
+          // every field is still a list rather than a wall.
+          startOpen={object[key] !== undefined}
+          // And one that holds nothing has nothing to take away.
+          onRemove={
+            required.has(key) ||
+            (object[key] === undefined && !addedKeys.has(key))
+              ? undefined
+              : () => remove(key)
+          }
         >
           <SchemaField
             schema={field}
@@ -558,12 +599,22 @@ function ObjectField({
         <Group
           key={key}
           name={key}
-          title={`${key} (not in schema)`}
+          title={`${key} (Not in Schema)`}
           onRemove={() => set(key, undefined)}
         >
           <RawField value={object[key]} onChange={(next) => set(key, next)} />
         </Group>
       ))}
+      {/* A group this branch has no field for is not a group: `selector` dials
+          nothing, and a button offering zero fields is a dead end. */}
+      {group && grouped.length > 0 && (
+        <GroupedFields
+          group={group}
+          fields={grouped}
+          values={object}
+          onSet={set}
+        />
+      )}
       {hiddenFields.length > 0 && (
         <AddField keys={hiddenFields.map(([key]) => key)} onAdd={add} />
       )}
@@ -571,7 +622,64 @@ function ObjectField({
   );
 }
 
-/** A searchable list of the optional fields not shown yet. */
+/** The fields a section groups, behind one button that says which group it is. */
+function GroupedFields({
+  group,
+  fields,
+  values,
+  onSet,
+}: {
+  group: FieldGroup;
+  fields: [string, JsonSchema][];
+  values: JsonObject;
+  onSet: (key: string, value: unknown) => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="rounded-md border border-border">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        className="flex w-full items-center gap-1.5 px-2.5 py-2 text-left"
+      >
+        <ChevronRightIcon
+          className={cx(
+            "size-3.5 shrink-0 text-fg-subtle transition-transform",
+            open && "rotate-90",
+          )}
+        />
+        <span className="text-[13px] font-medium text-fg">{group.title}</span>
+        <span className="text-fg-subtle tabular-nums">{fields.length}</span>
+      </button>
+      {open && (
+        <div className="grid gap-3.5 border-t border-border p-3 sm:p-4">
+          {fields.map(([key, field]) => (
+            <FieldRow
+              key={key}
+              name={key}
+              label={humanize(key)}
+              onRemove={
+                values[key] === undefined
+                  ? undefined
+                  : () => onSet(key, undefined)
+              }
+            >
+              <SchemaField
+                schema={field}
+                value={values[key]}
+                onChange={(next) => onSet(key, next)}
+              />
+            </FieldRow>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** A searchable list of the fields not shown yet. */
 function AddField({
   keys,
   onAdd,
@@ -600,7 +708,7 @@ function AddField({
           className="flex w-fit items-center gap-1.5 text-[13px] font-medium text-fg-muted transition-colors hover:text-fg"
         >
           <PlusIcon className="size-3.5" />
-          Add field
+          Add Field
           <span className="text-fg-subtle tabular-nums">{keys.length}</span>
         </button>
       }
@@ -611,7 +719,7 @@ function AddField({
           autoFocus
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search fields"
+          placeholder="Search Fields"
           className="h-9 w-full bg-transparent text-[13px] text-fg outline-none placeholder:text-fg-subtle"
         />
       </div>
@@ -868,16 +976,18 @@ function Group({
   title,
   name,
   required,
+  startOpen = true,
   onRemove,
   children,
 }: {
   title: string;
   name: string;
   required?: boolean;
+  startOpen?: boolean;
   onRemove?: () => void;
   children: ReactNode;
 }) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(startOpen);
 
   return (
     <div className="rounded-md border border-border">

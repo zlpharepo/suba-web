@@ -3,6 +3,7 @@ import type {
   Collection,
   CollectionNodes,
   CollectionSummary,
+  ConfigView,
   Metrics,
   Core,
   CoreAction,
@@ -213,8 +214,11 @@ export const api = {
 
   singbox: {
     get: () => json<Core>("GET", "/cores/sing-box"),
-    choose: (version: string | null, collections: string[]) =>
-      json<Core>("PUT", "/cores/sing-box", { version, collections }),
+    choose: (settings: {
+      version: string | null;
+      config: string;
+      collections: string[];
+    }) => json<Core>("PUT", "/cores/sing-box", settings),
     status: (tail?: number) =>
       json<Running>(
         "GET",
@@ -226,31 +230,6 @@ export const api = {
     install: (version: string) =>
       json<VersionView>("POST", `/cores/sing-box/versions/${segment(version)}`),
     schema: () => json<JsonSchema>("GET", "/cores/sing-box/schema"),
-    config: () => tagged<JsonObject>("/cores/sing-box/config"),
-    writeConfig: (value: JsonObject, etag: string | null) =>
-      guarded("PUT", "/cores/sing-box/config", etag, value),
-    writeSection: (section: string, value: unknown, etag: string | null) =>
-      guarded("PUT", `/cores/sing-box/config/${segment(section)}`, etag, value),
-    deleteSection: (section: string, etag: string | null) =>
-      guarded("DELETE", `/cores/sing-box/config/${segment(section)}`, etag),
-    writeEntry: (
-      section: string,
-      tag: string,
-      value: unknown,
-      etag: string | null,
-    ) =>
-      guarded(
-        "PUT",
-        `/cores/sing-box/config/${segment(section)}/${segment(tag)}`,
-        etag,
-        value,
-      ),
-    deleteEntry: (section: string, tag: string, etag: string | null) =>
-      guarded(
-        "DELETE",
-        `/cores/sing-box/config/${segment(section)}/${segment(tag)}`,
-        etag,
-      ),
     references: () => json<References>("GET", "/cores/sing-box/references"),
     generate: (command: GenerateCommand, name?: string, length?: number) =>
       json<Generated>("POST", "/cores/sing-box/generate", {
@@ -261,6 +240,35 @@ export const api = {
     uninstall: (version: string) =>
       none("DELETE", `/cores/sing-box/versions/${segment(version)}`),
     releases: () => json<Releases>("GET", "/cores/sing-box/releases"),
+
+    // The operator's configurations, one document each, by name.
+    configs: () => json<ConfigView[]>("GET", "/cores/sing-box/configs"),
+    createConfig: (name: string, copy?: string) =>
+      json<ConfigView>("POST", "/cores/sing-box/configs", { name, copy }),
+    deleteConfig: (name: string) =>
+      none("DELETE", `/cores/sing-box/configs/${segment(name)}`),
+    config: (name: string) =>
+      tagged<JsonObject>(`/cores/sing-box/configs/${segment(name)}`),
+    // A section at a time: it is the smallest thing the core can check as part
+    // of the document it sits in.
+    writeSection: (
+      name: string,
+      section: string,
+      value: unknown,
+      etag: string | null,
+    ) =>
+      guarded(
+        "PUT",
+        `/cores/sing-box/configs/${segment(name)}/sections/${segment(section)}`,
+        etag,
+        value,
+      ),
+    deleteSection: (name: string, section: string, etag: string | null) =>
+      guarded(
+        "DELETE",
+        `/cores/sing-box/configs/${segment(name)}/sections/${segment(section)}`,
+        etag,
+      ),
   },
 };
 

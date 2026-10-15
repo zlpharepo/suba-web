@@ -1,40 +1,30 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   BoxesIcon,
-  BracesIcon,
-  CheckIcon,
   ChevronDownIcon,
+  CopyIcon,
   DownloadIcon,
   FileTextIcon,
   KeyRoundIcon,
-  ListIcon,
+  MoreHorizontalIcon,
+  PencilIcon,
   PlayIcon,
-  PlusIcon,
   RotateCwIcon,
   SquareIcon,
   Trash2Icon,
 } from "lucide-react";
 
+import { ConfigEditor } from "@/components/config-editor";
 import { CopyButton } from "@/components/shared";
-import { RawField, SchemaForm } from "@/components/schema-form";
-import { humanize } from "@/lib/humanize";
-import { ApiError, api, errorMessage } from "@/lib/api";
+import { api, errorMessage } from "@/lib/api";
 import { cx } from "@/lib/cx";
 import { ago, stripAnsi } from "@/lib/format";
-import {
-  defaultFor,
-  documentTags,
-  isObject,
-  SchemaTree,
-  type JsonObject,
-  type JsonSchema,
-} from "@/lib/schema";
 import type {
+  ConfigView,
+  Core,
   CoreAction,
   GenerateCommand,
-  Saved,
-  Versioned,
   VersionView,
 } from "@/lib/types";
 import { Button, IconButton } from "@/ui/button";
@@ -43,12 +33,10 @@ import { Confirm, Dialog } from "@/ui/dialog";
 import { Input } from "@/ui/input";
 import { PageHeader } from "@/ui/layout";
 import { Badge, Dot, Empty, ErrorNote, Skeleton } from "@/ui/misc";
-import { Popover } from "@/ui/popover";
+import { Menu, Popover } from "@/ui/popover";
 import { Select } from "@/ui/select";
 import { Checkbox } from "@/ui/toggle";
 import { toast } from "@/ui/notify";
-
-const CONFIG = ["singbox", "config"];
 
 export function SingboxPage() {
   const core = useQuery({ queryKey: ["singbox"], queryFn: api.singbox.get });
@@ -71,17 +59,19 @@ export function SingboxPage() {
         <>
           <div className="mb-6 flex flex-wrap items-center gap-2">
             <VersionChip current={core.data.version} />
-            <CollectionsChip
-              version={core.data.version}
-              chosen={core.data.collections}
-            />
+            <ConfigChip core={core.data} />
+            <CollectionsChip core={core.data} />
             {core.data.note && (
               <span className="text-xs text-warning">
                 Restart to apply changes
               </span>
             )}
           </div>
-          {core.data.version ? <ConfigEditor /> : <NoVersion />}
+          {core.data.version ? (
+            <ConfigEditor name={core.data.config} />
+          ) : (
+            <NoVersion />
+          )}
         </>
       )}
       {core.isPending && <Skeleton className="h-96" />}
@@ -288,7 +278,11 @@ function VersionsDialog({
 
   const choose = useMutation({
     mutationFn: (version: string) =>
-      api.singbox.choose(version, core.data?.collections ?? []),
+      api.singbox.choose({
+        version,
+        config: core.data?.config ?? "default",
+        collections: core.data?.collections ?? [],
+      }),
     onSuccess: invalidate,
     onError: (error) => toast.error(errorMessage(error)),
   });
@@ -440,27 +434,271 @@ function VersionRow({
   );
 }
 
+/* --------------------------------------------------------------- configs */
+
+function ConfigChip({ core }: { core: Core }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className={buttonClass("secondary", "sm")}
+      >
+        <span className="text-fg-subtle">Config</span>
+        <span className="font-mono">{core.config}</span>
+        <ChevronDownIcon className="!size-3.5 text-fg-subtle" />
+      </button>
+      <ConfigsDialog open={open} onOpenChange={setOpen} core={core} />
+    </>
+  );
+}
+
+/** What the name field is being used for. */
+type ConfigAction =
+  | { mode: "new" }
+  | { mode: "rename" | "duplicate"; from: string };
+
+function ConfigsDialog({
+  open,
+  onOpenChange,
+  core,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  core: Core;
+}) {
+  const queryClient = useQueryClient();
+  const configs = useQuery({
+    queryKey: ["singbox", "configs"],
+    queryFn: api.singbox.configs,
+    enabled: open,
+  });
+  const [action, setAction] = useState<ConfigAction>({ mode: "new" });
+  const [name, setName] = useState("");
+
+  const refresh = () => {
+    void queryClient.invalidateQueries({ queryKey: ["singbox"] });
+  };
+
+  const use = useMutation({
+    mutationFn: (config: string) =>
+      api.singbox.choose({
+        version: core.version,
+        config,
+        collections: core.collections,
+      }),
+    onSuccess: refresh,
+    onError: (error) => toast.error(errorMessage(error)),
+  });
+
+  const remove = useMutation({
+    mutationFn: (config: string) => api.singbox.deleteConfig(config),
+    onSuccess: refresh,
+    onError: (error) => toast.error(errorMessage(error)),
+  });
+
+  // Making one, and renaming one, are the same two steps: a document under the
+  // new name, and — when the old name was the one in use — the choice moved
+  // before the old name goes, because the one in use cannot be removed.
+  const submit = useMutation({
+    mutationFn: async (target: ConfigAction & { name: string }) => {
+      await api.singbox.createConfig(
+        target.name,
+        target.mode === "new" ? undefined : target.from,
+      );
+      if (target.mode === "rename") {
+        if (target.from === core.config) {
+          await api.singbox.choose({
+            version: core.version,
+            config: target.name,
+            collections: core.collections,
+          });
+        }
+        await api.singbox.deleteConfig(target.from);
+      }
+    },
+    onSuccess: () => {
+      setName("");
+      setAction({ mode: "new" });
+      refresh();
+    },
+    onError: (error) => toast.error(errorMessage(error)),
+  });
+
+  const held = configs.data ?? [];
+  const taken = held.some((config) => config.name === name);
+  const label =
+    action.mode === "new"
+      ? "Create"
+      : action.mode === "rename"
+        ? "Rename"
+        : "Duplicate";
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={onOpenChange}
+      width="md"
+      title="Configurations"
+      description="One runs at a time; the core keeps whatever it started with."
+    >
+      <div className="grid gap-4">
+        {configs.error && <ErrorNote error={configs.error} />}
+        {configs.isPending && <Skeleton className="h-24" />}
+        {configs.data && held.length === 0 && (
+          <p className="text-[13px] text-fg-subtle">
+            No configuration has been written yet. Saving any section of this
+            one makes it.
+          </p>
+        )}
+        <div className="grid gap-1.5">
+          {held.map((config) => (
+            <ConfigRow
+              key={config.name}
+              config={config}
+              busy={use.isPending || remove.isPending || submit.isPending}
+              onUse={() => use.mutate(config.name)}
+              onRemove={() => remove.mutate(config.name)}
+              onRename={() => {
+                setAction({ mode: "rename", from: config.name });
+                setName(config.name);
+              }}
+              onDuplicate={() => {
+                setAction({ mode: "duplicate", from: config.name });
+                setName(`${config.name}-copy`);
+              }}
+            />
+          ))}
+        </div>
+
+        <div className="grid gap-2 border-t border-border pt-4">
+          <span className="text-[13px] font-medium text-fg">
+            {action.mode === "new"
+              ? "New Configuration"
+              : action.mode === "rename"
+                ? `Rename ${action.from}`
+                : `Duplicate ${action.from}`}
+          </span>
+          <div className="flex gap-2">
+            <Input
+              className="font-mono"
+              placeholder="Name"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+            />
+            <Button
+              variant="primary"
+              disabled={
+                !name || submit.isPending || (action.mode !== "rename" && taken)
+              }
+              onClick={() => submit.mutate({ ...action, name })}
+            >
+              {label}
+            </Button>
+            {action.mode !== "new" && (
+              <Button
+                onClick={() => {
+                  setAction({ mode: "new" });
+                  setName("");
+                }}
+              >
+                Cancel
+              </Button>
+            )}
+          </div>
+          <p className="text-xs text-fg-subtle">
+            {action.mode === "new"
+              ? "A name is 1 to 64 letters, digits, '.', '_' or '-'. A new configuration starts empty."
+              : action.mode === "duplicate"
+                ? `${action.from} is copied; the copy is not the one in use.`
+                : "The name moves, and the one in use follows it."}
+          </p>
+        </div>
+      </div>
+    </Dialog>
+  );
+}
+
+function ConfigRow({
+  config,
+  busy,
+  onUse,
+  onRename,
+  onDuplicate,
+  onRemove,
+}: {
+  config: ConfigView;
+  busy: boolean;
+  onUse: () => void;
+  onRename: () => void;
+  onDuplicate: () => void;
+  onRemove: () => void;
+}) {
+  return (
+    <div
+      className={cx(
+        "flex items-center gap-3 rounded-md border px-3 py-2",
+        config.current ? "border-fg/20 bg-bg-subtle" : "border-border",
+      )}
+    >
+      <span className="min-w-0 flex-1 truncate font-mono text-[13px] font-medium text-fg">
+        {config.name}
+      </span>
+      {config.current && <Badge tone="accent">in use</Badge>}
+      {!config.current && (
+        <Button size="sm" disabled={busy} onClick={onUse}>
+          Use
+        </Button>
+      )}
+      <Menu
+        trigger={
+          <IconButton label="More" size="sm" disabled={busy}>
+            <MoreHorizontalIcon />
+          </IconButton>
+        }
+        items={[
+          { label: "Rename", icon: <PencilIcon />, onSelect: onRename },
+          { label: "Duplicate", icon: <CopyIcon />, onSelect: onDuplicate },
+          ...(config.current
+            ? []
+            : [
+                "separator" as const,
+                {
+                  label: "Remove",
+                  icon: <Trash2Icon />,
+                  danger: true,
+                  onSelect: onRemove,
+                },
+              ]),
+        ]}
+      />
+    </div>
+  );
+}
+
 /* ------------------------------------------------------------ collections */
 
-function CollectionsChip({
-  version,
-  chosen,
-}: {
-  version: string | null;
-  chosen: string[];
-}) {
+function CollectionsChip({ core }: { core: Core }) {
   const queryClient = useQueryClient();
   const known = useQuery({
     queryKey: ["collections"],
     queryFn: api.collections.list,
   });
+  const chosen = core.collections;
   const names = Object.keys(known.data ?? {}).sort();
   const choices = [...names, ...chosen.filter((name) => !names.includes(name))];
 
   const choose = useMutation({
-    mutationFn: (next: string[]) => api.singbox.choose(version, next),
-    onSuccess: (core) => {
-      queryClient.setQueryData(["singbox"], core);
+    mutationFn: (next: string[]) =>
+      api.singbox.choose({
+        version: core.version,
+        config: core.config,
+        collections: next,
+      }),
+    onSuccess: (updated) => {
+      queryClient.setQueryData(["singbox"], updated);
       void queryClient.invalidateQueries({
         queryKey: ["singbox", "references"],
       });
@@ -506,524 +744,6 @@ function CollectionsChip({
         ))}
       </div>
     </Popover>
-  );
-}
-
-/* ----------------------------------------------------------------- config */
-
-function ConfigEditor() {
-  const schema = useQuery({
-    queryKey: ["singbox", "schema"],
-    queryFn: api.singbox.schema,
-    staleTime: Infinity,
-    retry: false,
-  });
-  const config = useQuery({ queryKey: CONFIG, queryFn: api.singbox.config });
-  const tree = useMemo(
-    () => schema.data && new SchemaTree(schema.data),
-    [schema.data],
-  );
-  const [section, setSection] = useState<string>("inbounds");
-  const nav = useRef<HTMLElement>(null);
-  const ready = Boolean(tree && config.data);
-
-  // On phones the default section sits past the fold of the scroller.
-  useEffect(() => {
-    nav.current
-      ?.querySelector("[aria-current]")
-      ?.scrollIntoView({ block: "nearest", inline: "center" });
-  }, [section, ready]);
-
-  if (schema.error) return <ErrorNote error={schema.error} />;
-  if (config.error) return <ErrorNote error={config.error} />;
-  if (!tree || !config.data) return <Skeleton className="h-96" />;
-
-  const sections = tree.sections();
-
-  return (
-    <div className="grid gap-6 lg:grid-cols-[11rem_minmax(0,1fr)]">
-      {/* Horizontal scroller on phones, a sidebar from `lg` up. */}
-      <nav
-        ref={nav}
-        className="-mx-4 flex gap-1 overflow-x-auto border-b border-border px-4 pb-2 lg:mx-0 lg:flex-col lg:gap-0.5 lg:overflow-visible lg:border-0 lg:px-0 lg:pb-0"
-      >
-        {sections.map((name) => {
-          const held = config.data.value[name];
-          const count = Array.isArray(held) ? held.length : undefined;
-          return (
-            <button
-              key={name}
-              type="button"
-              onClick={() => setSection(name)}
-              aria-current={section === name || undefined}
-              className={cx(
-                "flex h-8 shrink-0 items-center justify-between gap-3 rounded-md px-2.5 text-left text-[13px] transition-colors",
-                section === name
-                  ? "bg-bg-muted font-medium text-fg"
-                  : "text-fg-muted hover:bg-bg-muted/60 hover:text-fg",
-              )}
-            >
-              <span>{humanize(name)}</span>
-              {count !== undefined ? (
-                <span className="text-xs text-fg-subtle tabular-nums">
-                  {count}
-                </span>
-              ) : (
-                held !== undefined && (
-                  <span className="size-1.5 rounded-full bg-fg-subtle" />
-                )
-              )}
-            </button>
-          );
-        })}
-      </nav>
-      <div className="min-w-0">
-        <Section
-          key={section}
-          tree={tree}
-          name={section}
-          document={config.data}
-        />
-      </div>
-    </div>
-  );
-}
-
-function useSaved() {
-  const queryClient = useQueryClient();
-  return (saved: Versioned<Saved>) => {
-    void queryClient.invalidateQueries({ queryKey: CONFIG });
-    void queryClient.invalidateQueries({ queryKey: ["singbox", "references"] });
-    if (saved.value.warnings.length > 0) {
-      toast.error(
-        `Saved, but the core will refuse it: ${saved.value.warnings.join("; ")}`,
-      );
-    } else {
-      toast.success("Saved");
-    }
-  };
-}
-
-function saveError(error: unknown) {
-  if (error instanceof ApiError && error.status === 412) {
-    toast.error("The configuration changed elsewhere. Reload and try again.");
-  } else {
-    toast.error(errorMessage(error));
-  }
-}
-
-function Section({
-  tree,
-  name,
-  document,
-}: {
-  tree: SchemaTree;
-  name: string;
-  document: Versioned<JsonObject>;
-}) {
-  const node = tree.section(name);
-  if (!node) return null;
-  const held = document.value[name];
-
-  if (node.type === "array" && node.items && entriesHaveTags(held)) {
-    return (
-      <EntriesSection
-        tree={tree}
-        name={name}
-        item={node.items}
-        document={document}
-      />
-    );
-  }
-  return (
-    <WholeSection tree={tree} name={name} schema={node} document={document} />
-  );
-}
-
-// Arrays whose entries are addressed by tag; a tagless entry makes the section one unit.
-function entriesHaveTags(held: unknown): boolean {
-  return (
-    held === undefined ||
-    (Array.isArray(held) &&
-      held.every((entry) => isObject(entry) && typeof entry.tag === "string"))
-  );
-}
-
-function ModeToggle({
-  raw,
-  onChange,
-}: {
-  raw: boolean;
-  onChange: (raw: boolean) => void;
-}) {
-  return (
-    <div className="flex gap-0.5 rounded-md bg-bg-muted p-0.5">
-      {[
-        { value: false, label: "Form", icon: <ListIcon /> },
-        { value: true, label: "JSON", icon: <BracesIcon /> },
-      ].map((option) => (
-        <button
-          key={option.label}
-          type="button"
-          onClick={() => onChange(option.value)}
-          className={cx(
-            "flex items-center gap-1.5 rounded-[5px] px-2 py-1 text-xs font-medium transition-colors [&_svg]:size-3.5",
-            raw === option.value
-              ? "bg-bg text-fg shadow-sm"
-              : "text-fg-muted hover:text-fg",
-          )}
-        >
-          {option.icon}
-          {option.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-/** The bar under an editor: unsaved state, mode, and the save. */
-function EditorBar({
-  dirty,
-  saving,
-  raw,
-  onRaw,
-  onSave,
-  onReset,
-  extra,
-}: {
-  dirty: boolean;
-  saving: boolean;
-  raw: boolean;
-  onRaw: (raw: boolean) => void;
-  onSave: () => void;
-  onReset: () => void;
-  extra?: React.ReactNode;
-}) {
-  return (
-    <div className="sticky bottom-0 z-10 -mx-4 mt-6 flex items-center gap-2 border-t border-border bg-bg/90 px-4 py-3 backdrop-blur sm:mx-0 sm:rounded-b-lg sm:px-0">
-      <ModeToggle raw={raw} onChange={onRaw} />
-      {extra}
-      <div className="ml-auto flex items-center gap-2">
-        {dirty && (
-          <span className="hidden text-xs text-fg-subtle sm:inline">
-            Unsaved changes
-          </span>
-        )}
-        {dirty && (
-          <Button size="md" variant="ghost" onClick={onReset}>
-            Discard
-          </Button>
-        )}
-        <Button variant="primary" disabled={!dirty || saving} onClick={onSave}>
-          <CheckIcon />
-          Save
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-function WholeSection({
-  tree,
-  name,
-  schema,
-  document,
-}: {
-  tree: SchemaTree;
-  name: string;
-  schema: JsonSchema;
-  document: Versioned<JsonObject>;
-}) {
-  const held = document.value[name];
-  const [draft, setDraft] = useState<unknown>(held);
-  const [raw, setRaw] = useState(false);
-  const saved = useSaved();
-  const tags = useMemo(() => documentTags(document.value), [document.value]);
-  const dirty = JSON.stringify(draft) !== JSON.stringify(held);
-
-  const save = useMutation({
-    mutationFn: () =>
-      draft === undefined
-        ? api.singbox.deleteSection(name, document.etag)
-        : api.singbox.writeSection(name, draft, document.etag),
-    onSuccess: saved,
-    onError: saveError,
-  });
-
-  return (
-    <div>
-      <SectionHeading title={humanize(name)} />
-      {draft === undefined && !raw ? (
-        <Empty
-          title={`${humanize(name)} is not set.`}
-          action={
-            <Button onClick={() => setDraft(defaultFor(tree, schema))}>
-              <PlusIcon />
-              Set {humanize(name).toLowerCase()}
-            </Button>
-          }
-        />
-      ) : raw ? (
-        <RawField
-          key={JSON.stringify(draft)}
-          value={draft}
-          onChange={setDraft}
-        />
-      ) : (
-        <SchemaForm
-          tree={tree}
-          tags={tags}
-          schema={schema}
-          value={draft}
-          onChange={setDraft}
-        />
-      )}
-      <EditorBar
-        dirty={dirty}
-        saving={save.isPending}
-        raw={raw}
-        onRaw={setRaw}
-        onSave={() => save.mutate()}
-        onReset={() => setDraft(held)}
-        extra={
-          draft !== undefined && (
-            <Button
-              size="md"
-              variant="ghost"
-              onClick={() => setDraft(undefined)}
-            >
-              Clear
-            </Button>
-          )
-        }
-      />
-    </div>
-  );
-}
-
-function SectionHeading({
-  title,
-  actions,
-}: {
-  title: string;
-  actions?: React.ReactNode;
-}) {
-  return (
-    <div className="mb-4 flex min-h-8 items-center justify-between gap-3">
-      <h2 className="text-[15px] font-semibold text-fg">{title}</h2>
-      {actions}
-    </div>
-  );
-}
-
-function EntriesSection({
-  tree,
-  name,
-  item,
-  document,
-}: {
-  tree: SchemaTree;
-  name: string;
-  item: JsonSchema;
-  document: Versioned<JsonObject>;
-}) {
-  const entries = (document.value[name] as JsonObject[] | undefined) ?? [];
-  const [selected, setSelected] = useState<string | null>(null);
-  const [creating, setCreating] = useState(false);
-  const current = entries.find((entry) => entry.tag === selected);
-
-  // An entry open: its editor takes the whole pane, with a way back.
-  if (creating || current) {
-    return (
-      <Entry
-        key={creating ? "new" : `${selected}:${document.etag}`}
-        tree={tree}
-        section={name}
-        schema={item}
-        document={document}
-        initial={
-          creating
-            ? (defaultFor(tree, item) as JsonObject)
-            : (current as JsonObject)
-        }
-        existing={creating ? undefined : String(current?.tag)}
-        onBack={() => {
-          setCreating(false);
-          setSelected(null);
-        }}
-        onSaved={(tag) => {
-          setCreating(false);
-          setSelected(tag);
-        }}
-      />
-    );
-  }
-
-  return (
-    <div>
-      <SectionHeading
-        title={humanize(name)}
-        actions={
-          <Button size="sm" onClick={() => setCreating(true)}>
-            <PlusIcon />
-            Add
-          </Button>
-        }
-      />
-      {entries.length === 0 ? (
-        <Empty title={`No ${humanize(name).toLowerCase()} yet.`} />
-      ) : (
-        <div className="divide-y divide-border overflow-hidden rounded-lg border border-border">
-          {entries.map((entry) => (
-            <button
-              key={String(entry.tag)}
-              type="button"
-              onClick={() => setSelected(String(entry.tag))}
-              className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-bg-subtle"
-            >
-              <span className="min-w-0 flex-1 truncate font-mono text-[13px] font-medium text-fg">
-                {String(entry.tag)}
-              </span>
-              {typeof entry.type === "string" && (
-                <Badge mono>{entry.type}</Badge>
-              )}
-              <span className="hidden w-40 truncate text-right font-mono text-xs text-fg-subtle sm:block">
-                {summary(entry)}
-              </span>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/** One line that says where an entry listens or dials. */
-function summary(entry: JsonObject): string {
-  if (typeof entry.listen_port === "number")
-    return `${entry.listen ?? "::"}:${entry.listen_port}`;
-  if (typeof entry.server === "string")
-    return entry.server_port
-      ? `${entry.server}:${entry.server_port}`
-      : entry.server;
-  if (Array.isArray(entry.outbounds))
-    return `${entry.outbounds.length} outbounds`;
-  return "";
-}
-
-function Entry({
-  tree,
-  section,
-  schema,
-  document,
-  initial,
-  existing,
-  onBack,
-  onSaved,
-}: {
-  tree: SchemaTree;
-  section: string;
-  schema: JsonSchema;
-  document: Versioned<JsonObject>;
-  initial: JsonObject;
-  existing?: string;
-  onBack: () => void;
-  onSaved: (tag: string | null) => void;
-}) {
-  const [draft, setDraft] = useState<unknown>(initial);
-  const [raw, setRaw] = useState(false);
-  const saved = useSaved();
-  const tags = useMemo(() => documentTags(document.value), [document.value]);
-  const tag = isObject(draft) && typeof draft.tag === "string" ? draft.tag : "";
-  const dirty =
-    existing === undefined || JSON.stringify(draft) !== JSON.stringify(initial);
-
-  const save = useMutation({
-    mutationFn: async () => {
-      if (!tag) throw new Error("An entry needs a tag.");
-      // The tag is the entry's address, so a renamed entry is a new one.
-      if (existing && existing !== tag) {
-        const written = await api.singbox.writeEntry(
-          section,
-          tag,
-          draft,
-          document.etag,
-        );
-        return api.singbox.deleteEntry(section, existing, written.etag);
-      }
-      return api.singbox.writeEntry(section, tag, draft, document.etag);
-    },
-    onSuccess: (result) => {
-      saved(result);
-      onSaved(tag);
-    },
-    onError: saveError,
-  });
-
-  const remove = useMutation({
-    mutationFn: () =>
-      api.singbox.deleteEntry(section, existing ?? "", document.etag),
-    onSuccess: (result) => {
-      saved(result);
-      onSaved(null);
-    },
-    onError: saveError,
-  });
-
-  return (
-    <div>
-      <div className="mb-4 flex min-h-8 items-center gap-2">
-        <button
-          type="button"
-          onClick={onBack}
-          className="text-[13px] text-fg-muted transition-colors hover:text-fg"
-        >
-          {humanize(section)}
-        </button>
-        <span className="text-fg-subtle">/</span>
-        <h2 className="min-w-0 truncate font-mono text-[15px] font-semibold text-fg">
-          {tag || "new"}
-        </h2>
-        {existing && (
-          <div className="ml-auto">
-            <Confirm
-              trigger={
-                <IconButton label="Delete">
-                  <Trash2Icon />
-                </IconButton>
-              }
-              title={`Delete ${existing}?`}
-              description="Whatever refers to this tag is reported when the core starts."
-              confirmLabel="Delete"
-              onConfirm={() => remove.mutate()}
-            />
-          </div>
-        )}
-      </div>
-      {raw ? (
-        <RawField
-          key={JSON.stringify(draft)}
-          value={draft}
-          onChange={setDraft}
-        />
-      ) : (
-        <SchemaForm
-          tree={tree}
-          tags={tags}
-          schema={schema}
-          value={draft}
-          onChange={setDraft}
-        />
-      )}
-      <EditorBar
-        dirty={dirty}
-        saving={save.isPending}
-        raw={raw}
-        onRaw={setRaw}
-        onSave={() => save.mutate()}
-        onReset={() => (existing ? setDraft(initial) : onBack())}
-      />
-    </div>
   );
 }
 

@@ -11,16 +11,19 @@ export function Popover({
   trigger,
   children,
   align = "start",
+  openOnHover,
   className,
 }: {
   trigger: ReactElement;
   children: ReactNode;
   align?: "start" | "center" | "end";
+  /** Opens the surface on hover as well as on a click. */
+  openOnHover?: boolean;
   className?: string;
 }) {
   return (
     <BasePopover.Root>
-      <BasePopover.Trigger render={trigger} />
+      <BasePopover.Trigger render={trigger} openOnHover={openOnHover} />
       <BasePopover.Portal>
         <BasePopover.Positioner sideOffset={6} align={align} className="z-50">
           <BasePopover.Popup

@@ -150,11 +150,17 @@ export interface SystemInfo extends SystemStatus {
 
 export interface Core {
   version: string | null;
+  config: string;
   collections: string[];
   installed: boolean;
   assembled: boolean;
   running: boolean;
   note?: string;
+}
+
+export interface ConfigView {
+  name: string;
+  current: boolean;
 }
 
 export interface Exit {

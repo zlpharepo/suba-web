@@ -156,6 +156,38 @@ export function branchKind(tree: SchemaTree, node: JsonSchema): string {
   return "unknown";
 }
 
+/**
+ * Whether a value matches a schema's `pattern`: `null` when there is nothing to
+ * check — no pattern, no value, or a pattern this engine cannot compile.
+ *
+ * The check is made here rather than handed to the browser as a `pattern`
+ * attribute, which is compiled with the `v` flag now. `v` refuses constructs
+ * the core's own engine accepts — a bare `-` inside a class, as in the Duration
+ * grammar's `[-+]`, is a syntax error there — so every field the schema puts a
+ * pattern on was reported as unvalidatable and checked by nobody.
+ */
+export function patternHolds(
+  pattern: string | undefined,
+  value: unknown,
+): boolean | null {
+  if (!pattern || value === undefined || value === "") return null;
+
+  const compiled = compilePattern(pattern);
+  return compiled ? compiled.test(String(value)) : null;
+}
+
+/** `u` is the flag the schema is written for; nothing compiles means no opinion. */
+function compilePattern(source: string): RegExp | null {
+  for (const flags of ["u", ""]) {
+    try {
+      return new RegExp(source, flags);
+    } catch {
+      continue;
+    }
+  }
+  return null;
+}
+
 /** Nested `oneOf`s (snell's versions) are branches of the outer one. */
 export function flatten(tree: SchemaTree, options: JsonSchema[]): JsonSchema[] {
   return options.flatMap((option) => {
