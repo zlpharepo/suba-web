@@ -20,6 +20,7 @@ import {
   Trash2Icon,
 } from "lucide-react";
 
+import { Generator } from "@/components/generator";
 import { RawField, SchemaForm } from "@/components/schema-form";
 import { ApiError, api, errorMessage } from "@/lib/api";
 import { cx } from "@/lib/cx";
@@ -789,7 +790,10 @@ function EntryDialog({
       }
     >
       <div className="grid gap-4">
-        <ModeToggle raw={raw} onChange={setRaw} />
+        <div className="flex items-center justify-between gap-2">
+          <ModeToggle raw={raw} onChange={setRaw} />
+          <Generator />
+        </div>
         {raw ? (
           <RawField
             key="raw"
@@ -798,6 +802,7 @@ function EntryDialog({
           />
         ) : (
           <SchemaForm
+            generate
             tree={tree}
             tags={tags}
             group={groupOf(tree, item, hide)}

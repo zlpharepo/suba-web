@@ -6,7 +6,6 @@ import {
   CopyIcon,
   DownloadIcon,
   FileTextIcon,
-  KeyRoundIcon,
   MoreHorizontalIcon,
   PencilIcon,
   PlayIcon,
@@ -17,7 +16,7 @@ import {
 } from "lucide-react";
 
 import { ConfigEditor } from "@/components/config-editor";
-import { CopyButton } from "@/components/shared";
+import { Generator } from "@/components/generator";
 import { ApiError, api, errorMessage } from "@/lib/api";
 import { cx } from "@/lib/cx";
 import { ago, stripAnsi } from "@/lib/format";
@@ -25,7 +24,6 @@ import type {
   ConfigView,
   Core,
   CoreAction,
-  GenerateCommand,
   Privilege,
   Running,
   VersionView,
@@ -194,7 +192,7 @@ function Controls({
       <IconButton label="Log" variant="secondary" onClick={() => setLog(true)}>
         <FileTextIcon />
       </IconButton>
-      <Generator />
+      <Generator iconOnly />
       <LogDialog open={log} onOpenChange={setLog} />
     </div>
   );
@@ -840,96 +838,6 @@ function CollectionsChip({ core }: { core: Core }) {
             }
           />
         ))}
-      </div>
-    </Popover>
-  );
-}
-
-/* --------------------------------------------------------------- generate */
-
-const COMMANDS: { command: GenerateCommand; needs?: "name" | "length" }[] = [
-  { command: "uuid" },
-  { command: "reality-keypair" },
-  { command: "wg-keypair" },
-  { command: "vapid-keypair" },
-  { command: "rand", needs: "length" },
-  { command: "tls-keypair", needs: "name" },
-  { command: "ech-keypair", needs: "name" },
-];
-
-// The output is a credential; it is shown here and kept nowhere.
-function Generator() {
-  const [command, setCommand] = useState<GenerateCommand>("uuid");
-  const [argument, setArgument] = useState("");
-  const needs = COMMANDS.find((item) => item.command === command)?.needs;
-
-  const generate = useMutation({
-    mutationFn: () =>
-      api.singbox.generate(
-        command,
-        needs === "name" ? argument : undefined,
-        needs === "length" ? Number(argument) : undefined,
-      ),
-    onError: (error) => toast.error(errorMessage(error)),
-  });
-
-  return (
-    <Popover
-      align="end"
-      className="w-[22rem]"
-      trigger={
-        <button
-          type="button"
-          aria-label="Generate keys"
-          title="Generate keys"
-          className={buttonClass("secondary", "md", true)}
-        >
-          <KeyRoundIcon />
-        </button>
-      }
-    >
-      <div className="grid gap-3">
-        <div className="flex gap-2">
-          <Select<GenerateCommand>
-            className="flex-1 font-mono"
-            aria-label="Command"
-            value={command}
-            onChange={(next) => {
-              setCommand(next);
-              setArgument("");
-              generate.reset();
-            }}
-            options={COMMANDS.map((item) => ({
-              value: item.command,
-              label: item.command,
-            }))}
-          />
-          <Button
-            variant="primary"
-            disabled={generate.isPending || (needs !== undefined && !argument)}
-            onClick={() => generate.mutate()}
-          >
-            Generate
-          </Button>
-        </div>
-        {needs && (
-          <Input
-            type={needs === "length" ? "number" : "text"}
-            placeholder={needs === "length" ? "Bytes" : "Server name"}
-            value={argument}
-            onChange={(event) => setArgument(event.target.value)}
-          />
-        )}
-        {generate.data && (
-          <div className="relative rounded-md bg-bg-muted p-3 pr-10">
-            <pre className="font-mono text-xs break-all whitespace-pre-wrap text-fg">
-              {generate.data.output}
-            </pre>
-            <div className="absolute top-1.5 right-1.5">
-              <CopyButton text={generate.data.output} />
-            </div>
-          </div>
-        )}
       </div>
     </Popover>
   );

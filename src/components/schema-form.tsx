@@ -8,7 +8,9 @@ import {
 } from "react";
 import { ChevronRightIcon, PlusIcon, SearchIcon, XIcon } from "lucide-react";
 
+import { FieldGenerator } from "@/components/field-generator";
 import { cx } from "@/lib/cx";
+import { fieldGeneration } from "@/lib/generate";
 import {
   branchKind,
   defaultFor,
@@ -53,6 +55,7 @@ interface FormContext {
    * behind "Add Field".
    */
   compact?: boolean;
+  generation?: JsonObject;
 }
 
 const Context = createContext<FormContext | null>(null);
@@ -71,12 +74,26 @@ export function SchemaForm({
   tags,
   group,
   compact,
+  generate,
   schema,
   value,
   onChange,
-}: FormContext & { schema: JsonSchema; value: unknown; onChange: Change }) {
+}: Omit<FormContext, "generation"> & {
+  generate?: boolean;
+  schema: JsonSchema;
+  value: unknown;
+  onChange: Change;
+}) {
   return (
-    <Context.Provider value={{ tree, tags, group, compact }}>
+    <Context.Provider
+      value={{
+        tree,
+        tags,
+        group,
+        compact,
+        generation: generate && isObject(value) ? value : undefined,
+      }}
+    >
       <SchemaField schema={schema} value={value} onChange={onChange} />
       {Object.entries(tags).map(([space, names]) => (
         <datalist key={space} id={`tags-${space}`}>
@@ -460,7 +477,7 @@ function ObjectField({
   onChange: Change;
   hidden?: string[];
 }) {
-  const { tree, group, compact } = useForm();
+  const { tree, group, compact, generation } = useForm();
   const node = tree.resolve(schema);
   // Fields added this session stay visible while empty, so typing can start.
   const [shown, setShown] = useState<string[]>([]);
@@ -532,6 +549,17 @@ function ObjectField({
     setShown(shown.filter((held) => held !== key));
     set(key, undefined);
   };
+  const generator = (key: string) => {
+    const plan = generation ? fieldGeneration(tree, node, object, key, generation) : null;
+    return plan ? (
+      <FieldGenerator
+        key={JSON.stringify(plan)}
+        plan={plan}
+        value={object}
+        onChange={onChange}
+      />
+    ) : undefined;
+  };
 
   return (
     <div className="grid gap-4">
@@ -543,6 +571,7 @@ function ObjectField({
               name={key}
               label={humanize(key)}
               required={required.has(key)}
+              actions={generator(key)}
               // The tag addresses the entry, so it is not something to drop;
               // every other field is only removable once it was asked for.
               onRemove={
@@ -936,12 +965,14 @@ function FieldRow({
   label,
   name,
   required,
+  actions,
   onRemove,
   children,
 }: {
   label: string;
   name: string;
   required?: boolean;
+  actions?: ReactNode;
   onRemove?: () => void;
   children: ReactNode;
 }) {
@@ -955,6 +986,7 @@ function FieldRow({
         <span className="hidden font-mono text-2xs text-fg-subtle group-hover:inline">
           {name}
         </span>
+        {actions && <span className="ml-auto">{actions}</span>}
         {onRemove && (
           <button
             type="button"
