@@ -33,11 +33,13 @@ export function Checkbox({
   onChange,
   label,
   className,
+  disabled,
 }: {
   checked: boolean;
   onChange: (checked: boolean) => void;
   label: ReactNode;
   className?: string;
+  disabled?: boolean;
 }) {
   return (
     <label
@@ -47,6 +49,7 @@ export function Checkbox({
       )}
     >
       <BaseCheckbox.Root
+        disabled={disabled}
         checked={checked}
         onCheckedChange={onChange}
         className="flex size-4 shrink-0 items-center justify-center rounded-[4px] border border-border-strong bg-bg transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent/40 data-checked:border-fg data-checked:bg-fg"

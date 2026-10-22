@@ -238,9 +238,11 @@ export interface Versioned<T> {
 
 export interface Tag {
   tag: string;
-  space: "outbound" | "inbound";
+  space: string;
   kind: string | null;
   path: string;
+  source: "config" | "collection";
+  value: Record<string, unknown>;
 }
 
 export interface References {

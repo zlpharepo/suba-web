@@ -100,7 +100,13 @@ export function oneOrMany(
   );
   if (!single || !many?.items) return null;
   const item = tree.resolve(many.items);
-  return JSON.stringify(item) === JSON.stringify(single) ? single : null;
+  const { ["x-tag-reference"]: singleSpace, ...singleShape } = single;
+  const { ["x-tag-reference"]: itemSpace, ...itemShape } = item;
+  if (singleSpace && itemSpace && singleSpace !== itemSpace) return null;
+  if (JSON.stringify(singleShape) !== JSON.stringify(itemShape)) return null;
+  // Some core versions annotate only the scalar half of a tag-or-tags union.
+  const space = singleSpace ?? itemSpace;
+  return space ? { ...single, "x-tag-reference": space } : single;
 }
 
 /**

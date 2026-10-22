@@ -232,7 +232,8 @@ export const api = {
     install: (version: string) =>
       json<VersionView>("POST", `/cores/sing-box/versions/${segment(version)}`),
     schema: () => json<JsonSchema>("GET", "/cores/sing-box/schema"),
-    references: () => json<References>("GET", "/cores/sing-box/references"),
+    references: (name: string) =>
+      json<References>("GET", `/cores/sing-box/configs/${segment(name)}/references`),
     generate: (command: GenerateCommand, name?: string, length?: number) =>
       json<Generated>("POST", "/cores/sing-box/generate", {
         command,

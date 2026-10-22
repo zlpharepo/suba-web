@@ -28,12 +28,14 @@ import {
   Trash2Icon,
 } from "lucide-react";
 
+import { CollectionOutbounds } from "@/components/collection-outbounds";
 import { Generator } from "@/components/generator";
 import { RawField, SchemaForm } from "@/components/schema-form";
 import { ApiError, api, errorMessage } from "@/lib/api";
 import { configKey } from "@/lib/config-json";
 import { cx } from "@/lib/cx";
 import { humanize } from "@/lib/humanize";
+import { entryDocument, referenceKey, referenceTags, sectionDocument } from "@/lib/references";
 import {
   arrayProperties,
   groupOf,
@@ -44,14 +46,13 @@ import {
 } from "@/lib/sections";
 import {
   defaultFor,
-  documentTags,
   isObject,
   keysOf,
   SchemaTree,
   type JsonObject,
   type JsonSchema,
 } from "@/lib/schema";
-import type { Versioned } from "@/lib/types";
+import type { Tag, Versioned } from "@/lib/types";
 import { Button, IconButton } from "@/ui/button";
 import { Confirm, Dialog } from "@/ui/dialog";
 import { Badge, Empty, ErrorNote, Skeleton } from "@/ui/misc";
@@ -64,13 +65,25 @@ export interface SectionDraftStatus {
 }
 
 const DraftStatus = createContext<((status: SectionDraftStatus) => void) | null>(null);
+const EMPTY_CATALOG: Tag[] = [];
+const ReferenceCatalog = createContext<Tag[]>(EMPTY_CATALOG);
+
+function useReferenceTags(document: JsonObject, outboundOwner?: string) {
+  const catalog = useContext(ReferenceCatalog);
+  return useMemo(
+    () => referenceTags(document, catalog, outboundOwner),
+    [document, catalog, outboundOwner],
+  );
+}
 
 export function ConfigEditor({
   name,
+  collections,
   revision,
   onDraftStatus,
 }: {
   name: string;
+  collections: string[];
   revision: number;
   onDraftStatus: (status: SectionDraftStatus) => void;
 }) {
@@ -84,6 +97,16 @@ export function ConfigEditor({
     queryKey: configKey(name),
     queryFn: () => api.singbox.config(name),
   });
+  const references = useQuery({
+    queryKey: referenceKey(name, collections),
+    queryFn: () => api.singbox.references(name),
+    retry: false,
+  });
+  const catalog = references.isError ? EMPTY_CATALOG : references.data?.tags ?? EMPTY_CATALOG;
+  const generated = useMemo(
+    () => catalog.filter((entry) => entry.source === "collection" && entry.space === "outbound"),
+    [catalog],
+  );
   const tree = useMemo(
     () => (schema.data ? new SchemaTree(schema.data) : null),
     [schema.data],
@@ -112,7 +135,11 @@ export function ConfigEditor({
       >
         {tree.sections().map((held) => {
           const value = config.data.value[held];
-          const count = Array.isArray(value) ? value.length : undefined;
+          const unknownOutbounds = held === "outbounds" && collections.length > 0 &&
+            (references.isPending || references.isError);
+          const count = unknownOutbounds ? undefined : held === "outbounds"
+            ? (Array.isArray(value) ? value.length : 0) + generated.length
+            : Array.isArray(value) ? value.length : undefined;
           return (
             <button
               key={held}
@@ -141,16 +168,36 @@ export function ConfigEditor({
         })}
       </nav>
       <div className="min-w-0">
-        <DraftStatus.Provider value={onDraftStatus}>
-          <Section
-            // Full JSON refreshes the saved document; an old form must not write it back.
-            key={`${name}:${section}:${revision}`}
-            config={name}
-            tree={tree}
-            name={section}
-            document={config.data}
+        {section === "outbounds" && collections.length > 0 ? (
+          <CollectionOutbounds
+            entries={generated}
+            loading={references.isPending}
+            refreshing={references.isFetching}
+            failed={references.isError}
+            onRefresh={() => void references.refetch()}
           />
-        </DraftStatus.Provider>
+        ) : references.isError && (
+          <div className="mb-4 flex items-center gap-2">
+            <p role="alert" className="text-xs text-danger">
+              Reference data could not be loaded. Local tags remain available.
+            </p>
+            <Button size="sm" disabled={references.isFetching} onClick={() => void references.refetch()}>
+              Retry Tags
+            </Button>
+          </div>
+        )}
+        <ReferenceCatalog.Provider value={catalog}>
+          <DraftStatus.Provider value={onDraftStatus}>
+            <Section
+              // Full JSON refreshes the saved document; an old form must not write it back.
+              key={`${name}:${section}:${revision}`}
+              config={name}
+              tree={tree}
+              name={section}
+              document={config.data}
+            />
+          </DraftStatus.Provider>
+        </ReferenceCatalog.Provider>
       </div>
     </div>
   );
@@ -439,7 +486,10 @@ function FormView({
   const {
     held, draft, setDraft, raw, setRaw, dirty, invalid, setInvalid, rawKey, reset, save,
   } = useDraft(config, name, document);
-  const tags = useMemo(() => documentTags(document.value), [document.value]);
+  const localDocument = useMemo(
+    () => sectionDocument(document.value, name, draft), [document.value, name, draft],
+  );
+  const tags = useReferenceTags(localDocument);
 
   return (
     <div>
@@ -505,7 +555,10 @@ function SplitView({
   const {
     held, draft, setDraft, raw, setRaw, dirty, invalid, setInvalid, rawKey, reset, save,
   } = useDraft(config, name, document);
-  const tags = useMemo(() => documentTags(document.value), [document.value]);
+  const localDocument = useMemo(
+    () => sectionDocument(document.value, name, draft), [document.value, name, draft],
+  );
+  const tags = useReferenceTags(localDocument);
   const object = isObject(draft) ? draft : {};
   const listed = useMemo(
     () => new Set(cards.map((card) => card.name)),
@@ -592,7 +645,7 @@ function SplitView({
         <EntryDialog
           key={`${editing.path}:${editing.index ?? "new"}`}
           tree={tree}
-          tags={tags}
+          document={localDocument}
           path={`${name}.${editing.path}`}
           item={cards.find((card) => card.name === editing.path)?.item ?? {}}
           entries={entriesOf(editing.path)}
@@ -632,7 +685,9 @@ function EntriesView({
   const {
     held, draft, setDraft, raw, setRaw, dirty, invalid, setInvalid, rawKey, reset, save,
   } = useDraft(config, name, document);
-  const tags = useMemo(() => documentTags(document.value), [document.value]);
+  const localDocument = useMemo(
+    () => sectionDocument(document.value, name, draft), [document.value, name, draft],
+  );
   const entries = Array.isArray(draft) ? (draft as JsonObject[]) : [];
   const [editing, setEditing] = useState<EditTarget | null>(null);
 
@@ -671,7 +726,7 @@ function EntriesView({
         <EntryDialog
           key={`${name}:${editing.index ?? "new"}`}
           tree={tree}
-          tags={tags}
+          document={localDocument}
           path={name}
           item={item}
           entries={entries}
@@ -787,7 +842,7 @@ function CardList({
 /** One entry of a list, edited in a dialog with the mode switch of its own. */
 function EntryDialog({
   tree,
-  tags,
+  document,
   path,
   item,
   entries,
@@ -796,7 +851,7 @@ function EntryDialog({
   onApply,
 }: {
   tree: SchemaTree;
-  tags: Record<string, string[]>;
+  document: JsonObject;
   path: string;
   item: JsonSchema;
   entries: JsonObject[];
@@ -816,6 +871,15 @@ function EntryDialog({
     return isObject(fresh) ? fresh : {};
   });
   const [raw, setRaw] = useState(false);
+  const localDocument = useMemo(
+    () => entryDocument(document, path, target.index, entry),
+    [document, path, target.index, entry],
+  );
+  const tags = useReferenceTags(
+    localDocument,
+    (path === "outbounds" || path === "endpoints") && typeof entry.tag === "string"
+      ? entry.tag : undefined,
+  );
   const hide = hideFor(path);
   // An entry that is addressed by tag cannot be saved without one.
   const needsTag = keysOf(tree, item).has("tag");

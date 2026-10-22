@@ -95,6 +95,7 @@ export function SingboxPage() {
             <ConfigEditor
               key={core.data.config}
               name={core.data.config}
+              collections={core.data.collections}
               revision={sectionRevision}
               onDraftStatus={setSectionDraft}
             />
@@ -824,12 +825,7 @@ function CollectionsChip({ core }: { core: Core }) {
         privilege: core.privilege,
         collections: next,
       }),
-    onSuccess: (updated) => {
-      queryClient.setQueryData(["singbox"], updated);
-      void queryClient.invalidateQueries({
-        queryKey: ["singbox", "references"],
-      });
-    },
+    onSuccess: (updated) => queryClient.setQueryData(["singbox"], updated),
     onError: (error) => toast.error(errorMessage(error)),
   });
 
@@ -846,7 +842,7 @@ function CollectionsChip({ core }: { core: Core }) {
     >
       <div className="grid gap-2.5">
         <span className="text-xs text-fg-subtle">
-          Nodes of these collections become outbounds when the core starts.
+          Selected collections are available in Outbounds and tag suggestions.
         </span>
         {choices.length === 0 && (
           <span className="text-[13px] text-fg-muted">No collections yet.</span>
@@ -854,6 +850,7 @@ function CollectionsChip({ core }: { core: Core }) {
         {choices.map((name) => (
           <Checkbox
             key={name}
+            disabled={choose.isPending}
             checked={chosen.includes(name)}
             onChange={(checked) =>
               choose.mutate(

@@ -9,6 +9,7 @@ import {
 import { ChevronRightIcon, PlusIcon, SearchIcon, XIcon } from "lucide-react";
 
 import { FieldGenerator } from "@/components/field-generator";
+import { TagBatchPicker, TagInput } from "@/components/tag-input";
 import { cx } from "@/lib/cx";
 import { fieldGeneration } from "@/lib/generate";
 import {
@@ -42,7 +43,7 @@ import { Switch as BaseSwitch } from "@base-ui/react/switch";
 
 interface FormContext {
   tree: SchemaTree;
-  /** Tags the document declares, by reference space, for suggestions. */
+  /** Draft and collection tags, kept in the schema's reference namespaces. */
   tags: Record<string, string[]>;
   /**
    * The fields this form groups behind one button, and what to call it. Which
@@ -95,13 +96,6 @@ export function SchemaForm({
       }}
     >
       <SchemaField schema={schema} value={value} onChange={onChange} />
-      {Object.entries(tags).map(([space, names]) => (
-        <datalist key={space} id={`tags-${space}`}>
-          {names.map((name) => (
-            <option key={name} value={name} />
-          ))}
-        </datalist>
-      ))}
     </Context.Provider>
   );
 }
@@ -142,7 +136,7 @@ function ScalarField({
   value: unknown;
   onChange: Change;
 }) {
-  const { tree } = useForm();
+  const { tree, tags } = useForm();
   const node = tree.resolve(schema);
   const kind = scalarKind(tree, node);
   const reference = node["x-tag-reference"];
@@ -184,13 +178,21 @@ function ScalarField({
   }
 
   const numeric = kind === "integer" || kind === "number";
-  // Free text with suggestions: a reference may name a tag defined later.
-  const suggestions = reference ? `tags-${reference}` : undefined;
   // The schema's own pattern, checked here: see `patternHolds`.
   const holds = patternHolds(node.pattern, value);
+  if (reference && kind === "string") {
+    return (
+      <TagInput
+        space={reference}
+        options={tags[reference] ?? []}
+        value={value === undefined ? "" : String(value)}
+        invalid={holds === false}
+        onChange={(next) => onChange(next === "" ? undefined : next)}
+      />
+    );
+  }
   return (
     <Input
-      list={suggestions}
       aria-invalid={holds === false}
       className={cx(
         "font-mono",
@@ -231,7 +233,8 @@ function ScalarListField({
   onChange: Change;
   collapse: boolean;
 }) {
-  const { tree } = useForm();
+  const { tree, tags } = useForm();
+  const reference = tree.resolve(item)["x-tag-reference"];
   const values =
     value === undefined ? [] : Array.isArray(value) ? value : [value];
   const commit = (next: unknown[]) => {
@@ -266,6 +269,14 @@ function ScalarListField({
           </div>
         );
       })}
+      {reference && (
+        <TagBatchPicker
+          space={reference}
+          options={tags[reference] ?? []}
+          values={values}
+          onChange={commit}
+        />
+      )}
       <AddLink
         onClick={() => commit([...values, loose ? "" : emptyScalar(item)])}
       >
