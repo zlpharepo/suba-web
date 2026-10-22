@@ -1,16 +1,24 @@
 // The editor for one sing-box configuration.
 //
-// A configuration is edited a section at a time, and the section is the unit
-// that is written: the page loads it, everything on it is a draft, and one Save
-// replaces it. The core's own configuration is one document, so a section is the
-// smallest thing that can be checked as part of what it sits in.
+// The form writes one section at a time; the Full JSON editor writes the whole
+// document. Both use the same configuration ETag, because even a section is
+// validated as part of the complete document. Unsaved section drafts are
+// reported to the page so opening Full JSON cannot silently replace them.
 //
 // Three shapes, decided by the schema rather than by a list: a list of tagged
 // entries becomes cards, an object holding lists becomes card lists above its
 // own fields, and anything else is one form. What a section groups behind a
 // button — the dial or listen fields — is derived too; see `lib/sections.ts`.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   BracesIcon,
@@ -23,6 +31,7 @@ import {
 import { Generator } from "@/components/generator";
 import { RawField, SchemaForm } from "@/components/schema-form";
 import { ApiError, api, errorMessage } from "@/lib/api";
+import { configKey } from "@/lib/config-json";
 import { cx } from "@/lib/cx";
 import { humanize } from "@/lib/humanize";
 import {
@@ -49,9 +58,22 @@ import { Badge, Empty, ErrorNote, Skeleton } from "@/ui/misc";
 import { toast } from "@/ui/notify";
 import { Popover } from "@/ui/popover";
 
-const configKey = (name: string) => ["singbox", "config", name];
+export interface SectionDraftStatus {
+  dirty: boolean;
+  saving: boolean;
+}
 
-export function ConfigEditor({ name }: { name: string }) {
+const DraftStatus = createContext<((status: SectionDraftStatus) => void) | null>(null);
+
+export function ConfigEditor({
+  name,
+  revision,
+  onDraftStatus,
+}: {
+  name: string;
+  revision: number;
+  onDraftStatus: (status: SectionDraftStatus) => void;
+}) {
   const schema = useQuery({
     queryKey: ["singbox", "schema"],
     queryFn: api.singbox.schema,
@@ -119,14 +141,16 @@ export function ConfigEditor({ name }: { name: string }) {
         })}
       </nav>
       <div className="min-w-0">
-        <Section
-          // Keyed by both: switching configuration starts a fresh draft.
-          key={`${name}:${section}`}
-          config={name}
-          tree={tree}
-          name={section}
-          document={config.data}
-        />
+        <DraftStatus.Provider value={onDraftStatus}>
+          <Section
+            // Full JSON refreshes the saved document; an old form must not write it back.
+            key={`${name}:${section}:${revision}`}
+            config={name}
+            tree={tree}
+            name={section}
+            document={config.data}
+          />
+        </DraftStatus.Provider>
       </div>
     </div>
   );
@@ -203,8 +227,20 @@ function useDraft(
   const queryClient = useQueryClient();
   const held = document.value[name];
   const [draft, setDraft] = useState<unknown>(held);
-  const [raw, setRaw] = useState(false);
-  const dirty = JSON.stringify(draft) !== JSON.stringify(held);
+  const [raw, setRawMode] = useState(false);
+  const [invalid, setInvalid] = useState(false);
+  const [rawRevision, setRawRevision] = useState(0);
+  const reset = (value: unknown) => {
+    setDraft(value);
+    setInvalid(false);
+    setRawRevision((revision) => revision + 1);
+  };
+  const reportStatus = useContext(DraftStatus);
+  const dirty = invalid || JSON.stringify(draft) !== JSON.stringify(held);
+  const setRaw = (next: boolean) => {
+    setInvalid(false);
+    setRawMode(next);
+  };
 
   const save = useMutation({
     mutationFn: () =>
@@ -227,7 +263,17 @@ function useDraft(
     onError: saveError,
   });
 
-  return { held, draft, setDraft, raw, setRaw, dirty, save };
+  useLayoutEffect(() => {
+    reportStatus?.({ dirty, saving: save.isPending });
+  }, [reportStatus, dirty, save.isPending]);
+  useLayoutEffect(() => () => {
+    reportStatus?.({ dirty: false, saving: false });
+  }, [reportStatus]);
+
+  return {
+    held, draft, setDraft, raw, setRaw, dirty, invalid, setInvalid,
+    rawKey: `${name}:${rawRevision}`, reset, save,
+  };
 }
 
 function saveError(error: unknown) {
@@ -244,6 +290,7 @@ function saveError(error: unknown) {
 function EditorBar({
   dirty,
   saving,
+  invalid,
   empty,
   raw,
   onRaw,
@@ -253,6 +300,7 @@ function EditorBar({
 }: {
   dirty: boolean;
   saving: boolean;
+  invalid: boolean;
   /** The section holds nothing, so there is nothing to clear. */
   empty: boolean;
   raw: boolean;
@@ -283,7 +331,7 @@ function EditorBar({
             Discard
           </Button>
         )}
-        <Button variant="primary" disabled={!dirty || saving} onClick={onSave}>
+        <Button variant="primary" disabled={!dirty || saving || invalid} onClick={onSave}>
           <CheckIcon />
           Save
         </Button>
@@ -388,11 +436,9 @@ function FormView({
   node: JsonSchema;
   document: Versioned<JsonObject>;
 }) {
-  const { held, draft, setDraft, raw, setRaw, dirty, save } = useDraft(
-    config,
-    name,
-    document,
-  );
+  const {
+    held, draft, setDraft, raw, setRaw, dirty, invalid, setInvalid, rawKey, reset, save,
+  } = useDraft(config, name, document);
   const tags = useMemo(() => documentTags(document.value), [document.value]);
 
   return (
@@ -400,12 +446,13 @@ function FormView({
       <EditorBar
         dirty={dirty}
         saving={save.isPending}
+        invalid={invalid}
         empty={draft === undefined}
         raw={raw}
         onRaw={setRaw}
         onSave={() => save.mutate()}
-        onReset={() => setDraft(held)}
-        onClear={() => setDraft(undefined)}
+        onReset={() => reset(held)}
+        onClear={() => reset(undefined)}
       />
       <SectionHeading title={humanize(name)} />
       {draft === undefined && !raw ? (
@@ -419,7 +466,12 @@ function FormView({
           }
         />
       ) : raw ? (
-        <RawField key={name} value={draft} onChange={setDraft} />
+        <RawField
+          key={rawKey}
+          value={draft}
+          onChange={setDraft}
+          onInvalidChange={setInvalid}
+        />
       ) : (
         <SchemaForm
           tree={tree}
@@ -450,11 +502,9 @@ function SplitView({
   cards: ArrayProperty[];
   document: Versioned<JsonObject>;
 }) {
-  const { held, draft, setDraft, raw, setRaw, dirty, save } = useDraft(
-    config,
-    name,
-    document,
-  );
+  const {
+    held, draft, setDraft, raw, setRaw, dirty, invalid, setInvalid, rawKey, reset, save,
+  } = useDraft(config, name, document);
   const tags = useMemo(() => documentTags(document.value), [document.value]);
   const object = isObject(draft) ? draft : {};
   const listed = useMemo(
@@ -488,15 +538,21 @@ function SplitView({
       <EditorBar
         dirty={dirty}
         saving={save.isPending}
+        invalid={invalid}
         empty={draft === undefined}
         raw={raw}
         onRaw={setRaw}
         onSave={() => save.mutate()}
-        onReset={() => setDraft(held)}
-        onClear={() => setDraft(undefined)}
+        onReset={() => reset(held)}
+        onClear={() => reset(undefined)}
       />
       {raw ? (
-        <RawField key={name} value={draft} onChange={setDraft} />
+        <RawField
+          key={rawKey}
+          value={draft}
+          onChange={setDraft}
+          onInvalidChange={setInvalid}
+        />
       ) : (
         <>
           {cards.map((card) => (
@@ -573,11 +629,9 @@ function EntriesView({
   item: JsonSchema;
   document: Versioned<JsonObject>;
 }) {
-  const { held, draft, setDraft, raw, setRaw, dirty, save } = useDraft(
-    config,
-    name,
-    document,
-  );
+  const {
+    held, draft, setDraft, raw, setRaw, dirty, invalid, setInvalid, rawKey, reset, save,
+  } = useDraft(config, name, document);
   const tags = useMemo(() => documentTags(document.value), [document.value]);
   const entries = Array.isArray(draft) ? (draft as JsonObject[]) : [];
   const [editing, setEditing] = useState<EditTarget | null>(null);
@@ -587,15 +641,21 @@ function EntriesView({
       <EditorBar
         dirty={dirty}
         saving={save.isPending}
+        invalid={invalid}
         empty={draft === undefined}
         raw={raw}
         onRaw={setRaw}
         onSave={() => save.mutate()}
-        onReset={() => setDraft(held)}
-        onClear={() => setDraft(undefined)}
+        onReset={() => reset(held)}
+        onClear={() => reset(undefined)}
       />
       {raw ? (
-        <RawField key={name} value={draft} onChange={setDraft} />
+        <RawField
+          key={rawKey}
+          value={draft}
+          onChange={setDraft}
+          onInvalidChange={setInvalid}
+        />
       ) : (
         <CardList
           path={name}

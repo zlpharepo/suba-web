@@ -927,9 +927,11 @@ function entryLabel(entry: unknown, index: number): string {
 export function RawField({
   value,
   onChange,
+  onInvalidChange,
 }: {
   value: unknown;
   onChange: Change;
+  onInvalidChange?: (invalid: boolean) => void;
 }) {
   const [text, setText] = useState(() =>
     value === undefined ? "" : JSON.stringify(value, null, 2),
@@ -947,13 +949,16 @@ export function RawField({
         setText(next);
         if (next.trim() === "") {
           setInvalid(false);
+          onInvalidChange?.(false);
           return onChange(undefined);
         }
         try {
           onChange(JSON.parse(next));
           setInvalid(false);
+          onInvalidChange?.(false);
         } catch {
           setInvalid(true);
+          onInvalidChange?.(true);
         }
       }}
     />

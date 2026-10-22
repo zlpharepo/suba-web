@@ -251,6 +251,8 @@ export const api = {
       none("DELETE", `/cores/sing-box/configs/${segment(name)}`),
     config: (name: string) =>
       tagged<JsonObject>(`/cores/sing-box/configs/${segment(name)}`),
+    writeConfig: (name: string, value: JsonObject, etag: string) =>
+      guarded("PUT", `/cores/sing-box/configs/${segment(name)}`, etag, value),
     // A section at a time: it is the smallest thing the core can check as part
     // of the document it sits in.
     writeSection: (

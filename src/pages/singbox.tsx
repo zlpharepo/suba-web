@@ -15,7 +15,8 @@ import {
   Trash2Icon,
 } from "lucide-react";
 
-import { ConfigEditor } from "@/components/config-editor";
+import { ConfigEditor, type SectionDraftStatus } from "@/components/config-editor";
+import { FullConfigJson } from "@/components/full-config-json";
 import { Generator } from "@/components/generator";
 import { ApiError, api, errorMessage } from "@/lib/api";
 import { cx } from "@/lib/cx";
@@ -49,6 +50,11 @@ export function SingboxPage() {
     refetchInterval: 3000,
   });
   const dead = status.data && !status.data.running ? died(status.data) : null;
+  const [sectionDraft, setSectionDraft] = useState<SectionDraftStatus>({
+    dirty: false,
+    saving: false,
+  });
+  const [sectionRevision, setSectionRevision] = useState(0);
 
   return (
     <>
@@ -71,7 +77,11 @@ export function SingboxPage() {
         <>
           <div className="mb-6 flex flex-wrap items-center gap-2">
             <VersionChip current={core.data.version} />
-            <ConfigChip core={core.data} />
+            <ConfigChip
+              core={core.data}
+              section={sectionDraft}
+              onResetSection={() => setSectionRevision((revision) => revision + 1)}
+            />
             <PrivilegesChip core={core.data} />
             <CollectionsChip core={core.data} />
             {core.data.note && (
@@ -82,7 +92,12 @@ export function SingboxPage() {
           </div>
           {dead && <p className="mb-6 text-[13px] text-danger">{dead}</p>}
           {core.data.version ? (
-            <ConfigEditor name={core.data.config} />
+            <ConfigEditor
+              key={core.data.config}
+              name={core.data.config}
+              revision={sectionRevision}
+              onDraftStatus={setSectionDraft}
+            />
           ) : (
             <NoVersion />
           )}
@@ -473,20 +488,36 @@ function VersionRow({
 
 /* --------------------------------------------------------------- configs */
 
-function ConfigChip({ core }: { core: Core }) {
+function ConfigChip({
+  core,
+  section,
+  onResetSection,
+}: {
+  core: Core;
+  section: SectionDraftStatus;
+  onResetSection: () => void;
+}) {
   const [open, setOpen] = useState(false);
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className={buttonClass("secondary", "sm")}
-      >
-        <span className="text-fg-subtle">Config</span>
-        <span className="font-mono">{core.config}</span>
-        <ChevronDownIcon className="!size-3.5 text-fg-subtle" />
-      </button>
+      <div role="group" aria-label="Configuration" className="inline-flex items-center">
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className={cx(buttonClass("secondary", "sm"), "rounded-r-none")}
+        >
+          <span className="text-fg-subtle">Config</span>
+          <span className="font-mono">{core.config}</span>
+          <ChevronDownIcon className="!size-3.5 text-fg-subtle" />
+        </button>
+        <FullConfigJson
+          key={core.config}
+          name={core.config}
+          section={section}
+          onResetSection={onResetSection}
+        />
+      </div>
       <ConfigsDialog open={open} onOpenChange={setOpen} core={core} />
     </>
   );
