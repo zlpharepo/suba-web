@@ -12,6 +12,7 @@ import type {
   DeliveryToken,
   Provider,
   ProviderNodes,
+  ProviderSummary,
   Privilege,
   References,
   Refresh,
@@ -163,7 +164,7 @@ export const api = {
   },
 
   providers: {
-    list: () => json<Record<string, Provider>>("GET", "/providers"),
+    list: () => json<Record<string, ProviderSummary>>("GET", "/providers"),
     get: (name: string) => json<Provider>("GET", `/providers/${segment(name)}`),
     put: (name: string, provider: Provider) =>
       json<Refresh>("PUT", `/providers/${segment(name)}`, provider),

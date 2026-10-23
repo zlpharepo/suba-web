@@ -37,6 +37,10 @@ export interface InlineProvider extends ProviderShared {
 
 export type Provider = RemoteProvider | LocalProvider | InlineProvider;
 export type ProviderType = Provider["type"];
+export type ProviderSummary = Provider & {
+  /** Last successful sync, including unchanged payloads, in epoch seconds. */
+  updated_at: number | null;
+};
 
 export type RefreshStatus = "fetched" | "unchanged" | "not-modified";
 
@@ -50,18 +54,14 @@ export interface Refresh {
 
 export interface SourceView {
   provider: string;
-  name: string | null;
-  first_seen: number;
-  serving: boolean;
+  name: string;
 }
 
 export interface NodeView {
   id: string;
-  name: string | null;
-  protocol: string | null;
-  endpoint: string | null;
-  first_seen: number;
-  orphan: boolean;
+  name: string;
+  protocol: string;
+  endpoint: string;
   sources: SourceView[];
 }
 
@@ -69,7 +69,7 @@ export interface ProviderNodes {
   name: string;
   nodes: NodeView[];
   passed_over: number;
-  orphans: number;
+  updated_at: number | null;
   unreadable?: string;
 }
 
@@ -116,7 +116,6 @@ export interface CollectionNodes {
   name: string;
   nodes: NodeView[];
   passed_over: number;
-  orphans: number;
   unresolved: string[];
 }
 

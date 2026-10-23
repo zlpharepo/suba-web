@@ -15,6 +15,7 @@ import {
 
 import { CopyButton, PatternsEditor } from "@/components/shared";
 import { api, errorMessage } from "@/lib/api";
+import { nodeKey } from "@/lib/nodes";
 import { patternKind, patternText } from "@/lib/pattern";
 import type { CollectionSummary, DeliveryToken, Pattern } from "@/lib/types";
 import { Button, IconButton } from "@/ui/button";
@@ -564,25 +565,18 @@ function PreviewDialog({
         {nodes.data && nodes.data.nodes.length > 0 && (
           <div className="grid gap-1">
             <span className="text-xs font-medium text-fg-subtle">
-              Nodes · {nodes.data.passed_over} filtered · {nodes.data.orphans}{" "}
-              orphaned
+              Nodes · {nodes.data.passed_over} filtered
             </span>
             <div className="divide-y divide-border rounded-md border border-border">
               {nodes.data.nodes.map((node) => (
                 <div
-                  key={node.id}
+                  key={nodeKey(node)}
                   className="flex items-center gap-3 px-3 py-1.5 text-[13px]"
                 >
-                  <span
-                    className={
-                      node.orphan
-                        ? "flex-1 truncate text-fg-subtle line-through"
-                        : "flex-1 truncate text-fg"
-                    }
-                  >
-                    {node.name ?? "unnamed"}
+                  <span className="flex-1 truncate text-fg">
+                    {node.name}
                   </span>
-                  <Badge mono>{node.protocol ?? "?"}</Badge>
+                  <Badge mono>{node.protocol}</Badge>
                   <span className="hidden w-48 truncate font-mono text-xs text-fg-subtle sm:block">
                     {node.endpoint}
                   </span>

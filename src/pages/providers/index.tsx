@@ -13,7 +13,8 @@ import {
 import { PatternsEditor } from "@/components/shared";
 import { api, errorMessage } from "@/lib/api";
 import { cx } from "@/lib/cx";
-import { ago, formatInterval } from "@/lib/format";
+import { ago, formatInterval, formatTime } from "@/lib/format";
+import { nodeKey } from "@/lib/nodes";
 import { patternKind, patternText } from "@/lib/pattern";
 import type {
   Pattern,
@@ -96,17 +97,18 @@ export function ProvidersPage() {
 
       {entries.length > 0 && (
         <div className="overflow-hidden rounded-lg border border-border bg-bg">
-          <div className="hidden grid-cols-[minmax(0,1.2fr)_5rem_minmax(0,1fr)_4.5rem_6.5rem] gap-4 border-b border-border bg-bg-subtle px-4 py-2 text-xs font-medium text-fg-subtle md:grid">
+          <div className="hidden grid-cols-[minmax(0,1.2fr)_5rem_minmax(0,1fr)_4.5rem_7rem_6.5rem] gap-4 border-b border-border bg-bg-subtle px-4 py-2 text-xs font-medium text-fg-subtle md:grid">
             <span>Name</span>
             <span>Type</span>
             <span>Source</span>
             <span>Interval</span>
+            <span>Updated</span>
             <span />
           </div>
           {entries.map(([name, provider]) => (
             <div
               key={name}
-              className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-0.5 border-b border-border px-4 py-2.5 last:border-b-0 md:grid-cols-[minmax(0,1.2fr)_5rem_minmax(0,1fr)_4.5rem_6.5rem]"
+              className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-0.5 border-b border-border px-4 py-2.5 last:border-b-0 md:grid-cols-[minmax(0,1.2fr)_5rem_minmax(0,1fr)_4.5rem_7rem_6.5rem]"
             >
               <button
                 type="button"
@@ -127,7 +129,18 @@ export function ProvidersPage() {
               <span className="hidden text-xs text-fg-muted tabular-nums md:block">
                 {formatInterval(provider)}
               </span>
-              <div className="col-start-2 row-span-2 row-start-1 flex justify-end md:col-auto md:row-auto">
+              <span
+                className="col-start-1 row-start-3 text-xs text-fg-muted tabular-nums md:col-auto md:row-auto"
+                title={
+                  provider.updated_at === null
+                    ? "No successful sync yet"
+                    : formatTime(provider.updated_at)
+                }
+              >
+                <span className="md:hidden">Updated </span>
+                {provider.updated_at === null ? "—" : ago(provider.updated_at)}
+              </span>
+              <div className="col-start-2 row-span-3 row-start-1 flex justify-end md:col-auto md:row-auto">
                 <IconButton
                   label="Refresh"
                   size="sm"
@@ -309,7 +322,17 @@ function ProviderPanel({
               <>
                 <p className="text-xs text-fg-subtle tabular-nums">
                   {nodes.data.nodes.length} nodes · {nodes.data.passed_over}{" "}
-                  filtered · {nodes.data.orphans} orphaned
+                  filtered ·{" "}
+                  <span
+                    title={
+                      nodes.data.updated_at === null
+                        ? "No successful sync yet"
+                        : formatTime(nodes.data.updated_at)
+                    }
+                  >
+                    Updated{" "}
+                    {nodes.data.updated_at === null ? "—" : ago(nodes.data.updated_at)}
+                  </span>
                   {nodes.data.unreadable &&
                     " · the payload is a clash document, which this build does not read"}
                 </p>
@@ -317,25 +340,15 @@ function ProviderPanel({
                   <div className="divide-y divide-border rounded-md border border-border">
                     {nodes.data.nodes.map((node) => (
                       <div
-                        key={node.id}
+                        key={nodeKey(node)}
                         className="flex items-center gap-3 px-3 py-1.5 text-[13px]"
                       >
-                        <span
-                          className={cx(
-                            "min-w-0 flex-1 truncate",
-                            node.orphan
-                              ? "text-fg-subtle line-through"
-                              : "text-fg",
-                          )}
-                        >
-                          {node.name ?? "unnamed"}
+                        <span className="min-w-0 flex-1 truncate text-fg">
+                          {node.name}
                         </span>
-                        <Badge mono>{node.protocol ?? "?"}</Badge>
+                        <Badge mono>{node.protocol}</Badge>
                         <span className="hidden w-48 truncate text-right font-mono text-xs text-fg-subtle sm:block">
                           {node.endpoint}
-                        </span>
-                        <span className="hidden w-20 text-right text-xs text-fg-subtle md:block">
-                          {ago(node.first_seen)}
                         </span>
                       </div>
                     ))}
