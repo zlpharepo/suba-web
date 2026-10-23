@@ -9,9 +9,10 @@ import {
 import { ChevronRightIcon, PlusIcon, SearchIcon, XIcon } from "lucide-react";
 
 import { FieldGenerator } from "@/components/field-generator";
-import { TagBatchPicker, TagInput } from "@/components/tag-input";
+import { TagInput, TagMultiInput } from "@/components/tag-input";
 import { cx } from "@/lib/cx";
 import { fieldGeneration } from "@/lib/generate";
+import { tagField, tagSelectionValue } from "@/lib/references";
 import {
   branchKind,
   defaultFor,
@@ -113,8 +114,41 @@ function SchemaField({
   value: unknown;
   onChange: Change;
 }) {
-  const { tree } = useForm();
+  const { tree, tags } = useForm();
   const node = tree.resolve(schema);
+  const reference = tagField(tree, schema);
+  if (reference) {
+    const { space, item, multiple, collapse } = reference;
+    const values = value === undefined ? [] : Array.isArray(value) ? value : [value];
+    const fits = value === undefined || (multiple
+      ? (Array.isArray(value) || collapse) && values.every((tag) => typeof tag === "string")
+      : typeof value === "string");
+    if (!fits) return <RawField value={value} onChange={onChange} />;
+    const invalid = values.some((tag) =>
+      patternHolds(item.pattern, tag) === false ||
+      (item.enum !== undefined && !item.enum.includes(tag)),
+    );
+    const options = (tags[space] ?? []).filter((tag) =>
+      item.enum === undefined || item.enum.includes(tag),
+    );
+    return multiple ? (
+      <TagMultiInput
+        space={space}
+        options={options}
+        values={values as string[]}
+        invalid={invalid}
+        onChange={(next) => onChange(tagSelectionValue(value, next, collapse))}
+      />
+    ) : (
+      <TagInput
+        space={space}
+        options={options}
+        value={value === undefined ? "" : String(value)}
+        invalid={invalid}
+        onChange={(next) => onChange(next === "" ? undefined : next)}
+      />
+    );
+  }
 
   switch (schemaFieldKind(tree, node)) {
     case "const":
@@ -145,10 +179,9 @@ function ScalarField({
   value: unknown;
   onChange: Change;
 }) {
-  const { tree, tags } = useForm();
+  const { tree } = useForm();
   const node = tree.resolve(schema);
   const kind = scalarKind(tree, node);
-  const reference = node["x-tag-reference"];
 
   if (value !== undefined && kindOf(value) !== expectedKind(node)) {
     return <RawField value={value} onChange={onChange} />;
@@ -192,17 +225,6 @@ function ScalarField({
   const numeric = kind === "integer" || kind === "number";
   // The schema's own pattern, checked here: see `patternHolds`.
   const holds = patternHolds(node.pattern, value);
-  if (reference && kind === "string") {
-    return (
-      <TagInput
-        space={reference}
-        options={tags[reference] ?? []}
-        value={value === undefined ? "" : String(value)}
-        invalid={holds === false}
-        onChange={(next) => onChange(next === "" ? undefined : next)}
-      />
-    );
-  }
   return (
     <Input
       aria-invalid={holds === false}
@@ -214,10 +236,7 @@ function ScalarField({
       min={node.minimum}
       max={node.maximum}
       step={kind === "integer" ? 1 : undefined}
-      placeholder={
-        node.examples?.map(String).join(", ") ??
-        (reference ? `${reference} tag` : undefined)
-      }
+      placeholder={node.examples?.map(String).join(", ")}
       value={value === undefined ? "" : String(value)}
       onChange={(event) => {
         const text = event.target.value;
@@ -245,8 +264,7 @@ function ScalarListField({
   onChange: Change;
   collapse: boolean;
 }) {
-  const { tree, tags } = useForm();
-  const reference = tree.resolve(item)["x-tag-reference"];
+  const { tree } = useForm();
   const values =
     value === undefined ? [] : Array.isArray(value) ? value : [value];
   const commit = (next: unknown[]) => {
@@ -281,14 +299,6 @@ function ScalarListField({
           </div>
         );
       })}
-      {reference && (
-        <TagBatchPicker
-          space={reference}
-          options={tags[reference] ?? []}
-          values={values}
-          onChange={commit}
-        />
-      )}
       <AddLink
         onClick={() => commit([...values, loose ? "" : emptyScalar(item)])}
       >

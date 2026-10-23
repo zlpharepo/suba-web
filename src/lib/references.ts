@@ -1,8 +1,57 @@
-import { documentTags, isObject, type JsonObject } from "./schema.ts";
+import {
+  documentTags,
+  isObject,
+  oneOrMany,
+  type JsonObject,
+  type JsonSchema,
+  type SchemaTree,
+} from "./schema.ts";
 import type { Tag } from "./types.ts";
 
 export const referenceKey = (name: string, collections: string[]) =>
   ["singbox", "references", name, collections];
+
+export interface TagField {
+  space: string;
+  item: JsonSchema;
+  multiple: boolean;
+  collapse: boolean;
+}
+
+export function tagField(tree: SchemaTree, schema: JsonSchema): TagField | null {
+  const node = tree.resolve(schema);
+  const single = oneOrMany(tree, node);
+  const item = tree.resolve(
+    single ?? (node.type === "array" ? node.items ?? {} : node),
+  );
+  const space = schema["x-tag-reference"] ?? node["x-tag-reference"] ??
+    item["x-tag-reference"];
+  if (!space || item.type !== "string") return null;
+  return {
+    space,
+    item,
+    multiple: node.type === "array" || single !== null,
+    collapse: single !== null,
+  };
+}
+
+export function tagChoices(options: string[], query = ""): string[] {
+  const needle = query.toLowerCase();
+  return [...new Set(options)].filter((tag) =>
+    tag !== "" && tag.toLowerCase().includes(needle),
+  );
+}
+
+export function tagSelectionValue(
+  previous: unknown,
+  values: string[],
+  collapse: boolean,
+): string | string[] | undefined {
+  // A one-element array can be intentional; editing tags must not silently collapse it.
+  if (!collapse || Array.isArray(previous)) return values;
+  if (values.length === 0) return undefined;
+  return values.length === 1 ? values[0] : values;
+}
 
 export function referenceTags(
   document: JsonObject,
@@ -62,7 +111,7 @@ export function entryDocument(
   return replace(document, path.split("."));
 }
 
-export function appendReferenceTags(current: unknown[], tags: string[]): unknown[] {
+export function appendReferenceTags(current: string[], tags: string[]): string[] {
   const next = current.filter((value) => value !== "");
   for (const tag of tags) {
     if (tag && !next.includes(tag)) next.push(tag);
