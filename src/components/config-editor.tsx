@@ -78,14 +78,16 @@ function useReferenceTags(document: JsonObject, outboundOwner?: string) {
 
 export function ConfigEditor({
   core,
+  name,
   revision,
   onDraftStatus,
 }: {
   core: Core;
+  name: string;
   revision: number;
   onDraftStatus: (status: SectionDraftStatus) => void;
 }) {
-  const { config: name, collections } = core;
+  const { collections } = core;
   const schema = useQuery({
     queryKey: ["singbox", "schema"],
     queryFn: api.singbox.schema,

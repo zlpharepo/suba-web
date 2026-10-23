@@ -43,11 +43,6 @@ export function SingboxPage() {
     refetchInterval: 3000,
   });
   const dead = status.data && !status.data.running ? died(status.data) : null;
-  const [sectionDraft, setSectionDraft] = useState<SectionDraftStatus>({
-    dirty: false,
-    saving: false,
-  });
-  const [sectionRevision, setSectionRevision] = useState(0);
 
   return (
     <>
@@ -66,34 +61,52 @@ export function SingboxPage() {
         }
       />
       {core.error && <ErrorNote error={core.error} />}
-      {core.data && (
-        <>
-          <div className="mb-6 flex flex-wrap items-center gap-2">
-            <VersionChip current={core.data.version} />
-            <ConfigChip
-              core={core.data}
-              section={sectionDraft}
-              onResetSection={() => setSectionRevision((revision) => revision + 1)}
-            />
-            <PrivilegesChip core={core.data} />
-            {core.data.note && (
-              <span className="text-xs text-warning">Restart to apply changes</span>
-            )}
-          </div>
-          {dead && <p className="mb-6 text-[13px] text-danger">{dead}</p>}
-          {core.data.version ? (
-            <ConfigEditor
-              key={core.data.config}
-              core={core.data}
-              revision={sectionRevision}
-              onDraftStatus={setSectionDraft}
-            />
-          ) : (
-            <NoVersion />
-          )}
-        </>
-      )}
+      {core.data && <ConfigurationWorkspace core={core.data} failure={dead ?? null} />}
       {core.isPending && <Skeleton className="h-96" />}
+    </>
+  );
+}
+
+function ConfigurationWorkspace({ core, failure }: { core: Core; failure: string | null }) {
+  // Editing is local to this page; runtime settings must keep their actual selection.
+  const [editing, setEditing] = useState(core.config);
+  const [sectionDraft, setSectionDraft] = useState<SectionDraftStatus>({
+    dirty: false,
+    saving: false,
+  });
+  const [sectionRevision, setSectionRevision] = useState(0);
+
+  return (
+    <>
+      <div className="mb-6 flex flex-wrap items-center gap-2">
+        <VersionChip current={core.version} />
+        <ConfigChip
+          core={core}
+          editing={editing}
+          onSelect={setEditing}
+          section={sectionDraft}
+          onResetSection={() => setSectionRevision((revision) => revision + 1)}
+        />
+        {editing !== core.config && (
+          <span className="text-xs text-fg-muted">
+            Start / Restart: <span className="font-mono">{core.config}</span>
+          </span>
+        )}
+        <PrivilegesChip core={core} />
+        {core.note && <span className="text-xs text-warning">Restart to apply changes</span>}
+      </div>
+      {failure && <p className="mb-6 text-[13px] text-danger">{failure}</p>}
+      {core.version ? (
+        <ConfigEditor
+          key={editing}
+          core={core}
+          name={editing}
+          revision={sectionRevision}
+          onDraftStatus={setSectionDraft}
+        />
+      ) : (
+        <NoVersion />
+      )}
     </>
   );
 }
@@ -454,10 +467,14 @@ function VersionRow({
 
 function ConfigChip({
   core,
+  editing,
+  onSelect,
   section,
   onResetSection,
 }: {
   core: Core;
+  editing: string;
+  onSelect: (name: string) => void;
   section: SectionDraftStatus;
   onResetSection: () => void;
 }) {
@@ -472,17 +489,23 @@ function ConfigChip({
           className={cx(buttonClass("secondary", "sm"), "rounded-r-none")}
         >
           <span className="text-fg-subtle">Config</span>
-          <span className="font-mono">{core.config}</span>
+          <span className="font-mono">{editing}</span>
           <ChevronDownIcon className="!size-3.5 text-fg-subtle" />
         </button>
         <FullConfigJson
-          key={core.config}
-          name={core.config}
+          key={editing}
+          name={editing}
           section={section}
           onResetSection={onResetSection}
         />
       </div>
-      <ConfigsDialog open={open} onOpenChange={setOpen} core={core} />
+      <ConfigsDialog
+        open={open}
+        onOpenChange={setOpen}
+        core={core}
+        editing={editing}
+        onSelect={onSelect}
+      />
     </>
   );
 }
@@ -494,10 +517,14 @@ function ConfigsDialog({
   open,
   onOpenChange,
   core,
+  editing,
+  onSelect,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   core: Core;
+  editing: string;
+  onSelect: (name: string) => void;
 }) {
   const queryClient = useQueryClient();
   const configs = useQuery({
@@ -521,13 +548,20 @@ function ConfigsDialog({
         privilege: core.privilege,
         collections: core.collections,
       }),
-    onSuccess: refresh,
+    onSuccess: (updated) => {
+      queryClient.setQueryData(["singbox"], updated);
+      onSelect(updated.config);
+      refresh();
+    },
     onError: (error) => toast.error(errorMessage(error)),
   });
 
   const remove = useMutation({
     mutationFn: (config: string) => api.singbox.deleteConfig(config),
-    onSuccess: refresh,
+    onSuccess: (_, name) => {
+      if (name === editing) onSelect(core.config);
+      refresh();
+    },
     onError: (error) => toast.error(errorMessage(error)),
   });
 
@@ -539,22 +573,27 @@ function ConfigsDialog({
       await api.singbox.createConfig(target.name, target.mode === "new" ? undefined : target.from);
       if (target.mode === "rename") {
         if (target.from === core.config) {
-          await api.singbox.choose({
+          const updated = await api.singbox.choose({
             version: core.version,
             config: target.name,
             privilege: core.privilege,
             collections: core.collections,
           });
+          queryClient.setQueryData(["singbox"], updated);
         }
         await api.singbox.deleteConfig(target.from);
       }
     },
-    onSuccess: () => {
+    onSuccess: (_, target) => {
+      if (target.mode === "rename" && target.from === editing) onSelect(target.name);
       setName("");
       setAction({ mode: "new" });
       refresh();
     },
-    onError: (error) => toast.error(errorMessage(error)),
+    onError: (error) => {
+      refresh();
+      toast.error(errorMessage(error));
+    },
   });
 
   const held = configs.data ?? [];
@@ -568,7 +607,7 @@ function ConfigsDialog({
       onOpenChange={onOpenChange}
       width="md"
       title="Configurations"
-      description="One runs at a time; the core keeps whatever it started with."
+      description="Select a name to edit. Use selects the configuration for the next Start or Restart."
     >
       <div className="grid gap-4">
         {configs.error && <ErrorNote error={configs.error} />}
@@ -583,11 +622,19 @@ function ConfigsDialog({
             <ConfigRow
               key={config.name}
               config={config}
+              editing={config.name === editing}
               busy={use.isPending || remove.isPending || submit.isPending}
-              onUse={() => {
-                if (confirmDiscard()) use.mutate(config.name);
+              onEdit={() => {
+                if (config.name !== editing && !confirmDiscard()) return;
+                onSelect(config.name);
+                onOpenChange(false);
               }}
-              onRemove={() => remove.mutate(config.name)}
+              onUse={() => {
+                if (config.name === editing || confirmDiscard()) use.mutate(config.name);
+              }}
+              onRemove={() => {
+                if (config.name !== editing || confirmDiscard()) remove.mutate(config.name);
+              }}
               onRename={() => {
                 setAction({ mode: "rename", from: config.name });
                 setName(config.name);
@@ -619,7 +666,7 @@ function ConfigsDialog({
               variant="primary"
               disabled={!name || submit.isPending || (action.mode !== "rename" && taken)}
               onClick={() => {
-                if (action.mode !== "rename" || action.from !== core.config || confirmDiscard()) {
+                if (action.mode !== "rename" || action.from !== editing || confirmDiscard()) {
                   submit.mutate({ ...action, name });
                 }
               }}
@@ -652,14 +699,18 @@ function ConfigsDialog({
 
 function ConfigRow({
   config,
+  editing,
   busy,
+  onEdit,
   onUse,
   onRename,
   onDuplicate,
   onRemove,
 }: {
   config: ConfigView;
+  editing: boolean;
   busy: boolean;
+  onEdit: () => void;
   onUse: () => void;
   onRename: () => void;
   onDuplicate: () => void;
@@ -669,13 +720,21 @@ function ConfigRow({
     <div
       className={cx(
         "flex items-center gap-3 rounded-md border px-3 py-2",
-        config.current ? "border-fg/20 bg-bg-subtle" : "border-border",
+        editing ? "border-fg/20 bg-bg-subtle" : "border-border",
       )}
     >
-      <span className="min-w-0 flex-1 truncate font-mono text-[13px] font-medium text-fg">
+      <button
+        type="button"
+        aria-label={`Edit ${config.name}`}
+        aria-current={editing || undefined}
+        disabled={busy}
+        onClick={onEdit}
+        className="min-w-0 flex-1 truncate rounded-sm text-left font-mono text-[13px] font-medium text-fg hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed"
+      >
         {config.name}
-      </span>
-      {config.current && <Badge tone="accent">in use</Badge>}
+      </button>
+      {editing && <Badge>Editing</Badge>}
+      {config.current && <Badge tone="accent">In Use</Badge>}
       {!config.current && (
         <Button size="sm" disabled={busy} onClick={onUse}>
           Use
