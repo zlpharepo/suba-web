@@ -46,8 +46,8 @@ import {
 } from "@/lib/sections";
 import {
   defaultFor,
+  hasEntryTag,
   isObject,
-  keysOf,
   SchemaTree,
   type JsonObject,
   type JsonSchema,
@@ -832,8 +832,11 @@ function EntryDialog({
   );
   const hide = hideFor(path);
   // An entry that is addressed by tag cannot be saved without one.
-  const needsTag = keysOf(tree, item).has("tag");
-  const tag = typeof entry.tag === "string" ? entry.tag : "";
+  const needsTag = hasEntryTag(tree, item);
+  const tagsOfEntry = Array.isArray(entry.tag) ? entry.tag : [entry.tag];
+  const validTag = tagsOfEntry.length > 0 &&
+    tagsOfEntry.every((tag) => typeof tag === "string" && tag.length > 0);
+  const tag = validTag ? tagsOfEntry.join(", ") : "";
   const title = tag
     ? tag
     : target.index === null
@@ -852,7 +855,7 @@ function EntryDialog({
           <Button onClick={onClose}>Cancel</Button>
           <Button
             variant="primary"
-            disabled={needsTag && !tag}
+            disabled={needsTag && !validTag}
             onClick={() => {
               onApply(entry);
               onClose();

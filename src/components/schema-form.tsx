@@ -23,11 +23,15 @@ import {
   keysOf,
   kindOf,
   looseSpellings,
+  mapKeyAllowed,
+  matchAnyOf,
   matchBranch,
   oneOrMany,
   ownProperties,
   patternHolds,
+  requiredKeys,
   scalarKind,
+  schemaFieldKind,
   switchBranch,
   type JsonObject,
   type JsonSchema,
@@ -112,19 +116,24 @@ function SchemaField({
   const { tree } = useForm();
   const node = tree.resolve(schema);
 
-  if (node.oneOf)
-    return <OneOfField schema={node} value={value} onChange={onChange} />;
-  if (node.allOf)
-    return <ObjectField schema={node} value={value} onChange={onChange} />;
-  if (node.anyOf)
-    return <AnyOfField schema={node} value={value} onChange={onChange} />;
-  if (node.type === "object")
-    return <ObjectField schema={node} value={value} onChange={onChange} />;
-  if (node.type === "array")
-    return <ArrayField schema={node} value={value} onChange={onChange} />;
-  if (scalarKind(tree, node))
-    return <ScalarField schema={node} value={value} onChange={onChange} />;
-  return <RawField value={value} onChange={onChange} />;
+  switch (schemaFieldKind(tree, node)) {
+    case "const":
+      return value === undefined || value === node.const ? (
+        <Input className="max-w-md font-mono" readOnly value={String(node.const)} />
+      ) : <RawField value={value} onChange={onChange} />;
+    case "oneOf":
+      return <OneOfField schema={node} value={value} onChange={onChange} />;
+    case "anyOf":
+      return <AnyOfField schema={node} value={value} onChange={onChange} />;
+    case "object":
+      return <ObjectField schema={node} value={value} onChange={onChange} />;
+    case "array":
+      return <ArrayField schema={node} value={value} onChange={onChange} />;
+    case "scalar":
+      return <ScalarField schema={node} value={value} onChange={onChange} />;
+    default:
+      return <RawField value={value} onChange={onChange} />;
+  }
 }
 
 function ScalarField({
@@ -158,21 +167,24 @@ function ScalarField({
   }
 
   if (kind === "enum") {
-    const options = (node.enum ?? [])
-      .filter((option) => option !== "")
-      .map((option) => String(option));
+    const options = (node.enum ?? []).map((option) => String(option));
     const held = value === undefined ? null : String(value);
     if (held !== null && !options.includes(held)) options.push(held);
+    // Select reserves "" for no selection, so option identities use indices.
     return (
       <Select
         className="max-w-72"
-        value={held}
+        value={held === null ? null : String(options.indexOf(held))}
         placeholder="Choose"
         onChange={(next) => {
-          const original = node.enum?.find((option) => String(option) === next);
-          onChange(original ?? next);
+          const selected = options[Number(next)];
+          const original = node.enum?.find((option) => String(option) === selected);
+          onChange(original ?? selected);
         }}
-        options={options.map((option) => ({ value: option, label: option }))}
+        options={options.map((option, index) => ({
+          value: String(index),
+          label: option === "" ? "Default (Empty)" : option,
+        }))}
       />
     );
   }
@@ -341,7 +353,7 @@ function AnyOfField({
 }) {
   const { tree } = useForm();
   const branches = schema.anyOf ?? [];
-  const [picked, setPicked] = useState(0);
+  const [picked, setPicked] = useState<number>();
 
   const single = oneOrMany(tree, schema);
   if (single && isInline(tree, single)) {
@@ -361,13 +373,13 @@ function AnyOfField({
     );
   }
 
-  // Any other union: pick the branch the value's JSON kind says it is in.
+  // Nested unions and byte-array-or-arrays need more than a top-level kind.
   const kinds = branches.map((branch) => branchKind(tree, branch));
-  const held = value === undefined ? -1 : kinds.indexOf(kindOf(value));
+  const held = value === undefined ? -1 : matchAnyOf(tree, branches, value, picked);
   if (value !== undefined && held === -1) {
     return <RawField value={value} onChange={onChange} />;
   }
-  const current = held === -1 ? picked : held;
+  const current = held === -1 ? picked ?? 0 : held;
 
   return (
     <div className="grid gap-2">
@@ -507,10 +519,7 @@ function ObjectField({
   const fields = Object.entries(properties).filter(
     ([key]) => !hidden.includes(key) && !unionKeys.has(key),
   );
-  const required = new Set([
-    ...(node.required ?? []),
-    ...(node.allOf ?? []).flatMap((part) => tree.resolve(part).required ?? []),
-  ]);
+  const required = requiredKeys(tree, node);
   const known = new Set([...Object.keys(properties), ...unionKeys, ...hidden]);
   const extra = Object.keys(object).filter((key) => !known.has(key));
 
@@ -526,7 +535,14 @@ function ObjectField({
       ? node.additionalProperties
       : null;
   if (additional) {
-    return <MapField schema={additional} value={object} onChange={onChange} />;
+    return (
+      <MapField
+        schema={additional}
+        keySchema={node.propertyNames}
+        value={object}
+        onChange={onChange}
+      />
+    );
   }
 
   // What is shown, and what waits behind a button. The tag is the entry's
@@ -554,7 +570,9 @@ function ObjectField({
   const add = (key: string) => {
     const field = properties[key];
     setShown([...shown, key]);
-    if (field && isCompound(tree, field)) set(key, defaultFor(tree, field));
+    if (field && object[key] === undefined && isCompound(tree, field)) {
+      set(key, defaultFor(tree, field));
+    }
   };
   const remove = (key: string) => {
     setShown(shown.filter((held) => held !== key));
@@ -630,7 +648,7 @@ function ObjectField({
         >
           <SchemaField
             schema={field}
-            value={object[key] ?? defaultFor(tree, field)}
+            value={object[key] === undefined ? defaultFor(tree, field) : object[key]}
             onChange={(next) => set(key, next)}
           />
         </Group>
@@ -805,14 +823,19 @@ function omit(object: JsonObject, keys: Set<string>): JsonObject {
 
 function MapField({
   schema,
+  keySchema,
   value,
   onChange,
 }: {
   schema: JsonSchema;
+  keySchema?: JsonSchema;
   value: JsonObject;
   onChange: Change;
 }) {
+  const { tree } = useForm();
   const [name, setName] = useState("");
+  const allowed = mapKeyAllowed(tree, keySchema, name);
+  const keyOptions = keySchema && tree.resolve(keySchema).enum;
   // A new key is written only once it holds something, so no empty value is saved.
   const [pending, setPending] = useState<string[]>([]);
   const keys = [
@@ -827,6 +850,9 @@ function MapField({
           key={key}
           name={key}
           label={key}
+          actions={!mapKeyAllowed(tree, keySchema, key) && (
+            <span className="text-xs text-danger">Invalid Key</span>
+          )}
           onRemove={() => {
             setPending(pending.filter((held) => held !== key));
             onChange(omit(value, new Set([key])));
@@ -850,18 +876,32 @@ function MapField({
         className="flex max-w-md gap-2"
         onSubmit={(event) => {
           event.preventDefault();
-          if (!name || keys.includes(name)) return;
+          if (!name || !allowed || keys.includes(name)) return;
           setPending([...pending, name]);
           setName("");
         }}
       >
-        <Input
-          className="font-mono"
-          placeholder="New key"
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-        />
-        <Button type="submit" size="md">
+        {keyOptions ? (
+          <Select
+            aria-label="New Key"
+            placeholder="New Key"
+            value={name || null}
+            onChange={setName}
+            options={keyOptions.map(String).filter((key) => !keys.includes(key)).map((key) => ({
+              value: key, label: key,
+            }))}
+          />
+        ) : (
+          <Input
+            aria-label="New Key"
+            aria-invalid={name !== "" && !allowed}
+            className="font-mono"
+            placeholder="New Key"
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+          />
+        )}
+        <Button type="submit" size="md" disabled={!name || !allowed || keys.includes(name)}>
           Add
         </Button>
       </form>

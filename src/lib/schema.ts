@@ -1,6 +1,6 @@
-// The sing-box schema as the form reads it. Only the keywords sing-box's own
-// schema uses are modelled (measured on 1.14.2); a node the form cannot read is
-// edited as raw JSON rather than guessed at.
+// Shapes and field hints from sing-box's schema, audited on 1.14.3.
+// Whole-document validation remains server-side; unknown shapes and values
+// that do not fit their schema stay editable as raw JSON rather than being lost.
 
 export interface JsonSchema {
   $ref?: string;
@@ -9,6 +9,7 @@ export interface JsonSchema {
   properties?: Record<string, JsonSchema>;
   required?: string[];
   additionalProperties?: boolean | JsonSchema;
+  propertyNames?: JsonSchema;
   items?: JsonSchema;
   enum?: unknown[];
   const?: unknown;
@@ -151,15 +152,70 @@ export function isCompound(tree: SchemaTree, node: JsonSchema): boolean {
   return false;
 }
 
-/** The JSON kind a union branch holds, to pick the branch a value is in. */
+/** A nested union can accept more than one JSON kind. */
 export function branchKind(tree: SchemaTree, node: JsonSchema): string {
   const resolved = tree.resolve(node);
   if (resolved.type)
     return resolved.type === "integer" ? "number" : resolved.type;
   if (resolved.enum) return kindOf(resolved.enum[0]);
   if ("const" in resolved) return kindOf(resolved.const);
+  if (resolved.anyOf) {
+    const kinds = resolved.anyOf.flatMap((part) => branchKind(tree, part).split(" / "));
+    return [...new Set(kinds)].join(" / ");
+  }
   if (resolved.oneOf || resolved.allOf || resolved.properties) return "object";
   return "unknown";
+}
+
+/** Structural selection only; the server still validates the complete document. */
+export function matchAnyOf(
+  tree: SchemaTree,
+  branches: JsonSchema[],
+  value: unknown,
+  preferred?: number,
+): number {
+  const matches = branches.map((branch) => matchesShape(tree, branch, value));
+  return preferred !== undefined && matches[preferred]
+    ? preferred : matches.indexOf(true);
+}
+
+function matchesShape(
+  tree: SchemaTree,
+  schema: JsonSchema,
+  value: unknown,
+  depth = 0,
+): boolean {
+  if (depth > 32) return false;
+  const node = tree.resolve(schema);
+  if ("const" in node) return value === node.const;
+  if (node.enum) return node.enum.includes(value);
+  if (node.anyOf) {
+    return node.anyOf.some((part) => matchesShape(tree, part, value, depth + 1));
+  }
+  if (node.oneOf) {
+    const choice = discriminate(tree, node.oneOf);
+    return isObject(value) && choice !== null && matchBranch(choice, value) !== -1;
+  }
+  if (node.allOf) {
+    return node.allOf.every((part) => matchesShape(tree, part, value, depth + 1));
+  }
+  if (node.type === "array") {
+    return Array.isArray(value) && value.every((item) =>
+      matchesShape(tree, node.items ?? {}, item, depth + 1),
+    );
+  }
+  return branchKind(tree, node) === kindOf(value);
+}
+
+/** One dispatch point keeps the full-schema coverage gate aligned with the UI. */
+export function schemaFieldKind(tree: SchemaTree, schema: JsonSchema) {
+  const node = tree.resolve(schema);
+  if ("const" in node) return "const";
+  if (node.oneOf) return "oneOf";
+  if (node.allOf) return "object";
+  if (node.anyOf) return "anyOf";
+  if (node.type === "object" || node.type === "array") return node.type;
+  return scalarKind(tree, node) ? "scalar" : "raw";
 }
 
 /**
@@ -180,6 +236,19 @@ export function patternHolds(
 
   const compiled = compilePattern(pattern);
   return compiled ? compiled.test(String(value)) : null;
+}
+
+/** Map keys follow propertyNames independently from the schema for their values. */
+export function mapKeyAllowed(
+  tree: SchemaTree,
+  schema: JsonSchema | undefined,
+  key: string,
+): boolean {
+  if (!schema) return true;
+  const node = tree.resolve(schema);
+  if ("const" in node && key !== node.const) return false;
+  if (node.enum && !node.enum.includes(key)) return false;
+  return patternHolds(node.pattern, key) !== false;
 }
 
 /** `u` is the flag the schema is written for; nothing compiles means no opinion. */
@@ -219,6 +288,15 @@ export function ownProperties(
   );
 }
 
+/** Only conjunctions make a property's presence mandatory for the whole object. */
+export function requiredKeys(tree: SchemaTree, node: JsonSchema): Set<string> {
+  const resolved = tree.resolve(node);
+  return new Set([
+    ...(resolved.required ?? []),
+    ...(resolved.allOf ?? []).flatMap((part) => [...requiredKeys(tree, part)]),
+  ]);
+}
+
 /** Every key a node can hold, through its compositions. */
 export function keysOf(
   tree: SchemaTree,
@@ -240,13 +318,22 @@ export function keysOf(
   return keys;
 }
 
+/** Nested action tags do not make an entire rule list tag-addressed. */
+export function hasEntryTag(tree: SchemaTree, item: JsonSchema): boolean {
+  return flatten(tree, [item]).every((branch) =>
+    Object.hasOwn(ownProperties(tree, branch), "tag"),
+  );
+}
+
 export interface Branch {
   schema: JsonSchema;
   label: string;
   /** The discriminator values this branch is chosen by. */
   values: JsonObject;
-  /** Discriminators this branch also answers to when absent (`"default"` or `""`). */
+  /** A const does not require presence; optional action="route" also accepts omission. */
   implicit: Set<string>;
+  /** Empty strings are aliases only when explicitly included in the discriminator enum. */
+  empty: Set<string>;
 }
 
 export interface Choice {
@@ -278,6 +365,8 @@ export function discriminate(
   const branches = schemas.map((schema, index) => {
     const values: JsonObject = {};
     const implicit = new Set<string>();
+    const empty = new Set<string>();
+    const required = requiredKeys(tree, schema);
     for (const key of keys) {
       const property = properties[index][key];
       if (!property) continue;
@@ -285,16 +374,17 @@ export function discriminate(
       if ("const" in resolved) {
         values[key] = resolved.const;
       } else if (resolved.enum?.includes("")) {
-        values[key] = resolved.enum.find((value) => value !== "");
-        implicit.add(key);
+        values[key] = resolved.enum.find((value) => value !== "") ?? "";
+        empty.add(key);
       }
+      if (Object.hasOwn(values, key) && !required.has(key)) implicit.add(key);
     }
     const label =
       keys
         .map((key) => values[key])
         .filter((value) => value !== undefined)
         .join(" ") || `option ${index + 1}`;
-    return { schema, label, values, implicit };
+    return { schema, label, values, implicit, empty };
   });
 
   return { keys, branches };
@@ -308,9 +398,8 @@ export function matchBranch(choice: Choice, value: unknown): number {
       const held = object[key];
       // Not a discriminator here: socks has its own `version`, snell fixes one.
       if (!(key in branch.values)) return true;
-      if (branch.implicit.has(key)) {
-        return held === undefined || held === "" || held === branch.values[key];
-      }
+      if (held === undefined) return branch.implicit.has(key);
+      if (held === "" && branch.empty.has(key)) return true;
       return held === branch.values[key];
     }),
   );
