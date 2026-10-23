@@ -12,11 +12,13 @@ export function Popover({
   children,
   align = "start",
   openOnHover,
+  label,
   className,
 }: {
   trigger: ReactElement;
   children: ReactNode;
   align?: "start" | "center" | "end";
+  label?: string;
   /** Opens the surface on hover as well as on a click. */
   openOnHover?: boolean;
   className?: string;
@@ -27,6 +29,7 @@ export function Popover({
       <BasePopover.Portal>
         <BasePopover.Positioner sideOffset={6} align={align} className="z-50">
           <BasePopover.Popup
+            aria-label={label}
             className={cx(surface, "max-w-[calc(100vw-1.5rem)] p-3", className)}
           >
             {children}

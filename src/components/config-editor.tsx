@@ -747,6 +747,7 @@ function CardList({
   onEdit: (index: number) => void;
   onRemove: (index: number) => void;
 }) {
+  const collectionContext = useContext(CollectionBindings);
   // A list whose entries carry no tag is shown as what it is — JSON — because
   // there is no name to put on a card.
   const titled = entries.every((entry) => typeof entry.tag === "string");
@@ -773,6 +774,7 @@ function CardList({
               entry={entry}
               index={index}
               titled={titled}
+              collectionContext={path === "outbounds" ? collectionContext : undefined}
               onOpen={() => onEdit(index)}
               actions={
                 <Confirm
