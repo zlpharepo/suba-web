@@ -1,17 +1,67 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { Autocomplete } from "@base-ui/react/autocomplete";
 import { Combobox } from "@base-ui/react/combobox";
-import { CheckIcon, ChevronDownIcon, PlusIcon, XIcon } from "lucide-react";
+import { CheckIcon, ChevronDownIcon, LockKeyholeIcon, PlusIcon, XIcon } from "lucide-react";
 
+import { editableTagSelection } from "@/lib/collection-bindings";
 import { cx } from "@/lib/cx";
 import { humanize } from "@/lib/humanize";
 import { appendReferenceTags, tagChoices } from "@/lib/references";
 import { controlClass } from "@/ui/input";
 
-const popupClass = "w-(--anchor-width) max-w-[calc(100vw-2rem)] overflow-hidden rounded-lg border border-border bg-bg shadow-popover outline-none";
-const listClass = "max-h-[min(16rem,var(--available-height))] overflow-y-auto p-1";
+const popupClass = "flex max-h-[min(28rem,var(--available-height))] w-(--anchor-width) max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-lg border border-border bg-bg shadow-popover outline-none";
+const listClass = "min-h-0 flex-1 overflow-y-auto overscroll-contain p-1";
 const itemClass = "flex cursor-default items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-fg outline-none data-highlighted:bg-bg-muted";
 const iconClass = "flex size-6 shrink-0 items-center justify-center rounded-sm text-fg-subtle outline-none hover:bg-bg-muted hover:text-fg focus-visible:ring-2 focus-visible:ring-accent/40";
+
+function useTagPopup(
+  anchor: RefObject<HTMLDivElement | null>,
+  popup: RefObject<HTMLDivElement | null>,
+  resetQuery: () => void,
+) {
+  const [position, setPosition] = useState<{
+    contextElement: HTMLDivElement;
+    getBoundingClientRect: () => DOMRect;
+  } | null>(null);
+  const onOpenChange = (open: boolean) => {
+    if (!open) {
+      setPosition(null);
+    } else if (!position && anchor.current) {
+      const rect = anchor.current.getBoundingClientRect();
+      // Selecting tags grows the field; it must not move the options under the pointer.
+      setPosition({ contextElement: anchor.current, getBoundingClientRect: () => rect });
+    }
+  };
+
+  useEffect(() => {
+    if (!position) return;
+    // Scroll anchoring and focus can scroll the form when chips grow. Only an
+    // outside scroll gesture dismisses the picker, not those layout adjustments.
+    const outsideScroll = (event: Event) => {
+      if (event.target instanceof Node && !popup.current?.contains(event.target)) {
+        setPosition(null);
+        resetQuery();
+      }
+    };
+    const resize = () => {
+      if (!anchor.current) return setPosition(null);
+      const rect = anchor.current.getBoundingClientRect();
+      setPosition({ contextElement: anchor.current, getBoundingClientRect: () => rect });
+    };
+    document.addEventListener("wheel", outsideScroll, { capture: true, passive: true });
+    document.addEventListener("touchmove", outsideScroll, { capture: true, passive: true });
+    window.addEventListener("resize", resize);
+    window.visualViewport?.addEventListener("resize", resize);
+    return () => {
+      document.removeEventListener("wheel", outsideScroll, true);
+      document.removeEventListener("touchmove", outsideScroll, true);
+      window.removeEventListener("resize", resize);
+      window.visualViewport?.removeEventListener("resize", resize);
+    };
+  }, [anchor, popup, position, resetQuery]);
+
+  return { open: position !== null, anchor: position, onOpenChange };
+}
 
 interface TagProps {
   space: string;
@@ -32,12 +82,15 @@ export function TagInput({
   const anchor = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState<string | null>(null);
+  const popupRef = useRef<HTMLDivElement>(null);
+  const popup = useTagPopup(anchor, popupRef, () => setQuery(null));
   const choices = tagChoices(options);
   const matches = tagChoices(choices, query ?? "");
   const label = `${humanize(space)} Tag`;
 
   return (
     <Autocomplete.Root
+      open={popup.open}
       items={choices}
       filteredItems={matches}
       value={value}
@@ -52,6 +105,7 @@ export function TagInput({
         onChange(next);
       }}
       onOpenChange={(open, details) => {
+        popup.onOpenChange(open);
         if (!open || details.reason !== "input-change") setQuery(null);
       }}
       openOnInputClick
@@ -85,9 +139,9 @@ export function TagInput({
         </div>
       </div>
       <Autocomplete.Portal>
-        <Autocomplete.Positioner anchor={anchor} sideOffset={5} className="z-50">
-          <Autocomplete.Popup className={popupClass}>
-            <div className="flex items-center justify-between border-b border-border px-3 py-2 text-xs text-fg-subtle">
+        <Autocomplete.Positioner anchor={popup.anchor} positionMethod="fixed" align="start" sideOffset={5} className="z-50">
+          <Autocomplete.Popup ref={popupRef} className={popupClass}>
+            <div className="flex shrink-0 items-center justify-between border-b border-border px-3 py-2 text-xs text-fg-subtle">
               <span>{humanize(space)}</span>
               <span className="tabular-nums">{matches.length}</span>
             </div>
@@ -117,26 +171,35 @@ export function TagMultiInput({
   values,
   invalid,
   onChange,
+  lockedValues = [],
+  beforeOptions,
 }: TagProps & {
   values: string[];
   onChange: (values: string[]) => void;
+  lockedValues?: string[];
+  beforeOptions?: (query: string) => ReactNode;
 }) {
   const anchor = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
-  const choices = tagChoices(options);
+  const popupRef = useRef<HTMLDivElement>(null);
+  const popup = useTagPopup(anchor, popupRef, () => setQuery(""));
+  const selected = [...values, ...lockedValues.filter((tag) => !values.includes(tag))];
+  const commit = (next: string[]) => onChange(editableTagSelection(values, next, lockedValues));
+  const choices = tagChoices([...options, ...lockedValues]);
   const matches = tagChoices(choices, query);
-  const custom = query.trim() !== "" && !choices.includes(query) && !values.includes(query);
+  const custom = query.trim() !== "" && !choices.includes(query) && !selected.includes(query);
   const items = custom ? [...choices, query] : choices;
   const filtered = custom ? [...matches, query] : matches;
   const label = `${humanize(space)} Tags`;
 
   return (
     <Combobox.Root
+      open={popup.open}
       multiple
       items={items}
       filteredItems={filtered}
-      value={values}
+      value={selected}
       inputValue={query}
       onValueChange={(next, details) => {
         if (details.reason === "escape-key") {
@@ -144,14 +207,22 @@ export function TagMultiInput({
           details.allowPropagation();
           return;
         }
-        onChange(next);
+        commit(next);
         if (custom && next.includes(query)) setQuery("");
       }}
       onInputValueChange={(next, details) => {
         // Keep the filter when checking several matches in the same popup.
         if (details.reason === "input-change") setQuery(next);
       }}
-      onOpenChange={(open) => { if (!open) setQuery(""); }}
+      onOpenChange={(open, details) => {
+        // A filtered multi-selection is still in progress after one match is chosen.
+        if (!open && details.reason === "item-press") {
+          details.cancel();
+          return;
+        }
+        popup.onOpenChange(open);
+        if (!open) setQuery("");
+      }}
     >
       <div
         ref={anchor}
@@ -159,25 +230,38 @@ export function TagMultiInput({
         className={cx(controlClass, "flex min-h-9 w-full max-w-md items-start gap-1 py-1 pr-1 focus-within:border-accent focus-within:ring-3 focus-within:ring-accent/15")}
       >
         <Combobox.Chips className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
-          {values.map((tag, index) => (
+          {selected.map((tag, index) => (
             <Combobox.Chip
               key={`${index}:${tag}`}
+              aria-disabled={lockedValues.includes(tag) || undefined}
+              onKeyDown={(event) => {
+                if (lockedValues.includes(tag) && (event.key === "Backspace" || event.key === "Delete")) {
+                  event.preventDefault();
+                  event.preventBaseUIHandler();
+                }
+              }}
               className="inline-flex max-w-full items-center gap-1 rounded-md bg-bg-muted py-0.5 pr-0.5 pl-2 text-xs text-fg outline-none focus:ring-2 focus:ring-accent/40"
             >
               <span className="min-w-0 truncate font-mono" title={tag}>{tag || "(Empty)"}</span>
-              <Combobox.ChipRemove
-                aria-label={`Remove ${tag || "Empty Tag"}`}
-                className="flex size-5 shrink-0 items-center justify-center rounded-sm text-fg-subtle hover:bg-bg-emphasis hover:text-fg"
-              >
-                <XIcon className="size-3" />
-              </Combobox.ChipRemove>
+              {lockedValues.includes(tag) ? (
+                <span className="flex size-5 items-center justify-center text-fg-subtle" aria-label="From Collection" title="Managed by collection binding">
+                  <LockKeyholeIcon className="size-3" />
+                </span>
+              ) : (
+                <Combobox.ChipRemove
+                  aria-label={`Remove ${tag || "Empty Tag"}`}
+                  className="flex size-5 shrink-0 items-center justify-center rounded-sm text-fg-subtle hover:bg-bg-emphasis hover:text-fg"
+                >
+                  <XIcon className="size-3" />
+                </Combobox.ChipRemove>
+              )}
             </Combobox.Chip>
           ))}
           <Combobox.Input
             ref={input}
             aria-label={label}
             aria-invalid={invalid}
-            placeholder={values.length ? "Add Tag…" : "Select or Enter Tags"}
+            placeholder={selected.length ? "Add Tag…" : "Select or Enter Tags"}
             className="h-6 min-w-24 flex-1 bg-transparent text-[13px] text-fg outline-none placeholder:text-fg-subtle"
             onKeyDown={(event) => {
               if (event.key !== "Enter") return;
@@ -188,19 +272,19 @@ export function TagMultiInput({
               if (event.currentTarget.getAttribute("aria-activedescendant") || !query.trim()) return;
               event.preventDefault();
               event.preventBaseUIHandler();
-              onChange(appendReferenceTags(values, [query]));
+              commit(appendReferenceTags(selected, [query]));
               setQuery("");
             }}
           />
         </Combobox.Chips>
         <div className="flex shrink-0 items-center">
-          {values.length > 0 && (
+          {values.some((tag) => !lockedValues.includes(tag)) && (
             <button
               type="button"
               aria-label={`Clear ${label}`}
               className={iconClass}
               onClick={() => {
-                onChange([]);
+                commit([]);
                 setQuery("");
                 input.current?.focus();
               }}
@@ -214,16 +298,17 @@ export function TagMultiInput({
         </div>
       </div>
       <Combobox.Portal>
-        <Combobox.Positioner anchor={anchor} sideOffset={5} className="z-50">
-          <Combobox.Popup className={popupClass}>
-            <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2 text-xs text-fg-subtle">
-              <span className="tabular-nums">{values.length} Selected</span>
+        <Combobox.Positioner anchor={popup.anchor} positionMethod="fixed" align="start" sideOffset={5} className="z-50">
+          <Combobox.Popup ref={popupRef} className={popupClass}>
+            {beforeOptions?.(query)}
+            <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-3 py-2 text-xs text-fg-subtle">
+              <span className="tabular-nums">{selected.length} Selected</span>
               <button
                 type="button"
-                disabled={!matches.length || matches.every((tag) => values.includes(tag))}
+                disabled={!matches.length || matches.every((tag) => selected.includes(tag))}
                 className="rounded-sm text-fg outline-none hover:underline focus-visible:ring-2 focus-visible:ring-accent/40 disabled:text-fg-subtle disabled:no-underline disabled:opacity-50"
                 onClick={() => {
-                  onChange(appendReferenceTags(values, matches));
+                  commit(appendReferenceTags(selected, matches));
                   input.current?.focus();
                 }}
               >
@@ -235,13 +320,14 @@ export function TagMultiInput({
             </Combobox.Empty>
             <Combobox.List className={listClass}>
               {(tag: string) => (
-                <Combobox.Item key={tag} value={tag} className={itemClass}>
+                <Combobox.Item key={tag} value={tag} disabled={lockedValues.includes(tag)} className={cx(itemClass, "data-disabled:opacity-60")}>
                   {custom && tag === query ? <PlusIcon className="size-4 shrink-0 text-fg-subtle" /> : (
                     <span className="flex size-4 shrink-0 items-center justify-center rounded border border-border-strong">
                       <Combobox.ItemIndicator><CheckIcon className="size-3" /></Combobox.ItemIndicator>
                     </span>
                   )}
                   <span className="min-w-0 flex-1 truncate font-mono" title={tag}>{tag}</span>
+                  {lockedValues.includes(tag) && <LockKeyholeIcon aria-label="From Collection" className="size-3 text-fg-subtle" />}
                   {custom && tag === query && <span className="text-xs text-fg-subtle">Add</span>}
                 </Combobox.Item>
               )}

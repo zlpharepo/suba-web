@@ -9,7 +9,15 @@ import {
 import { ChevronRightIcon, PlusIcon, SearchIcon, XIcon } from "lucide-react";
 
 import { FieldGenerator } from "@/components/field-generator";
+import { OutboundMembers } from "@/components/outbound-members";
 import { TagInput, TagMultiInput } from "@/components/tag-input";
+import {
+  COLLECTION_BINDINGS,
+  collectionBindings,
+  supportsCollectionBindings,
+  withCollectionBindings,
+  type CollectionBindingContext,
+} from "@/lib/collection-bindings";
 import { cx } from "@/lib/cx";
 import { fieldGeneration } from "@/lib/generate";
 import { tagField, tagSelectionValue } from "@/lib/references";
@@ -62,6 +70,7 @@ interface FormContext {
    */
   compact?: boolean;
   generation?: JsonObject;
+  binding?: CollectionBindingContext & { root: JsonObject };
 }
 
 const Context = createContext<FormContext | null>(null);
@@ -81,11 +90,13 @@ export function SchemaForm({
   group,
   compact,
   generate,
+  collectionContext,
   schema,
   value,
   onChange,
-}: Omit<FormContext, "generation"> & {
+}: Omit<FormContext, "generation" | "binding"> & {
   generate?: boolean;
+  collectionContext?: CollectionBindingContext;
   schema: JsonSchema;
   value: unknown;
   onChange: Change;
@@ -98,6 +109,7 @@ export function SchemaForm({
         group,
         compact,
         generation: generate && isObject(value) ? value : undefined,
+        binding: collectionContext && isObject(value) ? { ...collectionContext, root: value } : undefined,
       }}
     >
       <SchemaField schema={schema} value={value} onChange={onChange} />
@@ -453,7 +465,7 @@ function OneOfField({
   value: unknown;
   onChange: Change;
 }) {
-  const { tree } = useForm();
+  const { tree, binding } = useForm();
   const choice = discriminate(tree, schema.oneOf ?? []);
   if (!choice || (value !== undefined && !isObject(value))) {
     return <RawField value={value} onChange={onChange} />;
@@ -476,11 +488,11 @@ function OneOfField({
           className="max-w-72"
           value={index === -1 ? null : String(index)}
           placeholder="Choose"
-          onChange={(next) =>
-            onChange(
-              switchBranch(tree, value, branch, choice.branches[Number(next)]),
-            )
-          }
+          onChange={(next) => {
+            const switched = switchBranch(tree, value, branch, choice.branches[Number(next)]);
+            onChange(binding?.root === value && !supportsCollectionBindings(switched)
+              ? withCollectionBindings(switched, []) : switched);
+          }}
           options={choice.branches.map((option, at) => ({
             value: String(at),
             label: option.label,
@@ -510,7 +522,7 @@ function ObjectField({
   onChange: Change;
   hidden?: string[];
 }) {
-  const { tree, group, compact, generation } = useForm();
+  const { tree, group, compact, generation, binding, tags } = useForm();
   const node = tree.resolve(schema);
   // Fields added this session stay visible while empty, so typing can start.
   const [shown, setShown] = useState<string[]>([]);
@@ -518,6 +530,9 @@ function ObjectField({
     return <RawField value={value} onChange={onChange} />;
   }
   const object: JsonObject = value ?? {};
+  const boundMembers = binding?.root === object && supportsCollectionBindings(object);
+  const validMembers = object.outbounds === undefined ||
+    (Array.isArray(object.outbounds) && object.outbounds.every((tag) => typeof tag === "string"));
 
   // A rule's action is an `allOf` part that is itself a `oneOf`.
   const unions = (node.allOf ?? [])
@@ -531,6 +546,7 @@ function ObjectField({
   );
   const required = requiredKeys(tree, node);
   const known = new Set([...Object.keys(properties), ...unionKeys, ...hidden]);
+  if (boundMembers && collectionBindings(object) !== null) known.add(COLLECTION_BINDINGS);
   const extra = Object.keys(object).filter((key) => !known.has(key));
 
   const set = (key: string, next: unknown) => {
@@ -619,11 +635,20 @@ function ObjectField({
                   : () => remove(key)
               }
             >
-              <SchemaField
-                schema={field}
-                value={object[key]}
-                onChange={(next) => set(key, next)}
-              />
+              {key === "outbounds" && boundMembers && binding && validMembers ? (
+                <OutboundMembers
+                  entry={object}
+                  context={binding}
+                  options={tags.outbound ?? []}
+                  onChange={onChange}
+                />
+              ) : (
+                <SchemaField
+                  schema={field}
+                  value={object[key]}
+                  onChange={(next) => set(key, next)}
+                />
+              )}
             </FieldRow>
           ))}
         </div>

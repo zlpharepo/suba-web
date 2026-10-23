@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { BracesIcon } from "lucide-react";
 
+import { collectionBindings, supportsCollectionBindings } from "@/lib/collection-bindings";
 import type { JsonObject } from "@/lib/schema";
 import { summarize } from "@/lib/sections";
 import { Badge } from "@/ui/misc";
@@ -19,6 +20,10 @@ export function ConfigEntryCard({
   details?: ReactNode;
   actions?: ReactNode;
 }) {
+  const bindings = supportsCollectionBindings(entry) ? collectionBindings(entry) : [];
+  const summary = bindings?.length
+    ? `${Array.isArray(entry.outbounds) ? entry.outbounds.length : 0} manual tags · ${bindings.length} collections`
+    : summarize(entry);
   return (
     <div className="group flex min-w-0 items-start gap-2 rounded-lg border border-border bg-bg px-3 py-2.5 transition-colors hover:border-border-strong hover:bg-bg-subtle">
       <button
@@ -35,7 +40,7 @@ export function ConfigEntryCard({
               {typeof entry.type === "string" && <Badge mono>{entry.type}</Badge>}
             </span>
             <span className="truncate font-mono text-xs text-fg-subtle">
-              {summarize(entry)}
+              {summary}
             </span>
           </>
         ) : (

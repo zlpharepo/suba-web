@@ -33,6 +33,7 @@ import { ConfigEntryCard } from "@/components/config-entry-card";
 import { Generator } from "@/components/generator";
 import { RawField, SchemaForm } from "@/components/schema-form";
 import { ApiError, api, errorMessage } from "@/lib/api";
+import type { CollectionBindingContext } from "@/lib/collection-bindings";
 import { configKey } from "@/lib/config-json";
 import { cx } from "@/lib/cx";
 import { humanize } from "@/lib/humanize";
@@ -66,6 +67,7 @@ export interface SectionDraftStatus {
 const DraftStatus = createContext<((status: SectionDraftStatus) => void) | null>(null);
 const EMPTY_CATALOG: Tag[] = [];
 const ReferenceCatalog = createContext<Tag[]>(EMPTY_CATALOG);
+const CollectionBindings = createContext<CollectionBindingContext | undefined>(undefined);
 
 function useReferenceTags(document: JsonObject, outboundOwner?: string) {
   const catalog = useContext(ReferenceCatalog);
@@ -186,16 +188,18 @@ export function ConfigEditor({
           </div>
         )}
         <ReferenceCatalog.Provider value={catalog}>
-          <DraftStatus.Provider value={onDraftStatus}>
-            <Section
-              // Full JSON refreshes the saved document; an old form must not write it back.
-              key={`${name}:${section}:${revision}`}
-              config={name}
-              tree={tree}
-              name={section}
-              document={config.data}
-            />
-          </DraftStatus.Provider>
+          <CollectionBindings.Provider value={{ selected: collections, catalog, pending: references.isPending, failed: references.isError }}>
+            <DraftStatus.Provider value={onDraftStatus}>
+              <Section
+                // Full JSON refreshes the saved document; an old form must not write it back.
+                key={`${name}:${section}:${revision}`}
+                config={name}
+                tree={tree}
+                name={section}
+                document={config.data}
+              />
+            </DraftStatus.Provider>
+          </CollectionBindings.Provider>
         </ReferenceCatalog.Provider>
       </div>
     </div>
@@ -809,6 +813,7 @@ function EntryDialog({
   onClose: () => void;
   onApply: (entry: JsonObject) => void;
 }) {
+  const collectionContext = useContext(CollectionBindings);
   const seed = target.index === null ? undefined : entries[target.index];
   // A new entry starts on the first branch its schema offers. An empty object
   // names no branch, and a union the form cannot place is edited as JSON —
@@ -880,6 +885,7 @@ function EntryDialog({
         ) : (
           <SchemaForm
             generate
+            collectionContext={path === "outbounds" ? collectionContext : undefined}
             tree={tree}
             tags={tags}
             group={groupOf(tree, item, hide)}
