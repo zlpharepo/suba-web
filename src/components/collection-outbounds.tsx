@@ -16,6 +16,7 @@ import { Checkbox } from "@/ui/toggle";
 export function CollectionOutbounds({
   core,
   entries,
+  indexOffset,
   loading,
   refreshing,
   failed,
@@ -23,6 +24,8 @@ export function CollectionOutbounds({
 }: {
   core: Core;
   entries: Tag[];
+  /** Runtime assembly appends these after the saved document's outbounds. */
+  indexOffset: number;
   loading: boolean;
   refreshing: boolean;
   failed: boolean;
@@ -125,10 +128,11 @@ export function CollectionOutbounds({
         />
       ) : (
         <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-          {entries.map((entry) => (
+          {entries.map((entry, index) => (
             <ConfigEntryCard
               key={entry.path}
               entry={entry.value}
+              index={indexOffset + index}
               onOpen={() => setSelected({ path: entry.path, tag: entry.tag })}
               details={
                 <span className="min-w-0 text-xs break-all text-fg-subtle">

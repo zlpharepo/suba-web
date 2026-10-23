@@ -172,6 +172,7 @@ export function ConfigEditor({
           <CollectionOutbounds
             core={core}
             entries={generated}
+            indexOffset={Array.isArray(config.data.value.outbounds) ? config.data.value.outbounds.length : 0}
             loading={references.isPending}
             refreshing={references.isFetching}
             failed={references.isError}
@@ -770,6 +771,7 @@ function CardList({
             <ConfigEntryCard
               key={index}
               entry={entry}
+              index={index}
               titled={titled}
               onOpen={() => onEdit(index)}
               actions={
@@ -779,7 +781,7 @@ function CardList({
                       <Trash2Icon />
                     </IconButton>
                   }
-                  title={`Remove ${title} ${index + 1}?`}
+                  title={`Remove ${title} [${index}]?`}
                   description="It goes when the section is saved."
                   confirmLabel="Remove"
                   onConfirm={() => onRemove(index)}
@@ -846,7 +848,7 @@ function EntryDialog({
     ? tag
     : target.index === null
       ? `New ${noun(path)}`
-      : `${noun(path)} ${target.index + 1}`;
+      : `${noun(path)} [${target.index}]`;
 
   return (
     <Dialog

@@ -8,6 +8,7 @@ import {
 } from "react";
 import { ChevronRightIcon, PlusIcon, SearchIcon, XIcon } from "lucide-react";
 
+import { ArrayIndex } from "@/components/config-array-index";
 import { FieldGenerator } from "@/components/field-generator";
 import { OutboundMembers } from "@/components/outbound-members";
 import { TagInput, TagMultiInput } from "@/components/tag-input";
@@ -979,7 +980,8 @@ function ArrayField({
         <Group
           key={index}
           name={String(index)}
-          title={entryLabel(entry, index)}
+          index={index}
+          title={entryLabel(entry)}
           onRemove={() => commit(entries.filter((_, at) => at !== index))}
         >
           <SchemaField
@@ -998,7 +1000,7 @@ function ArrayField({
   );
 }
 
-function entryLabel(entry: unknown, index: number): string {
+function entryLabel(entry: unknown): string {
   if (isObject(entry)) {
     const tag = typeof entry.tag === "string" ? entry.tag : undefined;
     const type = typeof entry.type === "string" ? entry.type : undefined;
@@ -1006,7 +1008,7 @@ function entryLabel(entry: unknown, index: number): string {
     const label = [tag, type ?? action].filter(Boolean).join(" · ");
     if (label) return label;
   }
-  return `Item ${index + 1}`;
+  return "Item";
 }
 
 /** JSON text for anything the form does not render; applied only when it parses. */
@@ -1098,6 +1100,7 @@ function FieldRow({
 function Group({
   title,
   name,
+  index,
   required,
   startOpen = true,
   onRemove,
@@ -1105,6 +1108,7 @@ function Group({
 }: {
   title: string;
   name: string;
+  index?: number;
   required?: boolean;
   startOpen?: boolean;
   onRemove?: () => void;
@@ -1127,6 +1131,7 @@ function Group({
               open && "rotate-90",
             )}
           />
+          {index !== undefined && <ArrayIndex index={index} />}
           <span className="truncate text-[13px] font-medium text-fg">
             {title}
           </span>

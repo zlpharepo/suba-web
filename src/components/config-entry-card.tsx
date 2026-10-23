@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { BracesIcon } from "lucide-react";
 
+import { ArrayIndex } from "@/components/config-array-index";
 import { collectionBindings, supportsCollectionBindings } from "@/lib/collection-bindings";
 import type { JsonObject } from "@/lib/schema";
 import { summarize } from "@/lib/sections";
@@ -9,12 +10,14 @@ import { Popover } from "@/ui/popover";
 
 export function ConfigEntryCard({
   entry,
+  index,
   titled = true,
   onOpen,
   details,
   actions,
 }: {
   entry: JsonObject;
+  index: number;
   titled?: boolean;
   onOpen: () => void;
   details?: ReactNode;
@@ -29,26 +32,29 @@ export function ConfigEntryCard({
       <button
         type="button"
         onClick={onOpen}
-        className="grid min-w-0 flex-1 gap-1 text-left"
+        className="flex min-w-0 flex-1 items-start gap-2 text-left"
       >
-        {titled ? (
-          <>
-            <span className="flex min-w-0 items-center gap-2">
-              <span className="truncate font-mono text-[13px] font-medium text-fg">
-                {String(entry.tag)}
+        <ArrayIndex index={index} />
+        <span className="grid min-w-0 flex-1 gap-1">
+          {titled ? (
+            <>
+              <span className="flex min-w-0 items-center gap-2">
+                <span className="truncate font-mono text-[13px] font-medium text-fg">
+                  {String(entry.tag)}
+                </span>
+                {typeof entry.type === "string" && <Badge mono>{entry.type}</Badge>}
               </span>
-              {typeof entry.type === "string" && <Badge mono>{entry.type}</Badge>}
-            </span>
-            <span className="truncate font-mono text-xs text-fg-subtle">
-              {summary}
-            </span>
-          </>
-        ) : (
-          <code className="line-clamp-2 font-mono text-xs break-all text-fg-muted">
-            {JSON.stringify(entry)}
-          </code>
-        )}
-        {details}
+              <span className="truncate font-mono text-xs text-fg-subtle">
+                {summary}
+              </span>
+            </>
+          ) : (
+            <code className="line-clamp-2 font-mono text-xs break-all text-fg-muted">
+              {JSON.stringify(entry)}
+            </code>
+          )}
+          {details}
+        </span>
       </button>
       <div className="flex shrink-0 items-center opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 max-sm:opacity-100">
         <Popover
