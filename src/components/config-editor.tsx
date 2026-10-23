@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 
 import { CollectionOutbounds } from "@/components/collection-outbounds";
+import { ConfigEntryCard } from "@/components/config-entry-card";
 import { Generator } from "@/components/generator";
 import { RawField, SchemaForm } from "@/components/schema-form";
 import { ApiError, api, errorMessage } from "@/lib/api";
@@ -41,7 +42,6 @@ import {
   groupOf,
   hideFor,
   isTaggedEntries,
-  summarize,
   type ArrayProperty,
 } from "@/lib/sections";
 import {
@@ -52,12 +52,11 @@ import {
   type JsonObject,
   type JsonSchema,
 } from "@/lib/schema";
-import type { Tag, Versioned } from "@/lib/types";
+import type { Core, Tag, Versioned } from "@/lib/types";
 import { Button, IconButton } from "@/ui/button";
 import { Confirm, Dialog } from "@/ui/dialog";
-import { Badge, Empty, ErrorNote, Skeleton } from "@/ui/misc";
+import { Empty, ErrorNote, Skeleton } from "@/ui/misc";
 import { toast } from "@/ui/notify";
-import { Popover } from "@/ui/popover";
 
 export interface SectionDraftStatus {
   dirty: boolean;
@@ -77,16 +76,15 @@ function useReferenceTags(document: JsonObject, outboundOwner?: string) {
 }
 
 export function ConfigEditor({
-  name,
-  collections,
+  core,
   revision,
   onDraftStatus,
 }: {
-  name: string;
-  collections: string[];
+  core: Core;
   revision: number;
   onDraftStatus: (status: SectionDraftStatus) => void;
 }) {
+  const { config: name, collections } = core;
   const schema = useQuery({
     queryKey: ["singbox", "schema"],
     queryFn: api.singbox.schema,
@@ -168,8 +166,9 @@ export function ConfigEditor({
         })}
       </nav>
       <div className="min-w-0">
-        {section === "outbounds" && collections.length > 0 ? (
+        {section === "outbounds" ? (
           <CollectionOutbounds
+            core={core}
             entries={generated}
             loading={references.isPending}
             refreshing={references.isFetching}
@@ -442,30 +441,6 @@ function singular(name: string): string {
 /** The name a list of entries is announced by, from its path in the document. */
 function noun(path: string): string {
   return humanize(singular(path.split(".").pop() ?? path));
-}
-
-/** The JSON of anything, on hover or on a click. */
-function JsonPeek({ value }: { value: unknown }) {
-  return (
-    <Popover
-      openOnHover
-      align="end"
-      className="w-136 p-3"
-      trigger={
-        <button
-          type="button"
-          aria-label="Show JSON"
-          className="rounded-sm p-1 text-fg-subtle transition-colors hover:bg-bg-muted hover:text-fg"
-        >
-          <BracesIcon className="size-3.5" />
-        </button>
-      }
-    >
-      <pre className="max-h-80 overflow-y-auto font-mono text-xs break-all whitespace-pre-wrap text-fg">
-        {JSON.stringify(value, null, 2)}
-      </pre>
-    </Popover>
-  );
 }
 
 /* ------------------------------------------------------------------ forms */
@@ -788,37 +763,12 @@ function CardList({
       ) : (
         <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
           {entries.map((entry, index) => (
-            <div
+            <ConfigEntryCard
               key={index}
-              className="group flex items-start gap-2 rounded-lg border border-border bg-bg px-3 py-2.5 transition-colors hover:border-border-strong hover:bg-bg-subtle"
-            >
-              <button
-                type="button"
-                onClick={() => onEdit(index)}
-                className="grid min-w-0 flex-1 gap-1 text-left"
-              >
-                {titled ? (
-                  <>
-                    <span className="flex min-w-0 items-center gap-2">
-                      <span className="truncate font-mono text-[13px] font-medium text-fg">
-                        {String(entry.tag)}
-                      </span>
-                      {typeof entry.type === "string" && (
-                        <Badge mono>{entry.type}</Badge>
-                      )}
-                    </span>
-                    <span className="truncate font-mono text-xs text-fg-subtle">
-                      {summarize(entry)}
-                    </span>
-                  </>
-                ) : (
-                  <code className="line-clamp-2 font-mono text-xs break-all text-fg-muted">
-                    {JSON.stringify(entry)}
-                  </code>
-                )}
-              </button>
-              <div className="flex shrink-0 items-center opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 max-sm:opacity-100">
-                <JsonPeek value={entry} />
+              entry={entry}
+              titled={titled}
+              onOpen={() => onEdit(index)}
+              actions={
                 <Confirm
                   trigger={
                     <IconButton label="Remove" size="sm">
@@ -830,8 +780,8 @@ function CardList({
                   confirmLabel="Remove"
                   onConfirm={() => onRemove(index)}
                 />
-              </div>
-            </div>
+              }
+            />
           ))}
         </div>
       )}

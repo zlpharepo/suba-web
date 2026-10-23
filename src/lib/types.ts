@@ -242,6 +242,7 @@ export interface Tag {
   kind: string | null;
   path: string;
   source: "config" | "collection";
+  collections: string[];
   value: Record<string, unknown>;
 }
 

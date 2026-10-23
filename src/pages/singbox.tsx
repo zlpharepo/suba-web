@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  BoxesIcon,
   ChevronDownIcon,
   CopyIcon,
   DownloadIcon,
@@ -37,7 +36,7 @@ import { PageHeader } from "@/ui/layout";
 import { Badge, Dot, Empty, ErrorNote, Skeleton } from "@/ui/misc";
 import { Menu, Popover } from "@/ui/popover";
 import { Select } from "@/ui/select";
-import { Checkbox, Switch } from "@/ui/toggle";
+import { Switch } from "@/ui/toggle";
 import { toast } from "@/ui/notify";
 
 export function SingboxPage() {
@@ -83,7 +82,6 @@ export function SingboxPage() {
               onResetSection={() => setSectionRevision((revision) => revision + 1)}
             />
             <PrivilegesChip core={core.data} />
-            <CollectionsChip core={core.data} />
             {core.data.note && (
               <span className="text-xs text-warning">
                 Restart to apply changes
@@ -94,8 +92,7 @@ export function SingboxPage() {
           {core.data.version ? (
             <ConfigEditor
               key={core.data.config}
-              name={core.data.config}
-              collections={core.data.collections}
+              core={core.data}
               revision={sectionRevision}
               onDraftStatus={setSectionDraft}
             />
@@ -800,72 +797,6 @@ function PrivilegesChip({ core }: { core: Core }) {
           <code>--run-as-root</code>), and a start that cannot be what it was
           asked to be says so.
         </p>
-      </div>
-    </Popover>
-  );
-}
-
-/* ------------------------------------------------------------ collections */
-
-function CollectionsChip({ core }: { core: Core }) {
-  const queryClient = useQueryClient();
-  const known = useQuery({
-    queryKey: ["collections"],
-    queryFn: api.collections.list,
-  });
-  const chosen = core.collections;
-  const names = Object.keys(known.data ?? {}).sort();
-  const choices = [...names, ...chosen.filter((name) => !names.includes(name))];
-
-  const choose = useMutation({
-    mutationFn: (next: string[]) =>
-      api.singbox.choose({
-        version: core.version,
-        config: core.config,
-        privilege: core.privilege,
-        collections: next,
-      }),
-    onSuccess: (updated) => queryClient.setQueryData(["singbox"], updated),
-    onError: (error) => toast.error(errorMessage(error)),
-  });
-
-  return (
-    <Popover
-      className="w-64"
-      trigger={
-        <button type="button" className={buttonClass("secondary", "sm")}>
-          <BoxesIcon className="text-fg-subtle" />
-          {chosen.length === 0 ? "No outbound collections" : chosen.join(", ")}
-          <ChevronDownIcon className="!size-3.5 text-fg-subtle" />
-        </button>
-      }
-    >
-      <div className="grid gap-2.5">
-        <span className="text-xs text-fg-subtle">
-          Selected collections are available in Outbounds and tag suggestions.
-        </span>
-        {choices.length === 0 && (
-          <span className="text-[13px] text-fg-muted">No collections yet.</span>
-        )}
-        {choices.map((name) => (
-          <Checkbox
-            key={name}
-            disabled={choose.isPending}
-            checked={chosen.includes(name)}
-            onChange={(checked) =>
-              choose.mutate(
-                checked
-                  ? [...chosen, name]
-                  : chosen.filter((item) => item !== name),
-              )
-            }
-            label={
-              <span className={names.includes(name) ? "" : "text-danger"}>
-                {name}
-              </span>
-            }
-          />
-        ))}
       </div>
     </Popover>
   );
