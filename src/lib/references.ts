@@ -1,6 +1,9 @@
 import {
+  discriminate,
   documentTags,
   isObject,
+  matchAnyOf,
+  matchBranch,
   oneOrMany,
   type JsonObject,
   type JsonSchema,
@@ -14,6 +17,68 @@ export const referenceKey = (name: string, collections: string[]) => [
   name,
   collections,
 ];
+
+export interface ReferenceState {
+  /** Existence must include the owner, even when suggestions exclude it. */
+  tags: Record<string, string[]>;
+  complete: boolean;
+}
+
+export interface MissingReference {
+  space: string;
+  tag: string;
+}
+
+export function isMissingTag(
+  references: ReferenceState | undefined,
+  space: string,
+  tag: string,
+): boolean {
+  return Boolean(references?.complete && tag && !references.tags[space]?.includes(tag));
+}
+
+export function missingReferences(
+  tree: SchemaTree,
+  schema: JsonSchema,
+  value: unknown,
+  references: ReferenceState,
+): MissingReference[] {
+  const missing: MissingReference[] = [];
+  const visit = (schema: JsonSchema, value: unknown) => {
+    if (value === undefined || value === null) return;
+    const reference = tagField(tree, schema);
+    if (reference) {
+      for (const tag of Array.isArray(value) ? value : [value]) {
+        if (typeof tag === "string" && isMissingTag(references, reference.space, tag)) {
+          missing.push({ space: reference.space, tag });
+        }
+      }
+      return;
+    }
+    const node = tree.resolve(schema);
+    if (node.oneOf) {
+      const choice = discriminate(tree, node.oneOf);
+      const branch = choice?.branches[matchBranch(choice, value)];
+      if (branch) visit(branch.schema, value);
+    }
+    if (node.anyOf) {
+      const branch = node.anyOf[matchAnyOf(tree, node.anyOf, value)];
+      if (branch) visit(branch, value);
+    }
+    for (const part of node.allOf ?? []) visit(part, value);
+    if (Array.isArray(value) && node.items) {
+      for (const item of value) visit(node.items, item);
+    } else if (isObject(value)) {
+      for (const [key, held] of Object.entries(value)) {
+        const property = node.properties?.[key];
+        if (property) visit(property, held);
+        else if (isObject(node.additionalProperties)) visit(node.additionalProperties, held);
+      }
+    }
+  };
+  if (references.complete) visit(schema, value);
+  return missing;
+}
 
 export interface TagField {
   space: string;

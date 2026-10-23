@@ -25,6 +25,7 @@ import { BracesIcon, CheckIcon, ListIcon, PlusIcon, Trash2Icon } from "lucide-re
 import { CollectionOutbounds } from "@/components/collection-outbounds";
 import { ConfigEntryCard } from "@/components/config-entry-card";
 import { Generator } from "@/components/generator";
+import { ReferenceDiagnostics } from "@/components/reference-diagnostics";
 import { RawField, SchemaForm } from "@/components/schema-form";
 import { ApiError, api, errorMessage } from "@/lib/api";
 import type { CollectionBindingContext } from "@/lib/collection-bindings";
@@ -36,7 +37,14 @@ import {
   useDraftProtection,
 } from "@/lib/draft-protection";
 import { humanize } from "@/lib/humanize";
-import { entryDocument, referenceKey, referenceTags, sectionDocument } from "@/lib/references";
+import {
+  entryDocument,
+  missingReferences,
+  referenceKey,
+  referenceTags,
+  sectionDocument,
+  type ReferenceState,
+} from "@/lib/references";
 import {
   arrayProperties,
   groupOf,
@@ -65,13 +73,19 @@ export interface SectionDraftStatus {
 
 const DraftStatus = createContext<((status: SectionDraftStatus) => void) | null>(null);
 const EMPTY_CATALOG: Tag[] = [];
-const ReferenceCatalog = createContext<Tag[]>(EMPTY_CATALOG);
+const ReferenceCatalog = createContext<{ tags: Tag[]; complete: boolean }>({
+  tags: EMPTY_CATALOG,
+  complete: false,
+});
 const CollectionBindings = createContext<CollectionBindingContext | undefined>(undefined);
 
 function useReferenceTags(document: JsonObject, outboundOwner?: string) {
   const catalog = useContext(ReferenceCatalog);
   return useMemo(
-    () => referenceTags(document, catalog, outboundOwner),
+    () => ({
+      tags: referenceTags(document, catalog.tags, outboundOwner),
+      references: { tags: referenceTags(document, catalog.tags), complete: catalog.complete },
+    }),
     [document, catalog, outboundOwner],
   );
 }
@@ -199,7 +213,12 @@ export function ConfigEditor({
             </div>
           )
         )}
-        <ReferenceCatalog.Provider value={catalog}>
+        <ReferenceDiagnostics
+          skipped={references.isSuccess ? references.data.skipped : undefined}
+        />
+        <ReferenceCatalog.Provider
+          value={{ tags: catalog, complete: references.isSuccess && !references.isFetching }}
+        >
           <CollectionBindings.Provider
             value={{
               selected: collections,
@@ -471,7 +490,7 @@ function FormView({
     () => sectionDocument(document.value, name, draft),
     [document.value, name, draft],
   );
-  const tags = useReferenceTags(localDocument);
+  const { tags, references } = useReferenceTags(localDocument);
 
   return (
     <div>
@@ -503,6 +522,7 @@ function FormView({
         <SchemaForm
           tree={tree}
           tags={tags}
+          references={references}
           group={groupOf(tree, node, hideFor(name))}
           key={rawKey}
           schema={node}
@@ -538,7 +558,7 @@ function SplitView({
     () => sectionDocument(document.value, name, draft),
     [document.value, name, draft],
   );
-  const tags = useReferenceTags(localDocument);
+  const { tags, references } = useReferenceTags(localDocument);
   const object = isObject(draft) ? draft : {};
   const listed = useMemo(() => new Set(cards.map((card) => card.name)), [cards]);
   const scalar = useMemo(
@@ -577,6 +597,9 @@ function SplitView({
             <CardList
               key={card.name}
               path={`${name}.${card.name}`}
+              tree={tree}
+              item={card.item}
+              references={references}
               entries={entriesOf(card.name)}
               onAdd={() => setEditing({ path: card.name, index: null })}
               onEdit={(index) => setEditing({ path: card.name, index })}
@@ -593,6 +616,7 @@ function SplitView({
             <SchemaForm
               tree={tree}
               tags={tags}
+              references={references}
               key={rawKey}
               schema={scalar}
               value={rest}
@@ -652,6 +676,7 @@ function EntriesView({
     () => sectionDocument(document.value, name, draft),
     [document.value, name, draft],
   );
+  const { references } = useReferenceTags(localDocument);
   const entries = Array.isArray(draft) ? (draft as JsonObject[]) : [];
 
   return (
@@ -672,6 +697,9 @@ function EntriesView({
       ) : (
         <CardList
           path={name}
+          tree={tree}
+          item={item}
+          references={references}
           entries={entries}
           onAdd={() => setEditing({ path: name, index: null })}
           onEdit={(index) => setEditing({ path: name, index })}
@@ -709,6 +737,9 @@ interface EditTarget {
 /** The cards of one list. */
 function CardList({
   path,
+  tree,
+  item,
+  references,
   entries,
   onAdd,
   onEdit,
@@ -716,6 +747,9 @@ function CardList({
 }: {
   /** Where the list sits in the document, e.g. `dns.servers`. */
   path: string;
+  tree: SchemaTree;
+  item: JsonSchema;
+  references: ReferenceState;
   entries: JsonObject[];
   onAdd: () => void;
   onEdit: (index: number) => void;
@@ -748,6 +782,7 @@ function CardList({
               entry={entry}
               index={index}
               titled={titled}
+              missingReferences={missingReferences(tree, item, entry, references)}
               collectionContext={path === "outbounds" ? collectionContext : undefined}
               onOpen={() => onEdit(index)}
               actions={
@@ -814,7 +849,7 @@ function EntryDialog({
     () => entryDocument(document, path, target.index, entry),
     [document, path, target.index, entry],
   );
-  const tags = useReferenceTags(
+  const { tags, references } = useReferenceTags(
     localDocument,
     (path === "outbounds" || path === "endpoints") && typeof entry.tag === "string"
       ? entry.tag
@@ -885,6 +920,7 @@ function EntryDialog({
             collectionContext={path === "outbounds" ? collectionContext : undefined}
             tree={tree}
             tags={tags}
+            references={references}
             group={groupOf(tree, item, hide)}
             compact={hide === "all"}
             schema={item}

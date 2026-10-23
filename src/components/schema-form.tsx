@@ -23,7 +23,7 @@ import {
 } from "@/lib/collection-bindings";
 import { cx } from "@/lib/cx";
 import { fieldGeneration } from "@/lib/generate";
-import { tagField, tagSelectionValue } from "@/lib/references";
+import { isMissingTag, tagField, tagSelectionValue, type ReferenceState } from "@/lib/references";
 import {
   branchKind,
   defaultFor,
@@ -62,6 +62,7 @@ interface FormContext {
   tree: SchemaTree;
   /** Draft and collection tags, kept in the schema's reference namespaces. */
   tags: Record<string, string[]>;
+  references?: ReferenceState;
   /**
    * The fields this form groups behind one button, and what to call it. Which
    * they are comes from the core's own documentation of its schema; see
@@ -92,6 +93,7 @@ type Change = (value: unknown) => void;
 export function SchemaForm({
   tree,
   tags,
+  references,
   group,
   compact,
   generate,
@@ -127,6 +129,7 @@ export function SchemaForm({
         value={{
           tree,
           tags,
+          references,
           group,
           compact,
           generation: generate && isObject(value) ? value : undefined,
@@ -151,7 +154,7 @@ function SchemaField({
   value: unknown;
   onChange: Change;
 }) {
-  const { tree, tags } = useForm();
+  const { tree, tags, references } = useForm();
   const node = tree.resolve(schema);
   const reference = tagField(tree, schema);
   if (reference) {
@@ -176,6 +179,7 @@ function SchemaField({
         space={space}
         options={options}
         values={values as string[]}
+        missingValues={(values as string[]).filter((tag) => isMissingTag(references, space, tag))}
         invalid={invalid}
         onChange={(next) => onChange(tagSelectionValue(value, next, collapse))}
       />
@@ -184,6 +188,7 @@ function SchemaField({
         space={space}
         options={options}
         value={valueText(value)}
+        missing={isMissingTag(references, space, valueText(value))}
         invalid={invalid}
         onChange={(next) => onChange(next === "" ? undefined : next)}
       />
@@ -533,7 +538,7 @@ function ObjectField({
   onChange: Change;
   hidden?: string[];
 }) {
-  const { tree, group, compact, generation, binding, tags } = useForm();
+  const { tree, group, compact, generation, binding, tags, references } = useForm();
   const node = tree.resolve(schema);
   // Fields added this session stay visible while empty, so typing can start.
   const [shown, setShown] = useState<string[]>([]);
@@ -635,6 +640,7 @@ function ObjectField({
                   entry={object}
                   context={binding}
                   options={tags.outbound ?? []}
+                  references={tagField(tree, field)?.space === "outbound" ? references : undefined}
                   onChange={onChange}
                 />
               ) : (

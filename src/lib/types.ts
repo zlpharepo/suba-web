@@ -245,6 +245,8 @@ export interface Tag {
 export interface References {
   tags: Tag[];
   unchecked: { what: string; reason: string }[];
+  /** Conversion omissions do not invalidate the remaining reference catalog. */
+  skipped?: { path: string; reason: string }[];
 }
 
 export type GenerateCommand =

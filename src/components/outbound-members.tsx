@@ -7,6 +7,7 @@ import {
   withCollectionBindings,
   type CollectionBindingContext,
 } from "@/lib/collection-bindings";
+import { isMissingTag, type ReferenceState } from "@/lib/references";
 import type { JsonObject } from "@/lib/schema";
 import { Checkbox } from "@/ui/toggle";
 
@@ -14,11 +15,13 @@ export function OutboundMembers({
   entry,
   context,
   options,
+  references,
   onChange,
 }: {
   entry: JsonObject;
   context: CollectionBindingContext;
   options: string[];
+  references?: ReferenceState;
   onChange: (entry: JsonObject) => void;
 }) {
   const names = collectionBindings(entry);
@@ -60,6 +63,7 @@ export function OutboundMembers({
         options={options}
         values={manual}
         lockedValues={locked}
+        missingValues={manual.filter((tag) => isMissingTag(references, "outbound", tag))}
         invalid={invalid}
         onChange={(next) => onChange({ ...entry, outbounds: next })}
         beforeOptions={(query) => (

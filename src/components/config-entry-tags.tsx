@@ -5,6 +5,7 @@ import {
   collectionMemberTags,
   type CollectionBindingContext,
 } from "@/lib/collection-bindings";
+import { cx } from "@/lib/cx";
 import { valueText, type JsonObject } from "@/lib/schema";
 import { Badge } from "@/ui/misc";
 import { Popover } from "@/ui/popover";
@@ -12,9 +13,11 @@ import { Popover } from "@/ui/popover";
 export function ConfigEntryTags({
   entry,
   context,
+  missingTags = [],
 }: {
   entry: JsonObject;
   context?: CollectionBindingContext;
+  missingTags?: string[];
 }) {
   const values = entry.outbounds;
   const validManual =
@@ -71,7 +74,7 @@ export function ConfigEntryTags({
     >
       <div className="grid max-h-[min(24rem,60dvh)] min-w-0 gap-3 overflow-y-auto overscroll-contain">
         <h3 className="text-[13px] font-medium text-fg">Outbound Tags</h3>
-        <TagList title="Manual Tags" tags={manual} />
+        <TagList title="Manual Tags" tags={manual} missingTags={missingTags} />
         {bound.length > 0 && <TagList title="Collections" tags={bound} />}
         {notice ? (
           <p role="status" className="text-xs text-fg-muted">
@@ -85,7 +88,15 @@ export function ConfigEntryTags({
   );
 }
 
-function TagList({ title, tags }: { title: string; tags: string[] }) {
+function TagList({
+  title,
+  tags,
+  missingTags = [],
+}: {
+  title: string;
+  tags: string[];
+  missingTags?: string[];
+}) {
   return (
     <section className="grid min-w-0 gap-1.5">
       <h4 className="flex items-center gap-2 text-xs font-medium text-fg-muted">
@@ -95,10 +106,24 @@ function TagList({ title, tags }: { title: string; tags: string[] }) {
       {tags.length > 0 ? (
         <ul aria-label={title} className="grid min-w-0 gap-1">
           {tags.map((tag) => (
-            <li key={tag} className="min-w-0 rounded-sm bg-bg-muted px-2 py-1">
-              <code className="block font-mono text-xs break-all whitespace-pre-wrap text-fg">
+            <li
+              key={tag}
+              className={cx(
+                "min-w-0 rounded-sm px-2 py-1",
+                missingTags.includes(tag) ? "bg-danger/10" : "bg-bg-muted",
+              )}
+            >
+              <code
+                className={cx(
+                  "block font-mono text-xs break-all whitespace-pre-wrap",
+                  missingTags.includes(tag) ? "text-danger" : "text-fg",
+                )}
+              >
                 {tag}
               </code>
+              {missingTags.includes(tag) && (
+                <span className="text-xs text-danger">Missing Reference</span>
+              )}
             </li>
           ))}
         </ul>

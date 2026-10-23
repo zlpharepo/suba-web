@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode, type RefObject } from "react";
 import { Autocomplete } from "@base-ui/react/autocomplete";
 import { Combobox } from "@base-ui/react/combobox";
 import { CheckIcon, ChevronDownIcon, LockKeyholeIcon, PlusIcon, XIcon } from "lucide-react";
@@ -77,9 +77,11 @@ export function TagInput({
   options,
   value,
   invalid,
+  missing = false,
   onChange,
 }: TagProps & {
   value: string;
+  missing?: boolean;
   onChange: (value: string) => void;
 }) {
   const anchor = useRef<HTMLDivElement>(null);
@@ -90,6 +92,7 @@ export function TagInput({
   const choices = tagChoices(options);
   const matches = tagChoices(choices, query ?? "");
   const label = `${humanize(space)} Tag`;
+  const notice = useId();
 
   return (
     <Autocomplete.Root
@@ -117,9 +120,10 @@ export function TagInput({
         <Autocomplete.Input
           ref={input}
           aria-label={label}
-          aria-invalid={invalid}
+          aria-invalid={invalid || missing}
+          aria-describedby={missing ? notice : undefined}
           placeholder="Select or Enter a Tag"
-          className={cx(controlClass, "h-9 pr-15 font-mono")}
+          className={cx(controlClass, "h-9 pr-15 font-mono", missing && "aria-invalid:text-danger")}
         />
         <div className="absolute inset-y-0 right-1 flex items-center">
           {value !== "" && (
@@ -141,6 +145,11 @@ export function TagInput({
           </Autocomplete.Trigger>
         </div>
       </div>
+      {missing && (
+        <p id={notice} role="status" className="text-xs text-danger">
+          Referenced tag is missing.
+        </p>
+      )}
       <Autocomplete.Portal>
         <Autocomplete.Positioner
           anchor={popup.anchor}
@@ -183,9 +192,11 @@ export function TagMultiInput({
   invalid,
   onChange,
   lockedValues = [],
+  missingValues = [],
   beforeOptions,
 }: TagProps & {
   values: string[];
+  missingValues?: string[];
   onChange: (values: string[]) => void;
   lockedValues?: string[];
   beforeOptions?: (query: string) => ReactNode;
@@ -237,7 +248,7 @@ export function TagMultiInput({
     >
       <div
         ref={anchor}
-        aria-invalid={invalid}
+        aria-invalid={invalid || missingValues.length > 0}
         className={cx(
           controlClass,
           "flex min-h-9 w-full max-w-md items-start gap-1 py-1 pr-1 focus-within:border-accent focus-within:ring-3 focus-within:ring-accent/15",
@@ -248,6 +259,7 @@ export function TagMultiInput({
             <Combobox.Chip
               key={`${index}:${tag}`}
               aria-disabled={lockedValues.includes(tag) || undefined}
+              aria-invalid={missingValues.includes(tag) || undefined}
               onKeyDown={(event) => {
                 if (
                   lockedValues.includes(tag) &&
@@ -257,11 +269,15 @@ export function TagMultiInput({
                   event.preventBaseUIHandler();
                 }
               }}
-              className="inline-flex max-w-full items-center gap-1 rounded-md bg-bg-muted py-0.5 pr-0.5 pl-2 text-xs text-fg outline-none focus:ring-2 focus:ring-accent/40"
+              className={cx(
+                "inline-flex max-w-full items-center gap-1 rounded-md py-0.5 pr-0.5 pl-2 text-xs outline-none focus:ring-2 focus:ring-accent/40",
+                missingValues.includes(tag) ? "bg-danger/10 text-danger" : "bg-bg-muted text-fg",
+              )}
             >
               <span className="min-w-0 truncate font-mono" title={tag}>
                 {tag || "(Empty)"}
               </span>
+              {missingValues.includes(tag) && <span className="text-xs">Missing Reference</span>}
               {lockedValues.includes(tag) ? (
                 <span
                   className="flex size-5 items-center justify-center text-fg-subtle"
@@ -283,7 +299,7 @@ export function TagMultiInput({
           <Combobox.Input
             ref={input}
             aria-label={label}
-            aria-invalid={invalid}
+            aria-invalid={invalid || missingValues.length > 0}
             placeholder={selected.length ? "Add Tag…" : "Select or Enter Tags"}
             className="h-6 min-w-24 flex-1 bg-transparent text-[13px] text-fg outline-none placeholder:text-fg-subtle"
             onKeyDown={(event) => {
