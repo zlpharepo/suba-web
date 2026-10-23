@@ -8,8 +8,12 @@ import {
 } from "./schema.ts";
 import type { Tag } from "./types.ts";
 
-export const referenceKey = (name: string, collections: string[]) =>
-  ["singbox", "references", name, collections];
+export const referenceKey = (name: string, collections: string[]) => [
+  "singbox",
+  "references",
+  name,
+  collections,
+];
 
 export interface TagField {
   space: string;
@@ -21,11 +25,8 @@ export interface TagField {
 export function tagField(tree: SchemaTree, schema: JsonSchema): TagField | null {
   const node = tree.resolve(schema);
   const single = oneOrMany(tree, node);
-  const item = tree.resolve(
-    single ?? (node.type === "array" ? node.items ?? {} : node),
-  );
-  const space = schema["x-tag-reference"] ?? node["x-tag-reference"] ??
-    item["x-tag-reference"];
+  const item = tree.resolve(single ?? (node.type === "array" ? (node.items ?? {}) : node));
+  const space = schema["x-tag-reference"] ?? node["x-tag-reference"] ?? item["x-tag-reference"];
   if (!space || item.type !== "string") return null;
   return {
     space,
@@ -37,9 +38,7 @@ export function tagField(tree: SchemaTree, schema: JsonSchema): TagField | null 
 
 export function tagChoices(options: string[], query = ""): string[] {
   const needle = query.toLowerCase();
-  return [...new Set(options)].filter((tag) =>
-    tag !== "" && tag.toLowerCase().includes(needle),
-  );
+  return [...new Set(options)].filter((tag) => tag !== "" && tag.toLowerCase().includes(needle));
 }
 
 export function tagSelectionValue(
@@ -59,9 +58,7 @@ export function referenceTags(
   outboundOwner?: string,
 ): Record<string, string[]> {
   const local = documentTags(document);
-  const merged = new Map(
-    Object.entries(local).map(([space, tags]) => [space, new Set(tags)]),
-  );
+  const merged = new Map(Object.entries(local).map(([space, tags]) => [space, new Set(tags)]));
   for (const entry of catalog) {
     // Saved catalog entries must not resurrect a tag removed or renamed in the draft.
     if (entry.source === "config" && Object.hasOwn(local, entry.space)) continue;
@@ -75,11 +72,7 @@ export function referenceTags(
   return Object.fromEntries([...merged].map(([space, tags]) => [space, [...tags]]));
 }
 
-export function sectionDocument(
-  document: JsonObject,
-  name: string,
-  value: unknown,
-): JsonObject {
+export function sectionDocument(document: JsonObject, name: string, value: unknown): JsonObject {
   const next = { ...document };
   if (value === undefined) delete next[name];
   else next[name] = value;
@@ -103,9 +96,10 @@ export function entryDocument(
     const entries = Array.isArray(object[key]) ? object[key] : [];
     return {
       ...object,
-      [key]: index === null
-        ? [...entries, entry]
-        : entries.map((held, at) => at === index ? entry : held),
+      [key]:
+        index === null
+          ? [...entries, entry]
+          : entries.map((held, at) => (at === index ? entry : held)),
     };
   };
   return replace(document, path.split("."));

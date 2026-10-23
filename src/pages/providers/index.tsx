@@ -16,12 +16,7 @@ import { cx } from "@/lib/cx";
 import { ago, formatInterval, formatTime } from "@/lib/format";
 import { nodeKey } from "@/lib/nodes";
 import { patternKind, patternText } from "@/lib/pattern";
-import type {
-  Pattern,
-  Provider,
-  ProviderType,
-  RemoteProvider,
-} from "@/lib/types";
+import type { Pattern, Provider, ProviderType, RemoteProvider } from "@/lib/types";
 import { Button, IconButton } from "@/ui/button";
 import { buttonClass } from "@/ui/styles";
 import { Dialog } from "@/ui/dialog";
@@ -44,9 +39,7 @@ export function ProvidersPage() {
     queryKey: ["providers"],
     queryFn: api.providers.list,
   });
-  const entries = Object.entries(providers.data ?? {}).sort(([a], [b]) =>
-    a.localeCompare(b),
-  );
+  const entries = Object.entries(providers.data ?? {}).sort(([a], [b]) => a.localeCompare(b));
 
   const refresh = useMutation({
     mutationFn: (name: string) => api.providers.refresh(name),
@@ -149,17 +142,11 @@ export function ProvidersPage() {
                 >
                   <RefreshCwIcon
                     className={
-                      refresh.isPending && refresh.variables === name
-                        ? "animate-spin"
-                        : undefined
+                      refresh.isPending && refresh.variables === name ? "animate-spin" : undefined
                     }
                   />
                 </IconButton>
-                <IconButton
-                  label="Edit"
-                  size="sm"
-                  onClick={() => setEditing(name)}
-                >
+                <IconButton label="Edit" size="sm" onClick={() => setEditing(name)}>
                   <PencilIcon />
                 </IconButton>
                 <Menu
@@ -220,8 +207,7 @@ export function ProvidersPage() {
         }
       >
         <p className="text-[13px] text-fg-muted">
-          Its cached payload goes too. Collections that name it will show it as
-          missing.
+          Its cached payload goes too. Collections that name it will show it as missing.
         </p>
       </Dialog>
     </>
@@ -240,9 +226,7 @@ function source(provider: Provider): string {
     case "local":
       return provider.path;
     case "inline": {
-      const lines = provider.payload
-        .split("\n")
-        .filter((line) => line.trim()).length;
+      const lines = provider.payload.split("\n").filter((line) => line.trim()).length;
       return `${lines} ${lines === 1 ? "link" : "links"}`;
     }
   }
@@ -304,9 +288,7 @@ function ProviderPanel({
               onClick={() => setTab(value)}
               className={cx(
                 "flex-1 rounded-[5px] px-3 py-1 font-medium capitalize transition-colors",
-                tab === value
-                  ? "bg-bg text-fg shadow-sm"
-                  : "text-fg-muted hover:text-fg",
+                tab === value ? "bg-bg text-fg shadow-sm" : "text-fg-muted hover:text-fg",
               )}
             >
               {value}
@@ -321,8 +303,7 @@ function ProviderPanel({
             {nodes.data && (
               <>
                 <p className="text-xs text-fg-subtle tabular-nums">
-                  {nodes.data.nodes.length} nodes · {nodes.data.passed_over}{" "}
-                  filtered ·{" "}
+                  {nodes.data.nodes.length} nodes · {nodes.data.passed_over} filtered ·{" "}
                   <span
                     title={
                       nodes.data.updated_at === null
@@ -330,8 +311,7 @@ function ProviderPanel({
                         : formatTime(nodes.data.updated_at)
                     }
                   >
-                    Updated{" "}
-                    {nodes.data.updated_at === null ? "—" : ago(nodes.data.updated_at)}
+                    Updated {nodes.data.updated_at === null ? "—" : ago(nodes.data.updated_at)}
                   </span>
                   {nodes.data.unreadable &&
                     " · the payload is a clash document, which this build does not read"}
@@ -343,9 +323,7 @@ function ProviderPanel({
                         key={nodeKey(node)}
                         className="flex items-center gap-3 px-3 py-1.5 text-[13px]"
                       >
-                        <span className="min-w-0 flex-1 truncate text-fg">
-                          {node.name}
-                        </span>
+                        <span className="min-w-0 flex-1 truncate text-fg">{node.name}</span>
                         <Badge mono>{node.protocol}</Badge>
                         <span className="hidden w-48 truncate text-right font-mono text-xs text-fg-subtle sm:block">
                           {node.endpoint}
@@ -395,11 +373,7 @@ function ProviderDialog({
       width="md"
     >
       {open && (
-        <ProviderForm
-          initialName={name}
-          provider={provider}
-          onDone={() => onOpenChange(false)}
-        />
+        <ProviderForm initialName={name} provider={provider} onDone={() => onOpenChange(false)} />
       )}
     </Dialog>
   );
@@ -419,15 +393,9 @@ function ProviderForm({
   const queryClient = useQueryClient();
   const [name, setName] = useState(initialName ?? "");
   const [type, setType] = useState<ProviderType>(provider?.type ?? "remote");
-  const [url, setUrl] = useState(
-    provider?.type === "remote" ? provider.url : "",
-  );
-  const [path, setPath] = useState(
-    provider?.type === "local" ? provider.path : "",
-  );
-  const [payload, setPayload] = useState(
-    provider?.type === "inline" ? provider.payload : "",
-  );
+  const [url, setUrl] = useState(provider?.type === "remote" ? provider.url : "");
+  const [path, setPath] = useState(provider?.type === "local" ? provider.path : "");
+  const [payload, setPayload] = useState(provider?.type === "inline" ? provider.payload : "");
   const [interval, setInterval] = useState(
     String(
       provider && provider.type !== "inline"
@@ -439,18 +407,13 @@ function ProviderForm({
     provider?.type === "remote" ? headerRows(provider.headers) : [],
   );
   const [timeout, setTimeout] = useState(
-    provider?.type === "remote" && provider.timeout !== undefined
-      ? String(provider.timeout)
-      : "",
+    provider?.type === "remote" && provider.timeout !== undefined ? String(provider.timeout) : "",
   );
   const [disabled, setDisabled] = useState(provider?.disabled ?? false);
   const [includes, setIncludes] = useState<Pattern[]>(provider?.includes ?? []);
   const [excludes, setExcludes] = useState<Pattern[]>(provider?.excludes ?? []);
   const [advanced, setAdvanced] = useState(
-    headers.length > 0 ||
-      timeout !== "" ||
-      includes.length > 0 ||
-      excludes.length > 0,
+    headers.length > 0 || timeout !== "" || includes.length > 0 || excludes.length > 0,
   );
 
   const save = useMutation({
@@ -572,23 +535,12 @@ function ProviderForm({
 
       {advanced && (
         <div className="grid gap-5 rounded-md border border-border bg-bg-subtle p-4">
-          <PatternsEditor
-            label="Exclude"
-            value={excludes}
-            onChange={setExcludes}
-          />
-          <PatternsEditor
-            label="Include"
-            value={includes}
-            onChange={setIncludes}
-          />
+          <PatternsEditor label="Exclude" value={excludes} onChange={setExcludes} />
+          <PatternsEditor label="Include" value={includes} onChange={setIncludes} />
           {type === "remote" && (
             <>
               <HeadersEditor value={headers} onChange={setHeaders} />
-              <Field
-                label="Timeout"
-                hint="Milliseconds; empty uses the default"
-              >
+              <Field label="Timeout" hint="Milliseconds; empty uses the default">
                 <Input
                   type="number"
                   min={1}
@@ -638,10 +590,7 @@ function headerMap(rows: Header[]): RemoteProvider["headers"] {
   const entries = Object.entries(map);
   if (entries.length === 0) return undefined;
   return Object.fromEntries(
-    entries.map(([name, values]) => [
-      name,
-      values.length === 1 ? values[0] : values,
-    ]),
+    entries.map(([name, values]) => [name, values.length === 1 ? values[0] : values]),
   );
 }
 
@@ -675,18 +624,14 @@ function HeadersEditor({
               className="font-mono"
               placeholder="Name"
               value={header.name}
-              onChange={(event) =>
-                replace(index, { ...header, name: event.target.value })
-              }
+              onChange={(event) => replace(index, { ...header, name: event.target.value })}
             />
           </div>
           <Input
             className="font-mono"
             placeholder="Value"
             value={header.value}
-            onChange={(event) =>
-              replace(index, { ...header, value: event.target.value })
-            }
+            onChange={(event) => replace(index, { ...header, value: event.target.value })}
           />
           <IconButton
             label="Remove"

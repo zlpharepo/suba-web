@@ -28,8 +28,7 @@ function ToastList() {
   const { toasts } = Toast.useToastManager();
 
   return toasts.map((item) => {
-    const tone = ((item.data as { tone?: Tone } | undefined)?.tone ??
-      "default") as Tone;
+    const tone = ((item.data as { tone?: Tone } | undefined)?.tone ?? "default") as Tone;
     return (
       <Toast.Root
         key={item.id}
@@ -44,9 +43,7 @@ function ToastList() {
         )}
       >
         <Toast.Content className="flex items-start gap-3 px-3.5 py-3 transition-opacity data-behind:opacity-0 data-expanded:opacity-100">
-          <span
-            className={cx("mt-1.5 size-1.5 shrink-0 rounded-full", dots[tone])}
-          />
+          <span className={cx("mt-1.5 size-1.5 shrink-0 rounded-full", dots[tone])} />
           <Toast.Title className="min-w-0 flex-1 text-[13px] leading-5 break-words text-fg" />
           <Toast.Close
             aria-label="Dismiss"

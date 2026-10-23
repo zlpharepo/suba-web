@@ -58,17 +58,12 @@ export function Dialog({
             </div>
             <BaseDialog.Close
               aria-label="Close"
-              className={cx(
-                buttonClass("ghost", "sm", true),
-                "-mr-1.5 -mt-0.5",
-              )}
+              className={cx(buttonClass("ghost", "sm", true), "-mr-1.5 -mt-0.5")}
             >
               <XIcon />
             </BaseDialog.Close>
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-            {children}
-          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">{children}</div>
           {footer && (
             <div className="flex justify-end gap-2 border-t border-border bg-bg-subtle px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:rounded-b-lg">
               {footer}
@@ -110,9 +105,7 @@ export function Confirm({
           </div>
           <div className="flex justify-end gap-2 border-t border-border bg-bg-subtle px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:rounded-b-lg">
             <AlertDialog.Close render={<Button>Cancel</Button>} />
-            <AlertDialog.Close
-              render={<Button variant="danger" onClick={onConfirm} />}
-            >
+            <AlertDialog.Close render={<Button variant="danger" onClick={onConfirm} />}>
               {confirmLabel}
             </AlertDialog.Close>
           </div>

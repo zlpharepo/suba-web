@@ -51,7 +51,9 @@ export function FullConfigJson({
             setOpen(true);
           }}
         />
-      ) : trigger}
+      ) : (
+        trigger
+      )}
       {open && (
         <LoadDocument
           name={name}
@@ -85,43 +87,28 @@ function LoadDocument({
   });
 
   const [initial, setInitial] = useState<Versioned<JsonObject> | null>(null);
-  if (
-    !initial && document.isFetchedAfterMount && document.data && !document.error
-  ) {
+  if (!initial && document.isFetchedAfterMount && document.data && !document.error) {
     setInitial(document.data);
   }
 
   if (!initial) {
     return (
-      <Dialog
-        open
-        onOpenChange={(next) => !next && onClose()}
-        title={`${name}.json`}
-        width="xl"
-      >
+      <Dialog open onOpenChange={(next) => !next && onClose()} title={`${name}.json`} width="xl">
         {document.error ? (
           <div className="grid gap-3">
             <ErrorNote error={document.error} />
-            <Button
-              disabled={document.isFetching}
-              onClick={() => void document.refetch()}
-            >
+            <Button disabled={document.isFetching} onClick={() => void document.refetch()}>
               Retry
             </Button>
           </div>
-        ) : <Skeleton className="h-96" />}
+        ) : (
+          <Skeleton className="h-96" />
+        )}
       </Dialog>
     );
   }
 
-  return (
-    <DocumentEditor
-      name={name}
-      document={initial}
-      onClose={onClose}
-      onSaved={onSaved}
-    />
-  );
+  return <DocumentEditor name={name} document={initial} onClose={onClose} onSaved={onSaved} />;
 }
 
 function DocumentEditor({
@@ -142,8 +129,7 @@ function DocumentEditor({
   const [confirmClose, setConfirmClose] = useState(false);
   const parsed = useMemo(() => parseConfigJson(text), [text]);
   const dirty =
-    parsed.error !== null ||
-    JSON.stringify(parsed.value) !== JSON.stringify(baseline.value);
+    parsed.error !== null || JSON.stringify(parsed.value) !== JSON.stringify(baseline.value);
 
   const save = useMutation({
     mutationFn: (value: JsonObject) => {
@@ -167,12 +153,13 @@ function DocumentEditor({
   const saveFailure =
     save.error instanceof ApiError && save.error.status === 412
       ? "configuration: changed elsewhere; copy your edits, then close and reopen"
-      : save.error ? "configuration: could not save; the draft has been kept" : null;
-  const error = parsed.error ?? saveFailure ?? (
-    !baseline.etag
-      ? "configuration: missing version; close and reopen before saving"
-      : null
-  );
+      : save.error
+        ? "configuration: could not save; the draft has been kept"
+        : null;
+  const error =
+    parsed.error ??
+    saveFailure ??
+    (!baseline.etag ? "configuration: missing version; close and reopen before saving" : null);
   const close = () => {
     if (save.isPending) return;
     if (dirty) setConfirmClose(true);
@@ -188,12 +175,12 @@ function DocumentEditor({
         width="xl"
         footer={
           <>
-            <Button disabled={save.isPending} onClick={close}>Close</Button>
+            <Button disabled={save.isPending} onClick={close}>
+              Close
+            </Button>
             <Button
               variant="primary"
-              disabled={
-                !dirty || parsed.error !== null || !baseline.etag || save.isPending
-              }
+              disabled={!dirty || parsed.error !== null || !baseline.etag || save.isPending}
               onClick={() => parsed.value && save.mutate(parsed.value)}
             >
               <CheckIcon />
@@ -212,9 +199,7 @@ function DocumentEditor({
             </Button>
             <CopyButton text={text} label="Copy JSON" />
             <Generator />
-            {dirty && (
-              <span className="ml-auto text-xs text-fg-subtle">Unsaved Changes</span>
-            )}
+            {dirty && <span className="ml-auto text-xs text-fg-subtle">Unsaved Changes</span>}
           </div>
           {error && (
             <p role="alert" id="config-json-error" className="text-[13px] text-danger">
@@ -246,13 +231,13 @@ function DocumentEditor({
           footer={
             <>
               <Button onClick={() => setConfirmClose(false)}>Keep Editing</Button>
-              <Button variant="danger" onClick={onClose}>Discard</Button>
+              <Button variant="danger" onClick={onClose}>
+                Discard
+              </Button>
             </>
           }
         >
-          <p className="text-[13px] text-fg-muted">
-            Copy the JSON first if you want to keep it.
-          </p>
+          <p className="text-[13px] text-fg-muted">Copy the JSON first if you want to keep it.</p>
         </Dialog>
       )}
     </>

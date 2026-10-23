@@ -40,7 +40,9 @@ export function OutboundMembers({
               className="inline-flex max-w-full items-center gap-1 rounded-md border border-border bg-bg-subtle px-2 py-1 text-xs"
             >
               <BoxesIcon className="size-3 shrink-0 text-fg-subtle" />
-              <span className="min-w-0 truncate" title={name}>{name}</span>
+              <span className="min-w-0 truncate" title={name}>
+                {name}
+              </span>
               <button
                 type="button"
                 aria-label={`Unbind Collection ${name}`}
@@ -68,24 +70,34 @@ export function OutboundMembers({
                 Select collections in Collection Outbounds first.
               </span>
             )}
-            <div role="group" aria-label="Collection Choices" className="grid min-h-0 gap-2 overflow-y-auto overscroll-contain">
-              {choices.filter((name) => name.toLowerCase().includes(query.toLowerCase())).map((name) => (
-                <Checkbox
-                  key={name}
-                  checked={bound.includes(name)}
-                  disabled={names === null || (!bound.includes(name) && (context.pending || context.failed))}
-                  onChange={(checked) => select(
-                    checked ? [...bound, name] : bound.filter((held) => held !== name),
-                  )}
-                  label={<span className="min-w-0 break-all">{name}</span>}
-                />
-              ))}
+            <div
+              role="group"
+              aria-label="Collection Choices"
+              className="grid min-h-0 gap-2 overflow-y-auto overscroll-contain"
+            >
+              {choices
+                .filter((name) => name.toLowerCase().includes(query.toLowerCase()))
+                .map((name) => (
+                  <Checkbox
+                    key={name}
+                    checked={bound.includes(name)}
+                    disabled={
+                      names === null ||
+                      (!bound.includes(name) && (context.pending || context.failed))
+                    }
+                    onChange={(checked) =>
+                      select(checked ? [...bound, name] : bound.filter((held) => held !== name))
+                    }
+                    label={<span className="min-w-0 break-all">{name}</span>}
+                  />
+                ))}
             </div>
           </div>
         )}
       />
       <p className="text-xs text-fg-subtle">
-        Collection tags are locked previews. Only collection names are saved; members update on Start or Restart.
+        Collection tags are locked previews. Only collection names are saved; members update on
+        Start or Restart.
       </p>
       {names === null ? (
         <p role="alert" className="text-xs text-danger">
@@ -93,7 +105,8 @@ export function OutboundMembers({
         </p>
       ) : unavailable ? (
         <p role="alert" className="text-xs text-danger">
-          x-suba-collections: a bound collection is no longer selected. Reconnect it or remove the binding before starting.
+          x-suba-collections: a bound collection is no longer selected. Reconnect it or remove the
+          binding before starting.
         </p>
       ) : context.failed ? (
         <p role="alert" className="text-xs text-danger">

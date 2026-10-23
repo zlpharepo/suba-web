@@ -65,10 +65,7 @@ export function Menu({
           <BaseMenu.Popup className={cx(surface, "min-w-40 p-1")}>
             {items.map((item, index) =>
               item === "separator" ? (
-                <BaseMenu.Separator
-                  key={index}
-                  className="my-1 h-px bg-border"
-                />
+                <BaseMenu.Separator key={index} className="my-1 h-px bg-border" />
               ) : (
                 <BaseMenu.Item
                   key={index}

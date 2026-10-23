@@ -68,9 +68,7 @@ export function Select<T extends string>({
                   value={option.value}
                   className="grid cursor-default grid-cols-[1fr_1rem] items-center gap-3 rounded-sm px-2 py-1.5 text-[13px] text-fg outline-none select-none data-highlighted:bg-bg-muted"
                 >
-                  <BaseSelect.ItemText className="truncate">
-                    {option.label}
-                  </BaseSelect.ItemText>
+                  <BaseSelect.ItemText className="truncate">{option.label}</BaseSelect.ItemText>
                   <BaseSelect.ItemIndicator className="text-fg">
                     <CheckIcon className="size-3.5" />
                   </BaseSelect.ItemIndicator>

@@ -34,8 +34,7 @@ export function Generator({ iconOnly = false }: { iconOnly?: boolean }) {
   const invalid =
     needs === "name"
       ? !validGenerationName(argument)
-      : needs === "length" &&
-        (!Number.isInteger(length) || length < 1 || length > 4096);
+      : needs === "length" && (!Number.isInteger(length) || length < 1 || length > 4096);
 
   useLayoutEffect(() => {
     mounted.current = true;

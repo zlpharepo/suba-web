@@ -41,9 +41,7 @@ export function OverviewPage() {
 
       {data ? (
         <div className="mb-8 flex flex-wrap items-center gap-x-5 gap-y-1 text-[13px] text-fg-muted">
-          <span className="font-medium text-fg">
-            {data.host.name ?? "this host"}
-          </span>
+          <span className="font-medium text-fg">{data.host.name ?? "this host"}</span>
           {data.host.os && <span>{data.host.os}</span>}
           <span className="font-mono text-xs">{data.host.arch}</span>
           <span>up {duration(data.host.uptime)}</span>
@@ -55,13 +53,7 @@ export function OverviewPage() {
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <Stat
           label="CPU"
-          value={
-            data
-              ? data.cpu.usage === null
-                ? "—"
-                : `${data.cpu.usage.toFixed(0)}%`
-              : null
-          }
+          value={data ? (data.cpu.usage === null ? "—" : `${data.cpu.usage.toFixed(0)}%`) : null}
           meter={data?.cpu.usage ?? undefined}
           detail={
             data &&
@@ -72,15 +64,11 @@ export function OverviewPage() {
           label="Memory"
           value={memory === undefined ? null : `${memory.toFixed(0)}%`}
           meter={memory}
-          detail={
-            data && `${bytes(data.memory.used)} of ${bytes(data.memory.total)}`
-          }
+          detail={data && `${bytes(data.memory.used)} of ${bytes(data.memory.total)}`}
         />
         <Stat
           label="Disk"
-          value={
-            data ? (disk === undefined ? "—" : `${disk.toFixed(0)}%`) : null
-          }
+          value={data ? (disk === undefined ? "—" : `${disk.toFixed(0)}%`) : null}
           meter={disk}
           detail={
             data?.disk
@@ -92,10 +80,7 @@ export function OverviewPage() {
           label="Network"
           value={
             data ? (
-              <NetworkRate
-                down={data.network.receive_rate}
-                up={data.network.transmit_rate}
-              />
+              <NetworkRate down={data.network.receive_rate} up={data.network.transmit_rate} />
             ) : null
           }
           detail={
@@ -142,29 +127,21 @@ function Stat({
       {value === null ? (
         <Skeleton className="h-7 w-20" />
       ) : (
-        <span className="text-2xl font-semibold tracking-tight text-fg tabular-nums">
-          {value}
-        </span>
+        <span className="text-2xl font-semibold tracking-tight text-fg tabular-nums">{value}</span>
       )}
       {meter !== undefined && <Meter value={meter} />}
-      <span className="min-h-4 truncate text-xs text-fg-subtle tabular-nums">
-        {detail}
-      </span>
+      <span className="min-h-4 truncate text-xs text-fg-subtle tabular-nums">{detail}</span>
     </Card>
   );
 }
 
 function Meter({ value }: { value: number }) {
   const clamped = Math.max(0, Math.min(100, value));
-  const tone =
-    clamped >= 90 ? "bg-danger" : clamped >= 75 ? "bg-warning" : "bg-fg";
+  const tone = clamped >= 90 ? "bg-danger" : clamped >= 75 ? "bg-warning" : "bg-fg";
   return (
     <div className="h-1 overflow-hidden rounded-full bg-bg-muted">
       <div
-        className={cx(
-          "h-full rounded-full transition-[width] duration-500",
-          tone,
-        )}
+        className={cx("h-full rounded-full transition-[width] duration-500", tone)}
         style={{ width: `${clamped}%` }}
       />
     </div>
@@ -200,12 +177,8 @@ function Count({
       to={to}
       className="group flex items-center justify-between rounded-lg border border-border bg-bg px-4 py-3 transition-colors hover:border-border-strong"
     >
-      <span className="text-[13px] text-fg-muted group-hover:text-fg">
-        {label}
-      </span>
-      <span className="text-lg font-semibold text-fg tabular-nums">
-        {value ?? "—"}
-      </span>
+      <span className="text-[13px] text-fg-muted group-hover:text-fg">{label}</span>
+      <span className="text-lg font-semibold text-fg tabular-nums">{value ?? "—"}</span>
     </Link>
   );
 }
@@ -225,9 +198,7 @@ function Formats() {
           <Layers3Icon />
           Formats
           {info.data && (
-            <span className="text-fg-subtle tabular-nums">
-              {info.data.formats.length}
-            </span>
+            <span className="text-fg-subtle tabular-nums">{info.data.formats.length}</span>
           )}
         </Button>
       }
@@ -235,9 +206,7 @@ function Formats() {
       <div className="grid gap-3">
         {info.data?.formats.map((format) => (
           <div key={format.name} className="grid gap-1.5">
-            <span className="font-mono text-[13px] font-medium text-fg">
-              {format.name}
-            </span>
+            <span className="font-mono text-[13px] font-medium text-fg">{format.name}</span>
             <div className="flex flex-wrap gap-1">
               {format.protocols.support === "everything" ? (
                 <Badge>every protocol</Badge>

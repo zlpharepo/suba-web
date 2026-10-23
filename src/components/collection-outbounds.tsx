@@ -52,8 +52,8 @@ export function CollectionOutbounds({
   });
   const [selected, setSelected] = useState<{ path: string; tag: string } | null>(null);
   // Catalog paths are positional; a refreshed row must not become another node.
-  const preview = entries.find((entry) =>
-    entry.path === selected?.path && entry.tag === selected?.tag,
+  const preview = entries.find(
+    (entry) => entry.path === selected?.path && entry.tag === selected?.tag,
   );
 
   return (
@@ -82,11 +82,7 @@ export function CollectionOutbounds({
             <p role="alert" className="text-xs text-danger">
               Collections could not be loaded.
             </p>
-            <Button
-              size="sm"
-              disabled={known.isFetching}
-              onClick={() => void known.refetch()}
-            >
+            <Button size="sm" disabled={known.isFetching} onClick={() => void known.refetch()}>
               Retry Collections
             </Button>
           </div>
@@ -101,14 +97,16 @@ export function CollectionOutbounds({
               disabled={choose.isPending}
               checked={chosen.includes(name)}
               className="min-w-0 max-w-full"
-              onChange={(checked) => choose.mutate(
-                checked ? [...chosen, name] : chosen.filter((held) => held !== name),
-              )}
+              onChange={(checked) =>
+                choose.mutate(checked ? [...chosen, name] : chosen.filter((held) => held !== name))
+              }
               label={
-                <span className={cx(
-                  "min-w-0 break-all",
-                  known.isSuccess && !names.includes(name) && "text-danger",
-                )}>
+                <span
+                  className={cx(
+                    "min-w-0 break-all",
+                    known.isSuccess && !names.includes(name) && "text-danger",
+                  )}
+                >
                   {name}
                 </span>
               }
@@ -120,11 +118,15 @@ export function CollectionOutbounds({
         <p role="alert" className="text-[13px] text-danger">
           Collection outbounds could not be loaded. Refresh to try again.
         </p>
-      ) : loading ? <Skeleton className="h-24" /> : entries.length === 0 ? (
+      ) : loading ? (
+        <Skeleton className="h-24" />
+      ) : entries.length === 0 ? (
         <Empty
-          title={chosen.length === 0
-            ? "Select collections to include their outbounds."
-            : "The selected collections contribute no outbounds."}
+          title={
+            chosen.length === 0
+              ? "Select collections to include their outbounds."
+              : "The selected collections contribute no outbounds."
+          }
         />
       ) : (
         <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
@@ -156,10 +158,7 @@ export function CollectionOutbounds({
             </span>
             <Badge>Read Only</Badge>
             <div className="ml-auto">
-              <CopyButton
-                text={JSON.stringify(preview.value, null, 2)}
-                label="Copy JSON"
-              />
+              <CopyButton text={JSON.stringify(preview.value, null, 2)} label="Copy JSON" />
             </div>
           </div>
           <pre className="max-h-96 overflow-auto rounded-md bg-bg-muted p-3 font-mono text-xs break-all whitespace-pre-wrap">

@@ -39,9 +39,7 @@ export function CollectionsPage() {
     queryKey: ["collections"],
     queryFn: api.collections.list,
   });
-  const entries = Object.entries(collections.data ?? {}).sort(([a], [b]) =>
-    a.localeCompare(b),
-  );
+  const entries = Object.entries(collections.data ?? {}).sort(([a], [b]) => a.localeCompare(b));
 
   const remove = useMutation({
     mutationFn: (name: string) => api.collections.remove(name),
@@ -132,9 +130,7 @@ function CollectionCard({
       <div className="flex items-start justify-between gap-3 p-4 pb-3">
         <div className="grid min-w-0 gap-2">
           <div className="flex items-baseline gap-2">
-            <h2 className="truncate text-[15px] font-semibold text-fg">
-              {name}
-            </h2>
+            <h2 className="truncate text-[15px] font-semibold text-fg">{name}</h2>
             <span className="text-xs text-fg-subtle tabular-nums">
               {collection.nodes} {collection.nodes === 1 ? "node" : "nodes"}
             </span>
@@ -143,9 +139,7 @@ function CollectionCard({
             {(collection.providers ?? []).map((member) => (
               <Badge
                 key={member}
-                tone={
-                  collection.unresolved.includes(member) ? "danger" : "neutral"
-                }
+                tone={collection.unresolved.includes(member) ? "danger" : "neutral"}
               >
                 {member}
               </Badge>
@@ -187,8 +181,7 @@ function Tokens({ name, links }: { name: string; links: DeliveryToken[] }) {
   const [adding, setAdding] = useState(false);
   const [label, setLabel] = useState("");
 
-  const invalidate = () =>
-    void queryClient.invalidateQueries({ queryKey: ["collections"] });
+  const invalidate = () => void queryClient.invalidateQueries({ queryKey: ["collections"] });
 
   const mint = useMutation({
     mutationFn: (label: string) => api.collections.mintToken(name, label),
@@ -233,12 +226,7 @@ function Tokens({ name, links }: { name: string; links: DeliveryToken[] }) {
             required
             className="h-7 max-w-56"
           />
-          <Button
-            size="sm"
-            variant="primary"
-            type="submit"
-            disabled={mint.isPending}
-          >
+          <Button size="sm" variant="primary" type="submit" disabled={mint.isPending}>
             Add
           </Button>
           <Button size="sm" variant="ghost" onClick={() => setAdding(false)}>
@@ -276,9 +264,7 @@ function TokenRow({
       <span className="w-20 shrink-0 truncate text-[13px] font-medium text-fg sm:w-28">
         {link.name}
       </span>
-      <code className="min-w-0 flex-1 truncate font-mono text-xs text-fg-muted">
-        {url}
-      </code>
+      <code className="min-w-0 flex-1 truncate font-mono text-xs text-fg-muted">{url}</code>
       <div className="flex shrink-0 items-center">
         <CopyButton text={url} label="Copy link" />
         <a
@@ -293,11 +279,7 @@ function TokenRow({
         </a>
         <Menu
           trigger={
-            <button
-              type="button"
-              aria-label="More"
-              className={buttonClass("ghost", "sm", true)}
-            >
+            <button type="button" aria-label="More" className={buttonClass("ghost", "sm", true)}>
               <MoreHorizontalIcon />
             </button>
           }
@@ -326,9 +308,7 @@ function TokenRow({
         open={confirm !== null}
         onOpenChange={(open) => !open && setConfirm(null)}
         width="sm"
-        title={
-          confirm === "rotate" ? `Rotate ${link.name}?` : `Revoke ${link.name}?`
-        }
+        title={confirm === "rotate" ? `Rotate ${link.name}?` : `Revoke ${link.name}?`}
         footer={
           <>
             <Button onClick={() => setConfirm(null)}>Cancel</Button>
@@ -401,26 +381,17 @@ function CollectionForm({
 
   const [name, setName] = useState(initialName ?? "");
   const [members, setMembers] = useState<string[]>(collection?.providers ?? []);
-  const [includes, setIncludes] = useState<Pattern[]>(
-    collection?.includes ?? [],
-  );
-  const [excludes, setExcludes] = useState<Pattern[]>(
-    collection?.excludes ?? [],
-  );
+  const [includes, setIncludes] = useState<Pattern[]>(collection?.includes ?? []);
+  const [excludes, setExcludes] = useState<Pattern[]>(collection?.excludes ?? []);
 
   // A member may name a provider that does not exist (yet); it stays listed.
   const known = Object.keys(providers.data ?? {}).sort();
-  const choices = [
-    ...known,
-    ...members.filter((member) => !known.includes(member)),
-  ];
+  const choices = [...known, ...members.filter((member) => !known.includes(member))];
 
   const save = useMutation({
     // A PUT replaces the whole definition, tokens included; read them fresh.
     mutationFn: async () => {
-      const current = initialName
-        ? await api.collections.get(initialName)
-        : undefined;
+      const current = initialName ? await api.collections.get(initialName) : undefined;
       return api.collections.put(name.trim(), {
         providers: members,
         includes,
@@ -463,15 +434,11 @@ function CollectionForm({
                 checked={members.includes(member)}
                 onChange={(checked) =>
                   setMembers(
-                    checked
-                      ? [...members, member]
-                      : members.filter((item) => item !== member),
+                    checked ? [...members, member] : members.filter((item) => item !== member),
                   )
                 }
                 label={
-                  <span className={known.includes(member) ? "" : "text-danger"}>
-                    {member}
-                  </span>
+                  <span className={known.includes(member) ? "" : "text-danger"}>{member}</span>
                 }
               />
             ))}
@@ -497,13 +464,7 @@ function CollectionForm({
 const DEFAULT_FORMAT = "base64";
 
 // Fetched only when opened: the artifact carries every node's credentials.
-function PreviewDialog({
-  name,
-  onClose,
-}: {
-  name: string | null;
-  onClose: () => void;
-}) {
+function PreviewDialog({ name, onClose }: { name: string | null; onClose: () => void }) {
   const info = useQuery({
     queryKey: ["system", "info"],
     queryFn: api.system.info,
@@ -534,12 +495,10 @@ function PreviewDialog({
               aria-label="Format"
               value={format}
               onChange={setFormat}
-              options={(info.data?.formats ?? [{ name: DEFAULT_FORMAT }]).map(
-                ({ name }) => ({
-                  value: name,
-                  label: name === DEFAULT_FORMAT ? `${name} (default)` : name,
-                }),
-              )}
+              options={(info.data?.formats ?? [{ name: DEFAULT_FORMAT }]).map(({ name }) => ({
+                value: name,
+                label: name === DEFAULT_FORMAT ? `${name} (default)` : name,
+              }))}
             />
           </div>
           {content.data && (
@@ -547,9 +506,7 @@ function PreviewDialog({
               {content.data.nodes} nodes · {content.data.skipped} skipped
             </span>
           )}
-          {content.data && (
-            <CopyButton text={content.data.body} label="Copy document" />
-          )}
+          {content.data && <CopyButton text={content.data.body} label="Copy document" />}
         </div>
         {content.error && <ErrorNote error={content.error} />}
         {content.isPending ? (
@@ -573,9 +530,7 @@ function PreviewDialog({
                   key={nodeKey(node)}
                   className="flex items-center gap-3 px-3 py-1.5 text-[13px]"
                 >
-                  <span className="flex-1 truncate text-fg">
-                    {node.name}
-                  </span>
+                  <span className="flex-1 truncate text-fg">{node.name}</span>
                   <Badge mono>{node.protocol}</Badge>
                   <span className="hidden w-48 truncate font-mono text-xs text-fg-subtle sm:block">
                     {node.endpoint}

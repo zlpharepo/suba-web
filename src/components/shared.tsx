@@ -1,12 +1,7 @@
 import { useState } from "react";
 import { CheckIcon, CopyIcon, PlusIcon, XIcon } from "lucide-react";
 
-import {
-  makePattern,
-  PATTERN_KINDS,
-  patternKind,
-  patternText,
-} from "@/lib/pattern";
+import { makePattern, PATTERN_KINDS, patternKind, patternText } from "@/lib/pattern";
 import type { Pattern, PatternKind } from "@/lib/types";
 import { Button, IconButton } from "@/ui/button";
 import { Input } from "@/ui/input";
@@ -46,9 +41,7 @@ export function PatternsEditor({
             <Select<PatternKind>
               aria-label="Match by"
               value={patternKind(pattern)}
-              onChange={(kind) =>
-                replace(index, makePattern(kind, patternText(pattern)))
-              }
+              onChange={(kind) => replace(index, makePattern(kind, patternText(pattern)))}
               options={PATTERN_KINDS.map((kind) => ({
                 value: kind,
                 label: kind,
@@ -59,10 +52,7 @@ export function PatternsEditor({
             className="font-mono"
             value={patternText(pattern)}
             onChange={(event) =>
-              replace(
-                index,
-                makePattern(patternKind(pattern), event.target.value),
-              )
+              replace(index, makePattern(patternKind(pattern), event.target.value))
             }
             placeholder={patternKind(pattern) === "regex" ? "^US" : "text"}
           />
@@ -78,13 +68,7 @@ export function PatternsEditor({
   );
 }
 
-export function CopyButton({
-  text,
-  label = "Copy",
-}: {
-  text: string;
-  label?: string;
-}) {
+export function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) {
   const [done, setDone] = useState(false);
 
   return (

@@ -20,14 +20,7 @@ import { Generator } from "@/components/generator";
 import { ApiError, api, errorMessage } from "@/lib/api";
 import { cx } from "@/lib/cx";
 import { ago, stripAnsi } from "@/lib/format";
-import type {
-  ConfigView,
-  Core,
-  CoreAction,
-  Privilege,
-  Running,
-  VersionView,
-} from "@/lib/types";
+import type { ConfigView, Core, CoreAction, Privilege, Running, VersionView } from "@/lib/types";
 import { Button, IconButton } from "@/ui/button";
 import { buttonClass } from "@/ui/styles";
 import { Confirm, Dialog } from "@/ui/dialog";
@@ -83,9 +76,7 @@ export function SingboxPage() {
             />
             <PrivilegesChip core={core.data} />
             {core.data.note && (
-              <span className="text-xs text-warning">
-                Restart to apply changes
-              </span>
+              <span className="text-xs text-warning">Restart to apply changes</span>
             )}
           </div>
           {dead && <p className="mb-6 text-[13px] text-danger">{dead}</p>}
@@ -117,11 +108,8 @@ function died(status: Running): string | null {
   const exit = status.exits.at(-1);
   if (!exit || (exit.code === 0 && exit.signal === null)) return null;
 
-  const how =
-    exit.signal !== null ? `signal ${exit.signal}` : `status ${exit.code}`;
-  const said = [...status.log]
-    .reverse()
-    .find((line) => !line.startsWith("[suba]"));
+  const how = exit.signal !== null ? `signal ${exit.signal}` : `status ${exit.code}`;
+  const said = [...status.log].reverse().find((line) => !line.startsWith("[suba]"));
 
   return `The core exited with ${how}${said ? `: ${stripAnsi(said)}` : ""}`;
 }
@@ -137,13 +125,7 @@ function NoVersion() {
 
 /* ---------------------------------------------------------------- process */
 
-function Controls({
-  running,
-  hasVersion,
-}: {
-  running: boolean;
-  hasVersion: boolean;
-}) {
+function Controls({ running, hasVersion }: { running: boolean; hasVersion: boolean }) {
   const queryClient = useQueryClient();
   const [log, setLog] = useState(false);
 
@@ -176,11 +158,7 @@ function Controls({
             onClick={() => act.mutate("restart")}
           >
             <RotateCwIcon
-              className={
-                act.isPending && act.variables === "restart"
-                  ? "animate-spin"
-                  : undefined
-              }
+              className={act.isPending && act.variables === "restart" ? "animate-spin" : undefined}
             />
           </IconButton>
           <IconButton
@@ -306,11 +284,7 @@ function VersionsDialog({
     queryFn: api.singbox.versions,
     enabled: open,
     refetchInterval: (query) =>
-      query.state.data?.some(
-        (item) => item.installation.status === "downloading",
-      )
-        ? 1000
-        : false,
+      query.state.data?.some((item) => item.installation.status === "downloading") ? 1000 : false,
   });
   const releases = useQuery({
     queryKey: ["singbox", "releases"],
@@ -322,8 +296,7 @@ function VersionsDialog({
   const picked = release ?? releases.data?.stable ?? null;
   const core = useQuery({ queryKey: ["singbox"], queryFn: api.singbox.get });
 
-  const invalidate = () =>
-    void queryClient.invalidateQueries({ queryKey: ["singbox"] });
+  const invalidate = () => void queryClient.invalidateQueries({ queryKey: ["singbox"] });
 
   const choose = useMutation({
     mutationFn: (version: string) =>
@@ -379,9 +352,7 @@ function VersionsDialog({
                 className="flex-1 font-mono"
                 aria-label="Release"
                 value={picked}
-                placeholder={
-                  releases.isPending ? "Loading…" : "Choose a release"
-                }
+                placeholder={releases.isPending ? "Loading…" : "Choose a release"}
                 disabled={!releases.data}
                 onChange={setRelease}
                 options={(releases.data?.versions ?? []).map((item) => ({
@@ -400,9 +371,7 @@ function VersionsDialog({
               <Button
                 variant="primary"
                 disabled={
-                  !picked ||
-                  install.isPending ||
-                  (picked !== null && installed.has(picked))
+                  !picked || install.isPending || (picked !== null && installed.has(picked))
                 }
                 onClick={() => picked && install.mutate(picked)}
               >
@@ -438,13 +407,9 @@ function VersionRow({
         current ? "border-fg/20 bg-bg-subtle" : "border-border",
       )}
     >
-      <span className="font-mono text-[13px] font-medium text-fg">
-        {item.version}
-      </span>
+      <span className="font-mono text-[13px] font-medium text-fg">{item.version}</span>
       {current && <Badge tone="accent">in use</Badge>}
-      {item.runtime.status === "running" && (
-        <Badge tone="success">running</Badge>
-      )}
+      {item.runtime.status === "running" && <Badge tone="success">running</Badge>}
       <span className="min-w-0 flex-1 truncate text-xs text-fg-subtle">
         {state.status === "downloading"
           ? `Downloading${state.progress.percentage === null ? "…" : ` ${state.progress.percentage}%`}`
@@ -522,9 +487,7 @@ function ConfigChip({
 }
 
 /** What the name field is being used for. */
-type ConfigAction =
-  | { mode: "new" }
-  | { mode: "rename" | "duplicate"; from: string };
+type ConfigAction = { mode: "new" } | { mode: "rename" | "duplicate"; from: string };
 
 function ConfigsDialog({
   open,
@@ -571,10 +534,7 @@ function ConfigsDialog({
   // before the old name goes, because the one in use cannot be removed.
   const submit = useMutation({
     mutationFn: async (target: ConfigAction & { name: string }) => {
-      await api.singbox.createConfig(
-        target.name,
-        target.mode === "new" ? undefined : target.from,
-      );
+      await api.singbox.createConfig(target.name, target.mode === "new" ? undefined : target.from);
       if (target.mode === "rename") {
         if (target.from === core.config) {
           await api.singbox.choose({
@@ -598,11 +558,7 @@ function ConfigsDialog({
   const held = configs.data ?? [];
   const taken = held.some((config) => config.name === name);
   const label =
-    action.mode === "new"
-      ? "Create"
-      : action.mode === "rename"
-        ? "Rename"
-        : "Duplicate";
+    action.mode === "new" ? "Create" : action.mode === "rename" ? "Rename" : "Duplicate";
 
   return (
     <Dialog
@@ -617,8 +573,7 @@ function ConfigsDialog({
         {configs.isPending && <Skeleton className="h-24" />}
         {configs.data && held.length === 0 && (
           <p className="text-[13px] text-fg-subtle">
-            No configuration has been written yet. Saving any section of this
-            one makes it.
+            No configuration has been written yet. Saving any section of this one makes it.
           </p>
         )}
         <div className="grid gap-1.5">
@@ -658,9 +613,7 @@ function ConfigsDialog({
             />
             <Button
               variant="primary"
-              disabled={
-                !name || submit.isPending || (action.mode !== "rename" && taken)
-              }
+              disabled={!name || submit.isPending || (action.mode !== "rename" && taken)}
               onClick={() => submit.mutate({ ...action, name })}
             >
               {label}
@@ -790,12 +743,11 @@ function PrivilegesChip({ core }: { core: Core }) {
           label="Run Core as Root"
         />
         <p className="text-xs text-fg-subtle">
-          An inbound that creates an interface — <code>tun</code>, or{" "}
-          <code>tproxy</code> and <code>redirect</code> on Linux — needs it, and
-          nothing else does. Off, the core is dropped to the user this instance
-          works for. Either way the server has to have been started as root (
-          <code>--run-as-root</code>), and a start that cannot be what it was
-          asked to be says so.
+          An inbound that creates an interface — <code>tun</code>, or <code>tproxy</code> and{" "}
+          <code>redirect</code> on Linux — needs it, and nothing else does. Off, the core is dropped
+          to the user this instance works for. Either way the server has to have been started as
+          root (<code>--run-as-root</code>), and a start that cannot be what it was asked to be says
+          so.
         </p>
       </div>
     </Popover>

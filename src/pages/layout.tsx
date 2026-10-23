@@ -37,9 +37,7 @@ function useNav(): NavItem[] {
     { to: "/", label: "Overview", icon: <GaugeIcon /> },
     { to: "/providers", label: "Providers", icon: <RssIcon /> },
     { to: "/collections", label: "Collections", icon: <BoxesIcon /> },
-    ...(core.isSuccess
-      ? [{ to: "/sing-box", label: "sing-box", icon: <CpuIcon /> }]
-      : []),
+    ...(core.isSuccess ? [{ to: "/sing-box", label: "sing-box", icon: <CpuIcon /> }] : []),
   ];
 }
 
@@ -55,24 +53,16 @@ export function AppLayout() {
       <header className="sticky top-0 z-30 flex h-12 items-center justify-between border-b border-border bg-bg-subtle/85 px-3 backdrop-blur lg:hidden">
         <Brand />
         <BaseDialog.Root open={drawer} onOpenChange={setDrawer}>
-          <BaseDialog.Trigger
-            aria-label="Menu"
-            className={buttonClass("ghost", "md", true)}
-          >
+          <BaseDialog.Trigger aria-label="Menu" className={buttonClass("ghost", "md", true)}>
             <MenuIcon />
           </BaseDialog.Trigger>
           <BaseDialog.Portal>
             <BaseDialog.Backdrop className="fixed inset-0 z-40 bg-black/40 transition-opacity duration-200 data-ending-style:opacity-0 data-starting-style:opacity-0" />
             <BaseDialog.Popup className="fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-bg-subtle shadow-dialog transition-transform duration-200 ease-out outline-none data-ending-style:-translate-x-full data-starting-style:-translate-x-full">
-              <BaseDialog.Title className="sr-only">
-                Navigation
-              </BaseDialog.Title>
+              <BaseDialog.Title className="sr-only">Navigation</BaseDialog.Title>
               <BaseDialog.Close
                 aria-label="Close"
-                className={cx(
-                  buttonClass("ghost", "sm", true),
-                  "absolute top-3.5 right-3",
-                )}
+                className={cx(buttonClass("ghost", "sm", true), "absolute top-3.5 right-3")}
               >
                 <XIcon />
               </BaseDialog.Close>
@@ -149,11 +139,7 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           {info.data ? `v${info.data.version}` : ""}
         </span>
         <div className="flex gap-0.5">
-          <IconButton
-            label={dark ? "Light theme" : "Dark theme"}
-            size="sm"
-            onClick={toggle}
-          >
+          <IconButton label={dark ? "Light theme" : "Dark theme"} size="sm" onClick={toggle}>
             {dark ? <SunIcon /> : <MoonIcon />}
           </IconButton>
           <IconButton

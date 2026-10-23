@@ -20,13 +20,7 @@ import {
   useState,
 } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  BracesIcon,
-  CheckIcon,
-  ListIcon,
-  PlusIcon,
-  Trash2Icon,
-} from "lucide-react";
+import { BracesIcon, CheckIcon, ListIcon, PlusIcon, Trash2Icon } from "lucide-react";
 
 import { CollectionOutbounds } from "@/components/collection-outbounds";
 import { ConfigEntryCard } from "@/components/config-entry-card";
@@ -102,15 +96,12 @@ export function ConfigEditor({
     queryFn: () => api.singbox.references(name),
     retry: false,
   });
-  const catalog = references.isError ? EMPTY_CATALOG : references.data?.tags ?? EMPTY_CATALOG;
+  const catalog = references.isError ? EMPTY_CATALOG : (references.data?.tags ?? EMPTY_CATALOG);
   const generated = useMemo(
     () => catalog.filter((entry) => entry.source === "collection" && entry.space === "outbound"),
     [catalog],
   );
-  const tree = useMemo(
-    () => (schema.data ? new SchemaTree(schema.data) : null),
-    [schema.data],
-  );
+  const tree = useMemo(() => (schema.data ? new SchemaTree(schema.data) : null), [schema.data]);
   const [section, setSection] = useState<string>("inbounds");
   const nav = useRef<HTMLElement>(null);
   const ready = Boolean(tree && config.data);
@@ -135,11 +126,17 @@ export function ConfigEditor({
       >
         {tree.sections().map((held) => {
           const value = config.data.value[held];
-          const unknownOutbounds = held === "outbounds" && collections.length > 0 &&
+          const unknownOutbounds =
+            held === "outbounds" &&
+            collections.length > 0 &&
             (references.isPending || references.isError);
-          const count = unknownOutbounds ? undefined : held === "outbounds"
-            ? (Array.isArray(value) ? value.length : 0) + generated.length
-            : Array.isArray(value) ? value.length : undefined;
+          const count = unknownOutbounds
+            ? undefined
+            : held === "outbounds"
+              ? (Array.isArray(value) ? value.length : 0) + generated.length
+              : Array.isArray(value)
+                ? value.length
+                : undefined;
           return (
             <button
               key={held}
@@ -155,13 +152,9 @@ export function ConfigEditor({
             >
               <span>{humanize(held)}</span>
               {count !== undefined ? (
-                <span className="text-xs text-fg-subtle tabular-nums">
-                  {count}
-                </span>
+                <span className="text-xs text-fg-subtle tabular-nums">{count}</span>
               ) : (
-                value !== undefined && (
-                  <span className="size-1.5 rounded-full bg-fg-subtle" />
-                )
+                value !== undefined && <span className="size-1.5 rounded-full bg-fg-subtle" />
               )}
             </button>
           );
@@ -172,24 +165,39 @@ export function ConfigEditor({
           <CollectionOutbounds
             core={core}
             entries={generated}
-            indexOffset={Array.isArray(config.data.value.outbounds) ? config.data.value.outbounds.length : 0}
+            indexOffset={
+              Array.isArray(config.data.value.outbounds) ? config.data.value.outbounds.length : 0
+            }
             loading={references.isPending}
             refreshing={references.isFetching}
             failed={references.isError}
             onRefresh={() => void references.refetch()}
           />
-        ) : references.isError && (
-          <div className="mb-4 flex items-center gap-2">
-            <p role="alert" className="text-xs text-danger">
-              Reference data could not be loaded. Local tags remain available.
-            </p>
-            <Button size="sm" disabled={references.isFetching} onClick={() => void references.refetch()}>
-              Retry Tags
-            </Button>
-          </div>
+        ) : (
+          references.isError && (
+            <div className="mb-4 flex items-center gap-2">
+              <p role="alert" className="text-xs text-danger">
+                Reference data could not be loaded. Local tags remain available.
+              </p>
+              <Button
+                size="sm"
+                disabled={references.isFetching}
+                onClick={() => void references.refetch()}
+              >
+                Retry Tags
+              </Button>
+            </div>
+          )
         )}
         <ReferenceCatalog.Provider value={catalog}>
-          <CollectionBindings.Provider value={{ selected: collections, catalog, pending: references.isPending, failed: references.isError }}>
+          <CollectionBindings.Provider
+            value={{
+              selected: collections,
+              catalog,
+              pending: references.isPending,
+              failed: references.isError,
+            }}
+          >
             <DraftStatus.Provider value={onDraftStatus}>
               <Section
                 // Full JSON refreshes the saved document; an old form must not write it back.
@@ -221,19 +229,9 @@ function Section({
   const node = tree.section(name);
   if (!node) return null;
 
-  if (
-    node.type === "array" &&
-    node.items &&
-    isTaggedEntries(document.value[name])
-  ) {
+  if (node.type === "array" && node.items && isTaggedEntries(document.value[name])) {
     return (
-      <EntriesView
-        config={config}
-        tree={tree}
-        name={name}
-        item={node.items}
-        document={document}
-      />
+      <EntriesView config={config} tree={tree} name={name} item={node.items} document={document} />
     );
   }
 
@@ -251,15 +249,7 @@ function Section({
     );
   }
 
-  return (
-    <FormView
-      config={config}
-      tree={tree}
-      name={name}
-      node={node}
-      document={document}
-    />
-  );
+  return <FormView config={config} tree={tree} name={name} node={node} document={document} />;
 }
 
 /* ------------------------------------------------------------------ draft */
@@ -270,11 +260,7 @@ function Section({
  * The draft is local until it is saved, so a dialog can edit an entry without
  * every keystroke being a request, and Discard is one assignment.
  */
-function useDraft(
-  config: string,
-  name: string,
-  document: Versioned<JsonObject>,
-) {
+function useDraft(config: string, name: string, document: Versioned<JsonObject>) {
   const queryClient = useQueryClient();
   const held = document.value[name];
   const [draft, setDraft] = useState<unknown>(held);
@@ -304,9 +290,7 @@ function useDraft(
         queryKey: ["singbox", "references"],
       });
       if (saved.value.warnings.length > 0) {
-        toast.error(
-          `Saved, but the core will refuse it: ${saved.value.warnings.join("; ")}`,
-        );
+        toast.error(`Saved, but the core will refuse it: ${saved.value.warnings.join("; ")}`);
       } else {
         toast.success("Saved");
       }
@@ -317,13 +301,25 @@ function useDraft(
   useLayoutEffect(() => {
     reportStatus?.({ dirty, saving: save.isPending });
   }, [reportStatus, dirty, save.isPending]);
-  useLayoutEffect(() => () => {
-    reportStatus?.({ dirty: false, saving: false });
-  }, [reportStatus]);
+  useLayoutEffect(
+    () => () => {
+      reportStatus?.({ dirty: false, saving: false });
+    },
+    [reportStatus],
+  );
 
   return {
-    held, draft, setDraft, raw, setRaw, dirty, invalid, setInvalid,
-    rawKey: `${name}:${rawRevision}`, reset, save,
+    held,
+    draft,
+    setDraft,
+    raw,
+    setRaw,
+    dirty,
+    invalid,
+    setInvalid,
+    rawKey: `${name}:${rawRevision}`,
+    reset,
+    save,
   };
 }
 
@@ -365,16 +361,9 @@ function EditorBar({
       <ModeToggle raw={raw} onChange={onRaw} />
       <div className="ml-auto flex items-center gap-1.5">
         {dirty && (
-          <span className="mr-1 hidden text-xs text-fg-subtle sm:inline">
-            Unsaved Changes
-          </span>
+          <span className="mr-1 hidden text-xs text-fg-subtle sm:inline">Unsaved Changes</span>
         )}
-        <Button
-          size="md"
-          variant="ghost"
-          disabled={empty && !dirty}
-          onClick={onClear}
-        >
+        <Button size="md" variant="ghost" disabled={empty && !dirty} onClick={onClear}>
           Clear
         </Button>
         {dirty && (
@@ -391,13 +380,7 @@ function EditorBar({
   );
 }
 
-function ModeToggle({
-  raw,
-  onChange,
-}: {
-  raw: boolean;
-  onChange: (raw: boolean) => void;
-}) {
+function ModeToggle({ raw, onChange }: { raw: boolean; onChange: (raw: boolean) => void }) {
   return (
     <div className="flex gap-0.5 rounded-md bg-bg-muted p-0.5">
       {[
@@ -410,9 +393,7 @@ function ModeToggle({
           onClick={() => onChange(option.value)}
           className={cx(
             "flex items-center gap-1.5 rounded-[5px] px-2 py-1 text-xs font-medium transition-colors [&_svg]:size-3.5",
-            raw === option.value
-              ? "bg-bg text-fg shadow-sm"
-              : "text-fg-muted hover:text-fg",
+            raw === option.value ? "bg-bg text-fg shadow-sm" : "text-fg-muted hover:text-fg",
           )}
         >
           {option.icon}
@@ -423,13 +404,7 @@ function ModeToggle({
   );
 }
 
-function SectionHeading({
-  title,
-  actions,
-}: {
-  title: string;
-  actions?: React.ReactNode;
-}) {
+function SectionHeading({ title, actions }: { title: string; actions?: React.ReactNode }) {
   return (
     <div className="mb-3.5 flex min-h-8 items-center justify-between gap-3">
       <h2 className="text-[15px] font-semibold text-fg">{title}</h2>
@@ -463,11 +438,11 @@ function FormView({
   node: JsonSchema;
   document: Versioned<JsonObject>;
 }) {
-  const {
-    held, draft, setDraft, raw, setRaw, dirty, invalid, setInvalid, rawKey, reset, save,
-  } = useDraft(config, name, document);
+  const { held, draft, setDraft, raw, setRaw, dirty, invalid, setInvalid, rawKey, reset, save } =
+    useDraft(config, name, document);
   const localDocument = useMemo(
-    () => sectionDocument(document.value, name, draft), [document.value, name, draft],
+    () => sectionDocument(document.value, name, draft),
+    [document.value, name, draft],
   );
   const tags = useReferenceTags(localDocument);
 
@@ -496,12 +471,7 @@ function FormView({
           }
         />
       ) : raw ? (
-        <RawField
-          key={rawKey}
-          value={draft}
-          onChange={setDraft}
-          onInvalidChange={setInvalid}
-        />
+        <RawField key={rawKey} value={draft} onChange={setDraft} onInvalidChange={setInvalid} />
       ) : (
         <SchemaForm
           tree={tree}
@@ -532,35 +502,26 @@ function SplitView({
   cards: ArrayProperty[];
   document: Versioned<JsonObject>;
 }) {
-  const {
-    held, draft, setDraft, raw, setRaw, dirty, invalid, setInvalid, rawKey, reset, save,
-  } = useDraft(config, name, document);
+  const { held, draft, setDraft, raw, setRaw, dirty, invalid, setInvalid, rawKey, reset, save } =
+    useDraft(config, name, document);
   const localDocument = useMemo(
-    () => sectionDocument(document.value, name, draft), [document.value, name, draft],
+    () => sectionDocument(document.value, name, draft),
+    [document.value, name, draft],
   );
   const tags = useReferenceTags(localDocument);
   const object = isObject(draft) ? draft : {};
-  const listed = useMemo(
-    () => new Set(cards.map((card) => card.name)),
-    [cards],
-  );
+  const listed = useMemo(() => new Set(cards.map((card) => card.name)), [cards]);
   const scalar = useMemo(
     () => ({
       ...node,
       properties: Object.fromEntries(
-        Object.entries(node.properties ?? {}).filter(
-          ([key]) => !listed.has(key),
-        ),
+        Object.entries(node.properties ?? {}).filter(([key]) => !listed.has(key)),
       ),
     }),
     [node, listed],
   );
-  const rest = Object.fromEntries(
-    Object.entries(object).filter(([key]) => !listed.has(key)),
-  );
-  const lists = Object.fromEntries(
-    Object.entries(object).filter(([key]) => listed.has(key)),
-  );
+  const rest = Object.fromEntries(Object.entries(object).filter(([key]) => !listed.has(key)));
+  const lists = Object.fromEntries(Object.entries(object).filter(([key]) => listed.has(key)));
   const [editing, setEditing] = useState<EditTarget | null>(null);
 
   const entriesOf = (property: string): JsonObject[] =>
@@ -580,12 +541,7 @@ function SplitView({
         onClear={() => reset(undefined)}
       />
       {raw ? (
-        <RawField
-          key={rawKey}
-          value={draft}
-          onChange={setDraft}
-          onInvalidChange={setInvalid}
-        />
+        <RawField key={rawKey} value={draft} onChange={setDraft} onInvalidChange={setInvalid} />
       ) : (
         <>
           {cards.map((card) => (
@@ -598,9 +554,7 @@ function SplitView({
               onRemove={(index) =>
                 setDraft({
                   ...object,
-                  [card.name]: entriesOf(card.name).filter(
-                    (_, at) => at !== index,
-                  ),
+                  [card.name]: entriesOf(card.name).filter((_, at) => at !== index),
                 })
               }
             />
@@ -614,9 +568,7 @@ function SplitView({
               value={rest}
               // The lists are edited as cards, so they come from the draft as
               // they are; the rest of the object is the form's to replace.
-              onChange={(next) =>
-                setDraft({ ...lists, ...(isObject(next) ? next : {}) })
-              }
+              onChange={(next) => setDraft({ ...lists, ...(isObject(next) ? next : {}) })}
             />
           </div>
         </>
@@ -662,11 +614,11 @@ function EntriesView({
   item: JsonSchema;
   document: Versioned<JsonObject>;
 }) {
-  const {
-    held, draft, setDraft, raw, setRaw, dirty, invalid, setInvalid, rawKey, reset, save,
-  } = useDraft(config, name, document);
+  const { held, draft, setDraft, raw, setRaw, dirty, invalid, setInvalid, rawKey, reset, save } =
+    useDraft(config, name, document);
   const localDocument = useMemo(
-    () => sectionDocument(document.value, name, draft), [document.value, name, draft],
+    () => sectionDocument(document.value, name, draft),
+    [document.value, name, draft],
   );
   const entries = Array.isArray(draft) ? (draft as JsonObject[]) : [];
   const [editing, setEditing] = useState<EditTarget | null>(null);
@@ -685,21 +637,14 @@ function EntriesView({
         onClear={() => reset(undefined)}
       />
       {raw ? (
-        <RawField
-          key={rawKey}
-          value={draft}
-          onChange={setDraft}
-          onInvalidChange={setInvalid}
-        />
+        <RawField key={rawKey} value={draft} onChange={setDraft} onInvalidChange={setInvalid} />
       ) : (
         <CardList
           path={name}
           entries={entries}
           onAdd={() => setEditing({ path: name, index: null })}
           onEdit={(index) => setEditing({ path: name, index })}
-          onRemove={(index) =>
-            setDraft(entries.filter((_, at) => at !== index))
-          }
+          onRemove={(index) => setDraft(entries.filter((_, at) => at !== index))}
         />
       )}
       {editing && (
@@ -716,9 +661,7 @@ function EntriesView({
             setDraft(
               editing.index === null
                 ? [...entries, entry]
-                : entries.map((held, at) =>
-                    at === editing.index ? entry : held,
-                  ),
+                : entries.map((held, at) => (at === editing.index ? entry : held)),
             )
           }
         />
@@ -837,14 +780,15 @@ function EntryDialog({
   const tags = useReferenceTags(
     localDocument,
     (path === "outbounds" || path === "endpoints") && typeof entry.tag === "string"
-      ? entry.tag : undefined,
+      ? entry.tag
+      : undefined,
   );
   const hide = hideFor(path);
   // An entry that is addressed by tag cannot be saved without one.
   const needsTag = hasEntryTag(tree, item);
   const tagsOfEntry = Array.isArray(entry.tag) ? entry.tag : [entry.tag];
-  const validTag = tagsOfEntry.length > 0 &&
-    tagsOfEntry.every((tag) => typeof tag === "string" && tag.length > 0);
+  const validTag =
+    tagsOfEntry.length > 0 && tagsOfEntry.every((tag) => typeof tag === "string" && tag.length > 0);
   const tag = validTag ? tagsOfEntry.join(", ") : "";
   const title = tag
     ? tag

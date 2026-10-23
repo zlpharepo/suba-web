@@ -1,9 +1,4 @@
-import {
-  ownProperties,
-  type JsonObject,
-  type JsonSchema,
-  type SchemaTree,
-} from "./schema.ts";
+import { ownProperties, type JsonObject, type JsonSchema, type SchemaTree } from "./schema.ts";
 import type { GenerateCommand } from "./types.ts";
 
 export interface FieldGeneration {
@@ -67,10 +62,7 @@ export function fieldGeneration(
   if (field === "pre_shared_key" && defined("WireGuardPeer")) {
     return single("rand", "base64", 32);
   }
-  if (
-    (field === "certificate" || field === "key") &&
-    defined("InboundTLSOptions")
-  ) {
+  if ((field === "certificate" || field === "key") && defined("InboundTLSOptions")) {
     return {
       command: "tls-keypair",
       format: "tls",
@@ -98,10 +90,7 @@ export interface GeneratedFields {
   companion?: { label: string; value: string };
 }
 
-export function generatedFields(
-  plan: FieldGeneration,
-  output: string,
-): GeneratedFields {
+export function generatedFields(plan: FieldGeneration, output: string): GeneratedFields {
   const text = output.trim().replace(/\r\n/g, "\n");
   const invalid = () => new Error("generate.output: unexpected format");
   const single = (value: string): GeneratedFields => ({
@@ -119,32 +108,26 @@ export function generatedFields(
 
   switch (plan.format) {
     case "uuid":
-      if (
-        !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(text)
-      ) throw invalid();
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(text))
+        throw invalid();
       return single(text);
     case "hex":
     case "base64": {
-      if (
-        !plan.length ||
-        text.length !== plan.length * 2 ||
-        !/^[0-9a-f]+$/i.test(text)
-      ) throw invalid();
+      if (!plan.length || text.length !== plan.length * 2 || !/^[0-9a-f]+$/i.test(text))
+        throw invalid();
       // The existing API always asks rand for hex, including fixed-size binary keys.
-      const value = plan.format === "hex" ? text : btoa(
-        String.fromCharCode(
-          ...text.match(/../g)!.map((byte) => Number.parseInt(byte, 16)),
-        ),
-      );
+      const value =
+        plan.format === "hex"
+          ? text
+          : btoa(
+              String.fromCharCode(...text.match(/../g)!.map((byte) => Number.parseInt(byte, 16))),
+            );
       return single(value);
     }
     case "reality":
     case "wireguard": {
-      const pattern = plan.format === "reality"
-        ? "[A-Za-z0-9_-]{43}" : "[A-Za-z0-9+/]{43}=";
-      const match = text.match(
-        new RegExp(`^PrivateKey: (${pattern})\\nPublicKey: (${pattern})$`),
-      );
+      const pattern = plan.format === "reality" ? "[A-Za-z0-9_-]{43}" : "[A-Za-z0-9+/]{43}=";
+      const match = text.match(new RegExp(`^PrivateKey: (${pattern})\\nPublicKey: (${pattern})$`));
       if (!match) throw invalid();
       return {
         ...single(match[1]),
@@ -172,8 +155,11 @@ export function applyGeneratedFields(
   if (current !== previous) return null;
   return {
     ...current,
-    ...Object.fromEntries(Object.entries(generated.values).map(([key, value]) =>
-      [key, Array.isArray(current[key]) ? [value] : value],
-    )),
+    ...Object.fromEntries(
+      Object.entries(generated.values).map(([key, value]) => [
+        key,
+        Array.isArray(current[key]) ? [value] : value,
+      ]),
+    ),
   };
 }

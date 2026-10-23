@@ -11,6 +11,7 @@ import {
   flatten,
   isObject,
   keysOf,
+  valueText,
   type JsonObject,
   type JsonSchema,
   type SchemaTree,
@@ -76,14 +77,11 @@ function listenFields(tree: SchemaTree, item: JsonSchema): Set<string> {
   );
   if (listening.length === 0) return new Set();
 
-  const [first, ...rest] = listening.map(
-    (branch) => new Set(Object.keys(branch.properties ?? {})),
-  );
+  const [first, ...rest] = listening.map((branch) => new Set(Object.keys(branch.properties ?? {})));
 
   return new Set(
     [...first].filter(
-      (key) =>
-        key !== "type" && key !== "tag" && rest.every((keys) => keys.has(key)),
+      (key) => key !== "type" && key !== "tag" && rest.every((keys) => keys.has(key)),
     ),
   );
 }
@@ -100,8 +98,7 @@ export function groupOf(
 ): FieldGroup | undefined {
   if (hide !== "dial" && hide !== "listen") return undefined;
 
-  const candidates =
-    hide === "dial" ? dialFields(tree) : listenFields(tree, item);
+  const candidates = hide === "dial" ? dialFields(tree) : listenFields(tree, item);
   const held = keysOf(tree, item);
   const keys = new Set([...candidates].filter((key) => held.has(key)));
   if (keys.size === 0) return undefined;
@@ -113,8 +110,7 @@ export function groupOf(
 export function isTaggedEntries(held: unknown): boolean {
   return (
     held === undefined ||
-    (Array.isArray(held) &&
-      held.every((entry) => isObject(entry) && typeof entry.tag === "string"))
+    (Array.isArray(held) && held.every((entry) => isObject(entry) && typeof entry.tag === "string"))
   );
 }
 
@@ -130,15 +126,10 @@ export interface ArrayProperty {
  * `dns` and `route` are mostly a handful of scalars around `servers` and
  * `rules`, and those are where the content is.
  */
-export function arrayProperties(
-  tree: SchemaTree,
-  node: JsonSchema,
-): ArrayProperty[] {
+export function arrayProperties(tree: SchemaTree, node: JsonSchema): ArrayProperty[] {
   return Object.entries(node.properties ?? {})
     .map(([name, property]) => ({ name, node: tree.resolve(property) }))
-    .filter(
-      ({ node }) => node.type === "array" && isObjectType(tree, node.items),
-    )
+    .filter(({ node }) => node.type === "array" && isObjectType(tree, node.items))
     .map(({ name, node }) => ({ name, item: node.items as JsonSchema }));
 }
 
@@ -151,15 +142,12 @@ function isObjectType(tree: SchemaTree, item: JsonSchema | undefined): boolean {
 /** One line that says where an entry listens, dials or points. */
 export function summarize(entry: JsonObject): string {
   if (typeof entry.listen_port === "number")
-    return `${entry.listen ?? "::"}:${entry.listen_port}`;
+    return `${valueText(entry.listen ?? "::")}:${entry.listen_port}`;
   if (typeof entry.server === "string")
-    return entry.server_port
-      ? `${entry.server}:${entry.server_port}`
-      : entry.server;
+    return entry.server_port ? `${entry.server}:${valueText(entry.server_port)}` : entry.server;
   if (typeof entry.url === "string") return entry.url;
   if (typeof entry.path === "string") return entry.path;
-  if (Array.isArray(entry.outbounds))
-    return `${entry.outbounds.length} outbounds`;
+  if (Array.isArray(entry.outbounds)) return `${entry.outbounds.length} outbounds`;
   if (Array.isArray(entry.rules)) return `${entry.rules.length} rules`;
   return "";
 }

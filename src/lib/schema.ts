@@ -35,6 +35,13 @@ export function kindOf(value: unknown): string {
   return typeof value;
 }
 
+/** Keep non-scalar JSON visible instead of displaying `[object Object]`. */
+export function valueText(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  return JSON.stringify(value) ?? "";
+}
+
 export class SchemaTree {
   readonly root: JsonSchema;
 
@@ -55,9 +62,7 @@ export class SchemaTree {
 
   /** The document's top-level sections, in the schema's order. */
   sections(): string[] {
-    return Object.keys(this.root.properties ?? {}).filter(
-      (name) => name !== "$schema",
-    );
+    return Object.keys(this.root.properties ?? {}).filter((name) => name !== "$schema");
   }
 
   section(name: string): JsonSchema | undefined {
@@ -68,10 +73,7 @@ export class SchemaTree {
 
 export type ScalarKind = "string" | "integer" | "number" | "boolean" | "enum";
 
-export function scalarKind(
-  tree: SchemaTree,
-  node: JsonSchema,
-): ScalarKind | null {
+export function scalarKind(tree: SchemaTree, node: JsonSchema): ScalarKind | null {
   const resolved = tree.resolve(node);
   if (resolved.enum) return "enum";
   switch (resolved.type) {
@@ -89,16 +91,11 @@ export function scalarKind(
  * The item of an `X | X[]` union, the most common shape in this schema
  * (234 `string | string[]` alone), or null when the union is anything else.
  */
-export function oneOrMany(
-  tree: SchemaTree,
-  node: JsonSchema,
-): JsonSchema | null {
+export function oneOrMany(tree: SchemaTree, node: JsonSchema): JsonSchema | null {
   if (node.anyOf?.length !== 2) return null;
   const branches = node.anyOf.map((branch) => tree.resolve(branch));
   const single = branches.find((branch) => branch.type !== "array");
-  const many = branches.find(
-    (branch) => branch.type === "array" && branch.items,
-  );
+  const many = branches.find((branch) => branch.type === "array" && branch.items);
   if (!single || !many?.items) return null;
   const item = tree.resolve(many.items);
   const { ["x-tag-reference"]: singleSpace, ...singleShape } = single;
@@ -117,10 +114,8 @@ export function oneOrMany(
 export function isLooseInteger(tree: SchemaTree, node: JsonSchema): boolean {
   const resolved = tree.resolve(node);
   if (resolved.anyOf?.length !== 2) return false;
-  const types = resolved.anyOf
-    .map((branch) => tree.resolve(branch).type)
-    .sort();
-  return types[0] === "integer" && types[1] === "string";
+  const types = resolved.anyOf.map((branch) => tree.resolve(branch).type);
+  return types.includes("integer") && types.includes("string");
 }
 
 /** The spellings a loose integer's string branch is limited to, if any. */
@@ -143,9 +138,7 @@ export function isCompound(tree: SchemaTree, node: JsonSchema): boolean {
   if (resolved.oneOf || resolved.allOf) return true;
   if (resolved.anyOf) {
     const single = oneOrMany(tree, resolved);
-    return (
-      !(single && isInline(tree, single)) && !isLooseInteger(tree, resolved)
-    );
+    return !(single && isInline(tree, single)) && !isLooseInteger(tree, resolved);
   }
   if (resolved.type === "object") return true;
   if (resolved.type === "array") return !isInline(tree, resolved.items ?? {});
@@ -155,8 +148,7 @@ export function isCompound(tree: SchemaTree, node: JsonSchema): boolean {
 /** A nested union can accept more than one JSON kind. */
 export function branchKind(tree: SchemaTree, node: JsonSchema): string {
   const resolved = tree.resolve(node);
-  if (resolved.type)
-    return resolved.type === "integer" ? "number" : resolved.type;
+  if (resolved.type) return resolved.type === "integer" ? "number" : resolved.type;
   if (resolved.enum) return kindOf(resolved.enum[0]);
   if ("const" in resolved) return kindOf(resolved.const);
   if (resolved.anyOf) {
@@ -175,16 +167,10 @@ export function matchAnyOf(
   preferred?: number,
 ): number {
   const matches = branches.map((branch) => matchesShape(tree, branch, value));
-  return preferred !== undefined && matches[preferred]
-    ? preferred : matches.indexOf(true);
+  return preferred !== undefined && matches[preferred] ? preferred : matches.indexOf(true);
 }
 
-function matchesShape(
-  tree: SchemaTree,
-  schema: JsonSchema,
-  value: unknown,
-  depth = 0,
-): boolean {
+function matchesShape(tree: SchemaTree, schema: JsonSchema, value: unknown, depth = 0): boolean {
   if (depth > 32) return false;
   const node = tree.resolve(schema);
   if ("const" in node) return value === node.const;
@@ -200,8 +186,9 @@ function matchesShape(
     return node.allOf.every((part) => matchesShape(tree, part, value, depth + 1));
   }
   if (node.type === "array") {
-    return Array.isArray(value) && value.every((item) =>
-      matchesShape(tree, node.items ?? {}, item, depth + 1),
+    return (
+      Array.isArray(value) &&
+      value.every((item) => matchesShape(tree, node.items ?? {}, item, depth + 1))
     );
   }
   return branchKind(tree, node) === kindOf(value);
@@ -228,14 +215,11 @@ export function schemaFieldKind(tree: SchemaTree, schema: JsonSchema) {
  * grammar's `[-+]`, is a syntax error there — so every field the schema puts a
  * pattern on was reported as unvalidatable and checked by nobody.
  */
-export function patternHolds(
-  pattern: string | undefined,
-  value: unknown,
-): boolean | null {
+export function patternHolds(pattern: string | undefined, value: unknown): boolean | null {
   if (!pattern || value === undefined || value === "") return null;
 
   const compiled = compilePattern(pattern);
-  return compiled ? compiled.test(String(value)) : null;
+  return compiled ? compiled.test(valueText(value)) : null;
 }
 
 /** Map keys follow propertyNames independently from the schema for their values. */
@@ -267,24 +251,17 @@ function compilePattern(source: string): RegExp | null {
 export function flatten(tree: SchemaTree, options: JsonSchema[]): JsonSchema[] {
   return options.flatMap((option) => {
     const node = tree.resolve(option);
-    return node.oneOf && !node.properties && !node.allOf
-      ? flatten(tree, node.oneOf)
-      : [node];
+    return node.oneOf && !node.properties && !node.allOf ? flatten(tree, node.oneOf) : [node];
   });
 }
 
 /** A node's own properties and those of its `allOf` parts. */
-export function ownProperties(
-  tree: SchemaTree,
-  node: JsonSchema,
-): Record<string, JsonSchema> {
+export function ownProperties(tree: SchemaTree, node: JsonSchema): Record<string, JsonSchema> {
   const resolved = tree.resolve(node);
   return Object.assign(
     {},
     resolved.properties,
-    ...(resolved.allOf ?? []).map(
-      (part) => tree.resolve(part).properties ?? {},
-    ),
+    ...(resolved.allOf ?? []).map((part) => tree.resolve(part).properties ?? {}),
   );
 }
 
@@ -298,19 +275,11 @@ export function requiredKeys(tree: SchemaTree, node: JsonSchema): Set<string> {
 }
 
 /** Every key a node can hold, through its compositions. */
-export function keysOf(
-  tree: SchemaTree,
-  node: JsonSchema,
-  depth = 0,
-): Set<string> {
+export function keysOf(tree: SchemaTree, node: JsonSchema, depth = 0): Set<string> {
   const resolved = tree.resolve(node);
   const keys = new Set(Object.keys(resolved.properties ?? {}));
   if (depth < 4) {
-    const parts = [
-      ...(resolved.allOf ?? []),
-      ...(resolved.oneOf ?? []),
-      ...(resolved.anyOf ?? []),
-    ];
+    const parts = [...(resolved.allOf ?? []), ...(resolved.oneOf ?? []), ...(resolved.anyOf ?? [])];
     for (const part of parts) {
       for (const key of keysOf(tree, part, depth + 1)) keys.add(key);
     }
@@ -320,9 +289,7 @@ export function keysOf(
 
 /** Nested action tags do not make an entire rule list tag-addressed. */
 export function hasEntryTag(tree: SchemaTree, item: JsonSchema): boolean {
-  return flatten(tree, [item]).every((branch) =>
-    Object.hasOwn(ownProperties(tree, branch), "tag"),
-  );
+  return flatten(tree, [item]).every((branch) => Object.hasOwn(ownProperties(tree, branch), "tag"));
 }
 
 export interface Branch {
@@ -345,10 +312,7 @@ export interface Choice {
  * The branches of a `oneOf` and the properties that tell them apart: those a
  * branch fixes with `const` (`type`, `action`, `provider`, `version`).
  */
-export function discriminate(
-  tree: SchemaTree,
-  options: JsonSchema[],
-): Choice | null {
+export function discriminate(tree: SchemaTree, options: JsonSchema[]): Choice | null {
   const schemas = flatten(tree, options);
   const properties = schemas.map((schema) => ownProperties(tree, schema));
   const keys = [
@@ -383,6 +347,7 @@ export function discriminate(
       keys
         .map((key) => values[key])
         .filter((value) => value !== undefined)
+        .map(valueText)
         .join(" ") || `option ${index + 1}`;
     return { schema, label, values, implicit, empty };
   });

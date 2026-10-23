@@ -9,10 +9,13 @@ import { humanize } from "@/lib/humanize";
 import { appendReferenceTags, tagChoices } from "@/lib/references";
 import { controlClass } from "@/ui/input";
 
-const popupClass = "flex max-h-[min(28rem,var(--available-height))] w-(--anchor-width) max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-lg border border-border bg-bg shadow-popover outline-none";
+const popupClass =
+  "flex max-h-[min(28rem,var(--available-height))] w-(--anchor-width) max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-lg border border-border bg-bg shadow-popover outline-none";
 const listClass = "min-h-0 flex-1 overflow-y-auto overscroll-contain p-1";
-const itemClass = "flex cursor-default items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-fg outline-none data-highlighted:bg-bg-muted";
-const iconClass = "flex size-6 shrink-0 items-center justify-center rounded-sm text-fg-subtle outline-none hover:bg-bg-muted hover:text-fg focus-visible:ring-2 focus-visible:ring-accent/40";
+const itemClass =
+  "flex cursor-default items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-fg outline-none data-highlighted:bg-bg-muted";
+const iconClass =
+  "flex size-6 shrink-0 items-center justify-center rounded-sm text-fg-subtle outline-none hover:bg-bg-muted hover:text-fg focus-visible:ring-2 focus-visible:ring-accent/40";
 
 function useTagPopup(
   anchor: RefObject<HTMLDivElement | null>,
@@ -139,7 +142,13 @@ export function TagInput({
         </div>
       </div>
       <Autocomplete.Portal>
-        <Autocomplete.Positioner anchor={popup.anchor} positionMethod="fixed" align="start" sideOffset={5} className="z-50">
+        <Autocomplete.Positioner
+          anchor={popup.anchor}
+          positionMethod="fixed"
+          align="start"
+          sideOffset={5}
+          className="z-50"
+        >
           <Autocomplete.Popup ref={popupRef} className={popupClass}>
             <div className="flex shrink-0 items-center justify-between border-b border-border px-3 py-2 text-xs text-fg-subtle">
               <span>{humanize(space)}</span>
@@ -151,7 +160,9 @@ export function TagInput({
             <Autocomplete.List className={listClass}>
               {(tag: string) => (
                 <Autocomplete.Item key={tag} value={tag} className={itemClass}>
-                  <span className="min-w-0 flex-1 truncate font-mono" title={tag}>{tag}</span>
+                  <span className="min-w-0 flex-1 truncate font-mono" title={tag}>
+                    {tag}
+                  </span>
                   <span className="size-4 shrink-0 text-fg">
                     {tag === value && <CheckIcon className="size-4" />}
                   </span>
@@ -227,7 +238,10 @@ export function TagMultiInput({
       <div
         ref={anchor}
         aria-invalid={invalid}
-        className={cx(controlClass, "flex min-h-9 w-full max-w-md items-start gap-1 py-1 pr-1 focus-within:border-accent focus-within:ring-3 focus-within:ring-accent/15")}
+        className={cx(
+          controlClass,
+          "flex min-h-9 w-full max-w-md items-start gap-1 py-1 pr-1 focus-within:border-accent focus-within:ring-3 focus-within:ring-accent/15",
+        )}
       >
         <Combobox.Chips className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
           {selected.map((tag, index) => (
@@ -235,16 +249,25 @@ export function TagMultiInput({
               key={`${index}:${tag}`}
               aria-disabled={lockedValues.includes(tag) || undefined}
               onKeyDown={(event) => {
-                if (lockedValues.includes(tag) && (event.key === "Backspace" || event.key === "Delete")) {
+                if (
+                  lockedValues.includes(tag) &&
+                  (event.key === "Backspace" || event.key === "Delete")
+                ) {
                   event.preventDefault();
                   event.preventBaseUIHandler();
                 }
               }}
               className="inline-flex max-w-full items-center gap-1 rounded-md bg-bg-muted py-0.5 pr-0.5 pl-2 text-xs text-fg outline-none focus:ring-2 focus:ring-accent/40"
             >
-              <span className="min-w-0 truncate font-mono" title={tag}>{tag || "(Empty)"}</span>
+              <span className="min-w-0 truncate font-mono" title={tag}>
+                {tag || "(Empty)"}
+              </span>
               {lockedValues.includes(tag) ? (
-                <span className="flex size-5 items-center justify-center text-fg-subtle" aria-label="From Collection" title="Managed by collection binding">
+                <span
+                  className="flex size-5 items-center justify-center text-fg-subtle"
+                  aria-label="From Collection"
+                  title="Managed by collection binding"
+                >
                   <LockKeyholeIcon className="size-3" />
                 </span>
               ) : (
@@ -269,7 +292,8 @@ export function TagMultiInput({
                 event.preventBaseUIHandler();
                 return;
               }
-              if (event.currentTarget.getAttribute("aria-activedescendant") || !query.trim()) return;
+              if (event.currentTarget.getAttribute("aria-activedescendant") || !query.trim())
+                return;
               event.preventDefault();
               event.preventBaseUIHandler();
               commit(appendReferenceTags(selected, [query]));
@@ -298,7 +322,13 @@ export function TagMultiInput({
         </div>
       </div>
       <Combobox.Portal>
-        <Combobox.Positioner anchor={popup.anchor} positionMethod="fixed" align="start" sideOffset={5} className="z-50">
+        <Combobox.Positioner
+          anchor={popup.anchor}
+          positionMethod="fixed"
+          align="start"
+          sideOffset={5}
+          className="z-50"
+        >
           <Combobox.Popup ref={popupRef} className={popupClass}>
             {beforeOptions?.(query)}
             <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-3 py-2 text-xs text-fg-subtle">
@@ -320,14 +350,30 @@ export function TagMultiInput({
             </Combobox.Empty>
             <Combobox.List className={listClass}>
               {(tag: string) => (
-                <Combobox.Item key={tag} value={tag} disabled={lockedValues.includes(tag)} className={cx(itemClass, "data-disabled:opacity-60")}>
-                  {custom && tag === query ? <PlusIcon className="size-4 shrink-0 text-fg-subtle" /> : (
+                <Combobox.Item
+                  key={tag}
+                  value={tag}
+                  disabled={lockedValues.includes(tag)}
+                  className={cx(itemClass, "data-disabled:opacity-60")}
+                >
+                  {custom && tag === query ? (
+                    <PlusIcon className="size-4 shrink-0 text-fg-subtle" />
+                  ) : (
                     <span className="flex size-4 shrink-0 items-center justify-center rounded border border-border-strong">
-                      <Combobox.ItemIndicator><CheckIcon className="size-3" /></Combobox.ItemIndicator>
+                      <Combobox.ItemIndicator>
+                        <CheckIcon className="size-3" />
+                      </Combobox.ItemIndicator>
                     </span>
                   )}
-                  <span className="min-w-0 flex-1 truncate font-mono" title={tag}>{tag}</span>
-                  {lockedValues.includes(tag) && <LockKeyholeIcon aria-label="From Collection" className="size-3 text-fg-subtle" />}
+                  <span className="min-w-0 flex-1 truncate font-mono" title={tag}>
+                    {tag}
+                  </span>
+                  {lockedValues.includes(tag) && (
+                    <LockKeyholeIcon
+                      aria-label="From Collection"
+                      className="size-3 text-fg-subtle"
+                    />
+                  )}
                   {custom && tag === query && <span className="text-xs text-fg-subtle">Add</span>}
                 </Combobox.Item>
               )}

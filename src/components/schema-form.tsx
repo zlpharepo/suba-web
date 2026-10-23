@@ -1,11 +1,4 @@
-import {
-  createContext,
-  useContext,
-  useId,
-  useMemo,
-  useState,
-  type ReactNode,
-} from "react";
+import { createContext, useContext, useId, useMemo, useState, type ReactNode } from "react";
 import { ChevronRightIcon, PlusIcon, SearchIcon, XIcon } from "lucide-react";
 
 import { ArrayIndex } from "@/components/config-array-index";
@@ -43,6 +36,7 @@ import {
   scalarKind,
   schemaFieldKind,
   switchBranch,
+  valueText,
   type JsonObject,
   type JsonSchema,
   type SchemaTree,
@@ -110,7 +104,8 @@ export function SchemaForm({
         group,
         compact,
         generation: generate && isObject(value) ? value : undefined,
-        binding: collectionContext && isObject(value) ? { ...collectionContext, root: value } : undefined,
+        binding:
+          collectionContext && isObject(value) ? { ...collectionContext, root: value } : undefined,
       }}
     >
       <SchemaField schema={schema} value={value} onChange={onChange} />
@@ -133,16 +128,19 @@ function SchemaField({
   if (reference) {
     const { space, item, multiple, collapse } = reference;
     const values = value === undefined ? [] : Array.isArray(value) ? value : [value];
-    const fits = value === undefined || (multiple
-      ? (Array.isArray(value) || collapse) && values.every((tag) => typeof tag === "string")
-      : typeof value === "string");
+    const fits =
+      value === undefined ||
+      (multiple
+        ? (Array.isArray(value) || collapse) && values.every((tag) => typeof tag === "string")
+        : typeof value === "string");
     if (!fits) return <RawField value={value} onChange={onChange} />;
-    const invalid = values.some((tag) =>
-      patternHolds(item.pattern, tag) === false ||
-      (item.enum !== undefined && !item.enum.includes(tag)),
+    const invalid = values.some(
+      (tag) =>
+        patternHolds(item.pattern, tag) === false ||
+        (item.enum !== undefined && !item.enum.includes(tag)),
     );
-    const options = (tags[space] ?? []).filter((tag) =>
-      item.enum === undefined || item.enum.includes(tag),
+    const options = (tags[space] ?? []).filter(
+      (tag) => item.enum === undefined || item.enum.includes(tag),
     );
     return multiple ? (
       <TagMultiInput
@@ -156,7 +154,7 @@ function SchemaField({
       <TagInput
         space={space}
         options={options}
-        value={value === undefined ? "" : String(value)}
+        value={valueText(value)}
         invalid={invalid}
         onChange={(next) => onChange(next === "" ? undefined : next)}
       />
@@ -167,7 +165,9 @@ function SchemaField({
     case "const":
       return value === undefined || value === node.const ? (
         <Input className="max-w-md font-mono" readOnly value={String(node.const)} />
-      ) : <RawField value={value} onChange={onChange} />;
+      ) : (
+        <RawField value={value} onChange={onChange} />
+      );
     case "oneOf":
       return <OneOfField schema={node} value={value} onChange={onChange} />;
     case "anyOf":
@@ -214,7 +214,7 @@ function ScalarField({
 
   if (kind === "enum") {
     const options = (node.enum ?? []).map((option) => String(option));
-    const held = value === undefined ? null : String(value);
+    const held = value === undefined ? null : valueText(value);
     if (held !== null && !options.includes(held)) options.push(held);
     // Select reserves "" for no selection, so option identities use indices.
     return (
@@ -241,16 +241,13 @@ function ScalarField({
   return (
     <Input
       aria-invalid={holds === false}
-      className={cx(
-        "font-mono",
-        numeric ? "max-w-40 tabular-nums" : "max-w-md",
-      )}
+      className={cx("font-mono", numeric ? "max-w-40 tabular-nums" : "max-w-md")}
       type={numeric ? "number" : "text"}
       min={node.minimum}
       max={node.maximum}
       step={kind === "integer" ? 1 : undefined}
-      placeholder={node.examples?.map(String).join(", ")}
-      value={value === undefined ? "" : String(value)}
+      placeholder={node.examples?.map(valueText).join(", ")}
+      value={valueText(value)}
       onChange={(event) => {
         const text = event.target.value;
         if (text === "") return onChange(undefined);
@@ -278,8 +275,7 @@ function ScalarListField({
   collapse: boolean;
 }) {
   const { tree } = useForm();
-  const values =
-    value === undefined ? [] : Array.isArray(value) ? value : [value];
+  const values = value === undefined ? [] : Array.isArray(value) ? value : [value];
   const commit = (next: unknown[]) => {
     if (next.length === 0) return onChange(undefined);
     onChange(collapse && next.length === 1 ? next[0] : next);
@@ -312,9 +308,7 @@ function ScalarListField({
           </div>
         );
       })}
-      <AddLink
-        onClick={() => commit([...values, loose ? "" : emptyScalar(item)])}
-      >
+      <AddLink onClick={() => commit([...values, loose ? "" : emptyScalar(item)])}>
         {values.length === 0 ? "Add value" : "Add another"}
       </AddLink>
     </div>
@@ -339,7 +333,7 @@ function LooseIntegerField({
       <Input
         list={spellings.length ? list : undefined}
         className="max-w-md font-mono"
-        value={value === undefined ? "" : String(value)}
+        value={valueText(value)}
         onChange={(event) => {
           const text = event.target.value;
           if (text === "") return onChange(undefined);
@@ -358,8 +352,7 @@ function LooseIntegerField({
 }
 
 function emptyScalar(item: JsonSchema): unknown {
-  if (item.enum)
-    return item.enum.find((option) => option !== "") ?? item.enum[0];
+  if (item.enum) return item.enum.find((option) => option !== "") ?? item.enum[0];
   if (item.type === "boolean") return false;
   if (item.type === "integer" || item.type === "number") return 0;
   return "";
@@ -380,20 +373,11 @@ function AnyOfField({
 
   const single = oneOrMany(tree, schema);
   if (single && isInline(tree, single)) {
-    return (
-      <ScalarListField
-        item={single}
-        value={value}
-        onChange={onChange}
-        collapse
-      />
-    );
+    return <ScalarListField item={single} value={value} onChange={onChange} collapse />;
   }
 
   if (isLooseInteger(tree, schema)) {
-    return (
-      <LooseIntegerField schema={schema} value={value} onChange={onChange} />
-    );
+    return <LooseIntegerField schema={schema} value={value} onChange={onChange} />;
   }
 
   // Nested unions and byte-array-or-arrays need more than a top-level kind.
@@ -402,7 +386,7 @@ function AnyOfField({
   if (value !== undefined && held === -1) {
     return <RawField value={value} onChange={onChange} />;
   }
-  const current = held === -1 ? picked ?? 0 : held;
+  const current = held === -1 ? (picked ?? 0) : held;
 
   return (
     <div className="grid gap-2">
@@ -445,9 +429,7 @@ function Segmented({
           onClick={() => onChange(option.value)}
           className={cx(
             "rounded-[5px] px-2.5 py-1 font-medium transition-colors",
-            value === option.value
-              ? "bg-bg text-fg shadow-sm"
-              : "text-fg-muted hover:text-fg",
+            value === option.value ? "bg-bg text-fg shadow-sm" : "text-fg-muted hover:text-fg",
           )}
         >
           {option.label}
@@ -480,19 +462,18 @@ function OneOfField({
 
   return (
     <div className="grid gap-4">
-      <FieldRow
-        label={humanize(choice.keys[0] ?? "type")}
-        name={choice.keys.join(" / ")}
-        required
-      >
+      <FieldRow label={humanize(choice.keys[0] ?? "type")} name={choice.keys.join(" / ")} required>
         <Select
           className="max-w-72"
           value={index === -1 ? null : String(index)}
           placeholder="Choose"
           onChange={(next) => {
             const switched = switchBranch(tree, value, branch, choice.branches[Number(next)]);
-            onChange(binding?.root === value && !supportsCollectionBindings(switched)
-              ? withCollectionBindings(switched, []) : switched);
+            onChange(
+              binding?.root === value && !supportsCollectionBindings(switched)
+                ? withCollectionBindings(switched, [])
+                : switched,
+            );
           }}
           options={choice.branches.map((option, at) => ({
             value: String(at),
@@ -532,13 +513,12 @@ function ObjectField({
   }
   const object: JsonObject = value ?? {};
   const boundMembers = binding?.root === object && supportsCollectionBindings(object);
-  const validMembers = object.outbounds === undefined ||
+  const validMembers =
+    object.outbounds === undefined ||
     (Array.isArray(object.outbounds) && object.outbounds.every((tag) => typeof tag === "string"));
 
   // A rule's action is an `allOf` part that is itself a `oneOf`.
-  const unions = (node.allOf ?? [])
-    .map((part) => tree.resolve(part))
-    .filter((part) => part.oneOf);
+  const unions = (node.allOf ?? []).map((part) => tree.resolve(part)).filter((part) => part.oneOf);
   const unionKeys = new Set(unions.flatMap((part) => [...keysOf(tree, part)]));
 
   const properties = ownProperties(tree, node);
@@ -558,9 +538,7 @@ function ObjectField({
   };
 
   const additional =
-    isObject(node.additionalProperties) && fields.length === 0
-      ? node.additionalProperties
-      : null;
+    isObject(node.additionalProperties) && fields.length === 0 ? node.additionalProperties : null;
   if (additional) {
     return (
       <MapField
@@ -579,16 +557,12 @@ function ObjectField({
     ? fields.filter(([key]) => group.keys.has(key))
     : ([] as [string, JsonSchema][]);
   const address = fields.filter(([key]) => key === "tag");
-  const rest = fields.filter(
-    ([key]) => !grouped.some(([held]) => held === key) && key !== "tag",
-  );
+  const rest = fields.filter(([key]) => !grouped.some(([held]) => held === key) && key !== "tag");
   // A field the operator asked for is one they can also take back.
   const added = rest.filter(([key]) => shown.includes(key));
 
   const visible = compact ? [...added, ...address] : [...rest, ...address];
-  const hiddenFields = compact
-    ? rest.filter(([key]) => !shown.includes(key))
-    : [];
+  const hiddenFields = compact ? rest.filter(([key]) => !shown.includes(key)) : [];
   const addedKeys = new Set(added.map(([key]) => key));
 
   const inline = visible.filter(([, field]) => !isCompound(tree, field));
@@ -608,12 +582,7 @@ function ObjectField({
   const generator = (key: string) => {
     const plan = generation ? fieldGeneration(tree, node, object, key, generation) : null;
     return plan ? (
-      <FieldGenerator
-        key={JSON.stringify(plan)}
-        plan={plan}
-        value={object}
-        onChange={onChange}
-      />
+      <FieldGenerator key={JSON.stringify(plan)} plan={plan} value={object} onChange={onChange} />
     ) : undefined;
   };
 
@@ -630,11 +599,7 @@ function ObjectField({
               actions={generator(key)}
               // The tag addresses the entry, so it is not something to drop;
               // every other field is only removable once it was asked for.
-              onRemove={
-                required.has(key) || !addedKeys.has(key)
-                  ? undefined
-                  : () => remove(key)
-              }
+              onRemove={required.has(key) || !addedKeys.has(key) ? undefined : () => remove(key)}
             >
               {key === "outbounds" && boundMembers && binding && validMembers ? (
                 <OutboundMembers
@@ -676,8 +641,7 @@ function ObjectField({
           startOpen={object[key] !== undefined}
           // And one that holds nothing has nothing to take away.
           onRemove={
-            required.has(key) ||
-            (object[key] === undefined && !addedKeys.has(key))
+            required.has(key) || (object[key] === undefined && !addedKeys.has(key))
               ? undefined
               : () => remove(key)
           }
@@ -702,16 +666,9 @@ function ObjectField({
       {/* A group this branch has no field for is not a group: `selector` dials
           nothing, and a button offering zero fields is a dead end. */}
       {group && grouped.length > 0 && (
-        <GroupedFields
-          group={group}
-          fields={grouped}
-          values={object}
-          onSet={set}
-        />
+        <GroupedFields group={group} fields={grouped} values={object} onSet={set} />
       )}
-      {hiddenFields.length > 0 && (
-        <AddField keys={hiddenFields.map(([key]) => key)} onAdd={add} />
-      )}
+      {hiddenFields.length > 0 && <AddField keys={hiddenFields.map(([key]) => key)} onAdd={add} />}
     </div>
   );
 }
@@ -754,11 +711,7 @@ function GroupedFields({
               key={key}
               name={key}
               label={humanize(key)}
-              onRemove={
-                values[key] === undefined
-                  ? undefined
-                  : () => onSet(key, undefined)
-              }
+              onRemove={values[key] === undefined ? undefined : () => onSet(key, undefined)}
             >
               <SchemaField
                 schema={field}
@@ -774,22 +727,12 @@ function GroupedFields({
 }
 
 /** A searchable list of the fields not shown yet. */
-function AddField({
-  keys,
-  onAdd,
-}: {
-  keys: string[];
-  onAdd: (key: string) => void;
-}) {
+function AddField({ keys, onAdd }: { keys: string[]; onAdd: (key: string) => void }) {
   const [query, setQuery] = useState("");
   const matches = useMemo(() => {
     const needle = query.trim().toLowerCase();
     return needle
-      ? keys.filter(
-          (key) =>
-            key.includes(needle) ||
-            humanize(key).toLowerCase().includes(needle),
-        )
+      ? keys.filter((key) => key.includes(needle) || humanize(key).toLowerCase().includes(needle))
       : keys;
   }, [keys, query]);
 
@@ -819,9 +762,7 @@ function AddField({
       </div>
       <div className="max-h-72 overflow-y-auto p-1">
         {matches.length === 0 && (
-          <p className="px-2 py-3 text-center text-xs text-fg-subtle">
-            No match
-          </p>
+          <p className="px-2 py-3 text-center text-xs text-fg-subtle">No match</p>
         )}
         {matches.map((key) => (
           <button
@@ -834,9 +775,7 @@ function AddField({
             className="flex w-full items-baseline justify-between gap-3 rounded-sm px-2 py-1.5 text-left text-[13px] text-fg hover:bg-bg-muted"
           >
             <span className="truncate">{humanize(key)}</span>
-            <span className="shrink-0 font-mono text-2xs text-fg-subtle">
-              {key}
-            </span>
+            <span className="shrink-0 font-mono text-2xs text-fg-subtle">{key}</span>
           </button>
         ))}
       </div>
@@ -845,16 +784,12 @@ function AddField({
 }
 
 function pick(object: JsonObject, keys: Set<string>): JsonObject | undefined {
-  const picked = Object.fromEntries(
-    Object.entries(object).filter(([key]) => keys.has(key)),
-  );
+  const picked = Object.fromEntries(Object.entries(object).filter(([key]) => keys.has(key)));
   return Object.keys(picked).length ? picked : undefined;
 }
 
 function omit(object: JsonObject, keys: Set<string>): JsonObject {
-  return Object.fromEntries(
-    Object.entries(object).filter(([key]) => !keys.has(key)),
-  );
+  return Object.fromEntries(Object.entries(object).filter(([key]) => !keys.has(key)));
 }
 
 function MapField({
@@ -874,10 +809,7 @@ function MapField({
   const keyOptions = keySchema && tree.resolve(keySchema).enum;
   // A new key is written only once it holds something, so no empty value is saved.
   const [pending, setPending] = useState<string[]>([]);
-  const keys = [
-    ...Object.keys(value),
-    ...pending.filter((key) => !(key in value)),
-  ];
+  const keys = [...Object.keys(value), ...pending.filter((key) => !(key in value))];
 
   return (
     <div className="grid gap-3">
@@ -886,9 +818,11 @@ function MapField({
           key={key}
           name={key}
           label={key}
-          actions={!mapKeyAllowed(tree, keySchema, key) && (
-            <span className="text-xs text-danger">Invalid Key</span>
-          )}
+          actions={
+            !mapKeyAllowed(tree, keySchema, key) && (
+              <span className="text-xs text-danger">Invalid Key</span>
+            )
+          }
           onRemove={() => {
             setPending(pending.filter((held) => held !== key));
             onChange(omit(value, new Set([key])));
@@ -900,9 +834,7 @@ function MapField({
             onChange={(next) => {
               setPending(pending.filter((held) => held !== key));
               onChange(
-                next === undefined
-                  ? omit(value, new Set([key]))
-                  : { ...value, [key]: next },
+                next === undefined ? omit(value, new Set([key])) : { ...value, [key]: next },
               );
             }}
           />
@@ -923,9 +855,13 @@ function MapField({
             placeholder="New Key"
             value={name || null}
             onChange={setName}
-            options={keyOptions.map(String).filter((key) => !keys.includes(key)).map((key) => ({
-              value: key, label: key,
-            }))}
+            options={keyOptions
+              .map(String)
+              .filter((key) => !keys.includes(key))
+              .map((key) => ({
+                value: key,
+                label: key,
+              }))}
           />
         ) : (
           <Input
@@ -987,15 +923,11 @@ function ArrayField({
           <SchemaField
             schema={item}
             value={entry}
-            onChange={(next) =>
-              commit(entries.map((old, at) => (at === index ? next : old)))
-            }
+            onChange={(next) => commit(entries.map((old, at) => (at === index ? next : old)))}
           />
         </Group>
       ))}
-      <AddLink onClick={() => commit([...entries, defaultFor(tree, item)])}>
-        Add item
-      </AddLink>
+      <AddLink onClick={() => commit([...entries, defaultFor(tree, item)])}>Add item</AddLink>
     </div>
   );
 }
@@ -1076,9 +1008,7 @@ function FieldRow({
           {label}
         </span>
         {required && <span className="text-2xs text-fg-subtle">required</span>}
-        <span className="hidden font-mono text-2xs text-fg-subtle group-hover:inline">
-          {name}
-        </span>
+        <span className="hidden font-mono text-2xs text-fg-subtle group-hover:inline">{name}</span>
         {actions && <span className="ml-auto">{actions}</span>}
         {onRemove && (
           <button
@@ -1132,12 +1062,8 @@ function Group({
             )}
           />
           {index !== undefined && <ArrayIndex index={index} />}
-          <span className="truncate text-[13px] font-medium text-fg">
-            {title}
-          </span>
-          {required && (
-            <span className="text-2xs text-fg-subtle">required</span>
-          )}
+          <span className="truncate text-[13px] font-medium text-fg">{title}</span>
+          {required && <span className="text-2xs text-fg-subtle">required</span>}
         </button>
         {onRemove && (
           <IconButton label={`Remove ${title}`} size="sm" onClick={onRemove}>
@@ -1145,20 +1071,12 @@ function Group({
           </IconButton>
         )}
       </div>
-      {open && (
-        <div className="border-t border-border p-3 sm:p-4">{children}</div>
-      )}
+      {open && <div className="border-t border-border p-3 sm:p-4">{children}</div>}
     </div>
   );
 }
 
-function AddLink({
-  onClick,
-  children,
-}: {
-  onClick: () => void;
-  children: ReactNode;
-}) {
+function AddLink({ onClick, children }: { onClick: () => void; children: ReactNode }) {
   return (
     <button
       type="button"

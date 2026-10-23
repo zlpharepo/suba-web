@@ -3,7 +3,10 @@ import { BracesIcon } from "lucide-react";
 
 import { ArrayIndex } from "@/components/config-array-index";
 import { ConfigEntryTags } from "@/components/config-entry-tags";
-import { supportsCollectionBindings, type CollectionBindingContext } from "@/lib/collection-bindings";
+import {
+  supportsCollectionBindings,
+  type CollectionBindingContext,
+} from "@/lib/collection-bindings";
 import type { JsonObject } from "@/lib/schema";
 import { summarize } from "@/lib/sections";
 import { Badge } from "@/ui/misc";

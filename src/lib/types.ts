@@ -3,10 +3,7 @@
 export type PatternKind = "name" | "keyword" | "regex";
 
 /** One filter pattern: a single-key object naming how the text is matched. */
-export type Pattern =
-  | { name: string }
-  | { keyword: string }
-  | { regex: string };
+export type Pattern = { name: string } | { keyword: string } | { regex: string };
 
 interface ProviderShared {
   disabled?: boolean;

@@ -5,7 +5,7 @@ import {
   collectionMemberTags,
   type CollectionBindingContext,
 } from "@/lib/collection-bindings";
-import type { JsonObject } from "@/lib/schema";
+import { valueText, type JsonObject } from "@/lib/schema";
 import { Badge } from "@/ui/misc";
 import { Popover } from "@/ui/popover";
 
@@ -17,26 +17,33 @@ export function ConfigEntryTags({
   context?: CollectionBindingContext;
 }) {
   const values = entry.outbounds;
-  const validManual = values === undefined || (Array.isArray(values) && values.every((tag) => typeof tag === "string"));
+  const validManual =
+    values === undefined ||
+    (Array.isArray(values) && values.every((tag) => typeof tag === "string"));
   const manual = Array.isArray(values)
-    ? [...new Set(values.filter((tag): tag is string => typeof tag === "string"))] : [];
+    ? [...new Set(values.filter((tag): tag is string => typeof tag === "string"))]
+    : [];
   const names = collectionBindings(entry);
   const bound = [...new Set(names ?? [])];
   let notice: string | undefined;
   if (!validManual) notice = "Manual tags are invalid. Edit JSON to repair them.";
   else if (names === null) notice = "Collection bindings are invalid. Edit JSON to repair them.";
   else if (bound.length > 0) {
-    if (!context || context.failed) notice = "Collection tags are unavailable. Refresh Collection Outbounds.";
-    else if (bound.some((name) => !context.selected.includes(name))) notice = "A bound collection is not selected.";
+    if (!context || context.failed)
+      notice = "Collection tags are unavailable. Refresh Collection Outbounds.";
+    else if (bound.some((name) => !context.selected.includes(name)))
+      notice = "A bound collection is not selected.";
     else if (context.pending) notice = "Loading Collection Tags…";
   }
   const generated = !notice && context ? collectionMemberTags(bound, context) : [];
   const count = notice ? undefined : new Set([...manual, ...generated]).size;
   const summary = [
     count === undefined ? "Tags Unavailable" : `${count} ${count === 1 ? "Tag" : "Tags"}`,
-    ...(bound.length ? [`${bound.length} ${bound.length === 1 ? "Collection" : "Collections"}`] : []),
+    ...(bound.length
+      ? [`${bound.length} ${bound.length === 1 ? "Collection" : "Collections"}`]
+      : []),
   ].join(", ");
-  const tag = String(entry.tag ?? "Outbound");
+  const tag = valueText(entry.tag ?? "Outbound");
 
   return (
     <Popover
@@ -67,9 +74,11 @@ export function ConfigEntryTags({
         <TagList title="Manual Tags" tags={manual} />
         {bound.length > 0 && <TagList title="Collections" tags={bound} />}
         {notice ? (
-          <p role="status" className="text-xs text-fg-muted">{notice}</p>
-        ) : bound.length > 0 && (
-          <TagList title="Collection Tags" tags={generated} />
+          <p role="status" className="text-xs text-fg-muted">
+            {notice}
+          </p>
+        ) : (
+          bound.length > 0 && <TagList title="Collection Tags" tags={generated} />
         )}
       </div>
     </Popover>
@@ -87,7 +96,9 @@ function TagList({ title, tags }: { title: string; tags: string[] }) {
         <ul aria-label={title} className="grid min-w-0 gap-1">
           {tags.map((tag) => (
             <li key={tag} className="min-w-0 rounded-sm bg-bg-muted px-2 py-1">
-              <code className="block font-mono text-xs break-all whitespace-pre-wrap text-fg">{tag}</code>
+              <code className="block font-mono text-xs break-all whitespace-pre-wrap text-fg">
+                {tag}
+              </code>
             </li>
           ))}
         </ul>

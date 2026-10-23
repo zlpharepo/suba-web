@@ -24,10 +24,6 @@ export const iconSizes: Record<Size, string> = {
   md: "size-8",
 };
 
-export function buttonClass(
-  variant: Variant = "secondary",
-  size: Size = "md",
-  icon = false,
-) {
+export function buttonClass(variant: Variant = "secondary", size: Size = "md", icon = false) {
   return cx(base, variants[variant], icon ? iconSizes[size] : sizes[size]);
 }

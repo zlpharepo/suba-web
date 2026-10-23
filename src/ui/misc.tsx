@@ -40,13 +40,7 @@ export function Badge({
 }
 
 /** A small status dot, pulsing while something is live. */
-export function Dot({
-  tone = "neutral",
-  live,
-}: {
-  tone?: Tone;
-  live?: boolean;
-}) {
+export function Dot({ tone = "neutral", live }: { tone?: Tone; live?: boolean }) {
   const colour = {
     neutral: "bg-fg-subtle",
     accent: "bg-accent",
@@ -57,36 +51,19 @@ export function Dot({
   return (
     <span className="relative inline-flex size-2 shrink-0">
       {live && (
-        <span
-          className={cx(
-            "absolute inset-0 animate-ping rounded-full opacity-60",
-            colour,
-          )}
-        />
+        <span className={cx("absolute inset-0 animate-ping rounded-full opacity-60", colour)} />
       )}
       <span className={cx("relative size-2 rounded-full", colour)} />
     </span>
   );
 }
 
-export function Card({
-  children,
-  className,
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <div className={cx("rounded-lg border border-border bg-bg", className)}>
-      {children}
-    </div>
-  );
+export function Card({ children, className }: { children: ReactNode; className?: string }) {
+  return <div className={cx("rounded-lg border border-border bg-bg", className)}>{children}</div>;
 }
 
 export function Skeleton({ className }: { className?: string }) {
-  return (
-    <div className={cx("animate-pulse rounded-md bg-bg-muted", className)} />
-  );
+  return <div className={cx("animate-pulse rounded-md bg-bg-muted", className)} />;
 }
 
 export function ErrorNote({ error }: { error: unknown }) {

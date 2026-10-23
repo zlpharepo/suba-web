@@ -18,7 +18,8 @@ export function collectionBindings(entry: JsonObject): string[] | null {
   const value = entry[COLLECTION_BINDINGS];
   if (value === undefined) return [];
   return Array.isArray(value) && value.every((name) => typeof name === "string" && name.length > 0)
-    ? value : null;
+    ? value
+    : null;
 }
 
 export function withCollectionBindings(entry: JsonObject, names: string[]): JsonObject {
@@ -29,16 +30,21 @@ export function withCollectionBindings(entry: JsonObject, names: string[]): Json
 }
 
 /** This is only a preview; the server expands the latest snapshot at each start. */
-export function collectionMemberTags(
-  names: string[],
-  context: CollectionBindingContext,
-): string[] {
+export function collectionMemberTags(names: string[], context: CollectionBindingContext): string[] {
   if (context.failed || context.pending) return [];
   const active = new Set(names.filter((name) => context.selected.includes(name)));
-  return [...new Set(context.catalog.filter((entry) =>
-    entry.source === "collection" && entry.space === "outbound" &&
-    entry.collections.some((name) => active.has(name)),
-  ).map((entry) => entry.tag))];
+  return [
+    ...new Set(
+      context.catalog
+        .filter(
+          (entry) =>
+            entry.source === "collection" &&
+            entry.space === "outbound" &&
+            entry.collections.some((name) => active.has(name)),
+        )
+        .map((entry) => entry.tag),
+    ),
+  ];
 }
 
 /** Locked previews cannot become persistent pins through bulk, clear, or keyboard actions. */

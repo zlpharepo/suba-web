@@ -92,12 +92,10 @@ export function FieldGenerator({
       }
     >
       <div className="grid gap-3">
-        <span className="font-mono text-xs text-fg-muted">
-          sing-box generate {plan.command}
-        </span>
+        <span className="font-mono text-xs text-fg-muted">sing-box generate {plan.command}</span>
         <p className="text-xs text-fg-muted">
-          Replaces {plan.fields.map(humanize).join(" and ")} in this draft.
-          Apply and Save to keep the result.
+          Replaces {plan.fields.map(humanize).join(" and ")} in this draft. Apply and Save to keep
+          the result.
         </p>
         {plan.name !== undefined && (
           <Input

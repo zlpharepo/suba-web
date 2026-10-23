@@ -12,18 +12,11 @@ import { cx } from "@/lib/cx";
 export const controlClass =
   "w-full min-w-0 rounded-md border border-border bg-bg px-2.5 text-[13px] text-fg placeholder:text-fg-subtle outline-none transition-[border-color,box-shadow] hover:border-border-strong focus:border-accent focus:ring-3 focus:ring-accent/15 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-danger aria-invalid:focus:ring-danger/15 data-invalid:border-danger";
 
-export const Input = forwardRef<
-  HTMLInputElement,
-  InputHTMLAttributes<HTMLInputElement>
->(function Input({ className, ...props }, ref) {
-  return (
-    <BaseInput
-      ref={ref}
-      className={cx(controlClass, "h-8", className)}
-      {...props}
-    />
-  );
-});
+export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(
+  function Input({ className, ...props }, ref) {
+    return <BaseInput ref={ref} className={cx(controlClass, "h-8", className)} {...props} />;
+  },
+);
 
 export const Textarea = forwardRef<
   HTMLTextAreaElement,
@@ -52,14 +45,10 @@ export function Field({
 }) {
   return (
     <BaseField.Root className={cx("grid gap-1.5", className)}>
-      <BaseField.Label className="text-[13px] font-medium text-fg">
-        {label}
-      </BaseField.Label>
+      <BaseField.Label className="text-[13px] font-medium text-fg">{label}</BaseField.Label>
       {children}
       {hint && (
-        <BaseField.Description className="text-xs text-fg-subtle">
-          {hint}
-        </BaseField.Description>
+        <BaseField.Description className="text-xs text-fg-subtle">{hint}</BaseField.Description>
       )}
     </BaseField.Root>
   );

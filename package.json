@@ -1,14 +1,16 @@
 {
   "name": "suba-web",
-  "private": true,
   "version": "0.0.0",
+  "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "lint": "oxlint",
+    "dev": "vp dev",
+    "build": "tsc -b && vp build",
+    "check": "vp check --deny-warnings",
+    "lint": "vp lint --deny-warnings",
+    "fmt": "vp fmt",
     "test": "node --experimental-strip-types --test tests/*.test.ts",
-    "preview": "vite preview"
+    "preview": "vp preview"
   },
   "dependencies": {
     "@base-ui/react": "1.8.0",
@@ -31,8 +33,9 @@
     "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-react": "^6.1.1",
     "babel-plugin-react-compiler": "^1.0.0",
-    "oxlint": "^1.81.0",
     "typescript": "~6.0.2",
-    "vite": "^8.3.0"
-  }
+    "vite": "catalog:",
+    "vite-plus": "catalog:"
+  },
+  "packageManager": "pnpm@10.28.2"
 }

@@ -57,11 +57,7 @@ export function onUnauthorized(listener: Listener) {
   };
 }
 
-async function send(
-  method: string,
-  path: string,
-  body?: unknown,
-): Promise<Response> {
+async function send(method: string, path: string, body?: unknown): Promise<Response> {
   const headers: Record<string, string> = {};
   const token = session.get();
   if (token) headers.Authorization = `Bearer ${token}`;
@@ -94,20 +90,12 @@ async function fail(response: Response): Promise<never> {
   throw new ApiError(response.status, message);
 }
 
-async function json<T>(
-  method: string,
-  path: string,
-  body?: unknown,
-): Promise<T> {
+async function json<T>(method: string, path: string, body?: unknown): Promise<T> {
   const response = await send(method, path, body);
   return (await response.json()) as T;
 }
 
-async function none(
-  method: string,
-  path: string,
-  body?: unknown,
-): Promise<void> {
+async function none(method: string, path: string, body?: unknown): Promise<void> {
   await send(method, path, body);
 }
 
@@ -169,29 +157,22 @@ export const api = {
     put: (name: string, provider: Provider) =>
       json<Refresh>("PUT", `/providers/${segment(name)}`, provider),
     remove: (name: string) => none("DELETE", `/providers/${segment(name)}`),
-    refresh: (name: string) =>
-      json<Refresh>("POST", `/providers/${segment(name)}/refresh`),
-    nodes: (name: string) =>
-      json<ProviderNodes>("GET", `/providers/${segment(name)}/nodes`),
+    refresh: (name: string) => json<Refresh>("POST", `/providers/${segment(name)}/refresh`),
+    nodes: (name: string) => json<ProviderNodes>("GET", `/providers/${segment(name)}/nodes`),
     payload: async (name: string) =>
       (await send("GET", `/providers/${segment(name)}/payload`)).text(),
   },
 
   collections: {
     list: () => json<Record<string, CollectionSummary>>("GET", "/collections"),
-    get: (name: string) =>
-      json<Collection>("GET", `/collections/${segment(name)}`),
+    get: (name: string) => json<Collection>("GET", `/collections/${segment(name)}`),
     put: (name: string, collection: Collection) =>
       json<Collection>("PUT", `/collections/${segment(name)}`, collection),
     remove: (name: string) => none("DELETE", `/collections/${segment(name)}`),
-    nodes: (name: string) =>
-      json<CollectionNodes>("GET", `/collections/${segment(name)}/nodes`),
+    nodes: (name: string) => json<CollectionNodes>("GET", `/collections/${segment(name)}/nodes`),
     content: async (name: string, format?: string): Promise<Artifact> => {
       const query = format ? `?format=${segment(format)}` : "";
-      const response = await send(
-        "GET",
-        `/collections/${segment(name)}/content${query}`,
-      );
+      const response = await send("GET", `/collections/${segment(name)}/content${query}`);
       const count = (header: string) => {
         const value = response.headers.get(header);
         return value === null ? null : Number(value);
@@ -203,13 +184,9 @@ export const api = {
         skipped: count("x-suba-skipped"),
       };
     },
-    tokens: (name: string) =>
-      json<DeliveryToken[]>("GET", `/collections/${segment(name)}/tokens`),
+    tokens: (name: string) => json<DeliveryToken[]>("GET", `/collections/${segment(name)}/tokens`),
     mintToken: (name: string, label: string) =>
-      json<DeliveryToken>(
-        "PUT",
-        `/collections/${segment(name)}/tokens/${segment(label)}`,
-      ),
+      json<DeliveryToken>("PUT", `/collections/${segment(name)}/tokens/${segment(label)}`),
     revokeToken: (name: string, label: string) =>
       none("DELETE", `/collections/${segment(name)}/tokens/${segment(label)}`),
   },
@@ -223,12 +200,8 @@ export const api = {
       collections: string[];
     }) => json<Core>("PUT", "/cores/sing-box", settings),
     status: (tail?: number) =>
-      json<Running>(
-        "GET",
-        `/cores/sing-box/status${tail ? `?tail=${tail}` : ""}`,
-      ),
-    act: (action: CoreAction) =>
-      json<Running>("PUT", "/cores/sing-box/status", { action }),
+      json<Running>("GET", `/cores/sing-box/status${tail ? `?tail=${tail}` : ""}`),
+    act: (action: CoreAction) => json<Running>("PUT", "/cores/sing-box/status", { action }),
     versions: () => json<VersionView[]>("GET", "/cores/sing-box/versions"),
     install: (version: string) =>
       json<VersionView>("POST", `/cores/sing-box/versions/${segment(version)}`),
@@ -241,28 +214,20 @@ export const api = {
         name,
         length,
       }),
-    uninstall: (version: string) =>
-      none("DELETE", `/cores/sing-box/versions/${segment(version)}`),
+    uninstall: (version: string) => none("DELETE", `/cores/sing-box/versions/${segment(version)}`),
     releases: () => json<Releases>("GET", "/cores/sing-box/releases"),
 
     // The operator's configurations, one document each, by name.
     configs: () => json<ConfigView[]>("GET", "/cores/sing-box/configs"),
     createConfig: (name: string, copy?: string) =>
       json<ConfigView>("POST", "/cores/sing-box/configs", { name, copy }),
-    deleteConfig: (name: string) =>
-      none("DELETE", `/cores/sing-box/configs/${segment(name)}`),
-    config: (name: string) =>
-      tagged<JsonObject>(`/cores/sing-box/configs/${segment(name)}`),
+    deleteConfig: (name: string) => none("DELETE", `/cores/sing-box/configs/${segment(name)}`),
+    config: (name: string) => tagged<JsonObject>(`/cores/sing-box/configs/${segment(name)}`),
     writeConfig: (name: string, value: JsonObject, etag: string) =>
       guarded("PUT", `/cores/sing-box/configs/${segment(name)}`, etag, value),
     // A section at a time: it is the smallest thing the core can check as part
     // of the document it sits in.
-    writeSection: (
-      name: string,
-      section: string,
-      value: unknown,
-      etag: string | null,
-    ) =>
+    writeSection: (name: string, section: string, value: unknown, etag: string | null) =>
       guarded(
         "PUT",
         `/cores/sing-box/configs/${segment(name)}/sections/${segment(section)}`,

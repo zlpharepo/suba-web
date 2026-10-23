@@ -16,8 +16,7 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       // A 4xx will not change by asking again.
-      retry: (count, error) =>
-        !(error instanceof ApiError && error.status < 500) && count < 2,
+      retry: (count, error) => !(error instanceof ApiError && error.status < 500) && count < 2,
       refetchOnWindowFocus: false,
     },
   },
