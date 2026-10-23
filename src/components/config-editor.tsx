@@ -2,8 +2,8 @@
 //
 // The form writes one section at a time; the Full JSON editor writes the whole
 // document. Both use the same configuration ETag, because even a section is
-// validated as part of the complete document. Unsaved section drafts are
-// reported to the page so opening Full JSON cannot silently replace them.
+// validated as part of the complete document. Draft status reaches both the
+// page and navigation guard; refetches must not rebase unsaved edits.
 //
 // Three shapes, decided by the schema rather than by a list: a list of tagged
 // entries becomes cards, an object holding lists becomes card lists above its
@@ -30,6 +30,11 @@ import { ApiError, api, errorMessage } from "@/lib/api";
 import type { CollectionBindingContext } from "@/lib/collection-bindings";
 import { configKey } from "@/lib/config-json";
 import { cx } from "@/lib/cx";
+import {
+  confirmDiscardChanges,
+  useConfirmDiscard,
+  useDraftProtection,
+} from "@/lib/draft-protection";
 import { humanize } from "@/lib/humanize";
 import { entryDocument, referenceKey, referenceTags, sectionDocument } from "@/lib/references";
 import {
@@ -103,6 +108,7 @@ export function ConfigEditor({
   );
   const tree = useMemo(() => (schema.data ? new SchemaTree(schema.data) : null), [schema.data]);
   const [section, setSection] = useState<string>("inbounds");
+  const confirmDiscard = useConfirmDiscard();
   const nav = useRef<HTMLElement>(null);
   const ready = Boolean(tree && config.data);
 
@@ -141,7 +147,9 @@ export function ConfigEditor({
             <button
               key={held}
               type="button"
-              onClick={() => setSection(held)}
+              onClick={() => {
+                if (held !== section && confirmDiscard()) setSection(held);
+              }}
               aria-current={section === held || undefined}
               className={cx(
                 "flex h-8 shrink-0 items-center justify-between gap-3 rounded-md px-2.5 text-left text-[13px] transition-colors",
@@ -260,31 +268,38 @@ function Section({
  * The draft is local until it is saved, so a dialog can edit an entry without
  * every keystroke being a request, and Discard is one assignment.
  */
-function useDraft(config: string, name: string, document: Versioned<JsonObject>) {
+function useDraft(config: string, name: string, document: Versioned<JsonObject>, editing = false) {
   const queryClient = useQueryClient();
-  const held = document.value[name];
-  const [draft, setDraft] = useState<unknown>(held);
+  // A refetch may replace the cache, but not the version that produced this draft.
+  const [baseline, setBaseline] = useState(document);
+  const [observed, setObserved] = useState(document);
+  const [draft, setDraft] = useState<unknown>(document.value[name]);
   const [raw, setRawMode] = useState(false);
   const [invalid, setInvalid] = useState(false);
   const [rawRevision, setRawRevision] = useState(0);
-  const reset = (value: unknown) => {
+  const reset = (value: unknown, adoptLatest = false) => {
+    if (adoptLatest) setBaseline(document);
     setDraft(value);
     setInvalid(false);
     setRawRevision((revision) => revision + 1);
   };
   const reportStatus = useContext(DraftStatus);
-  const dirty = invalid || JSON.stringify(draft) !== JSON.stringify(held);
+  const dirty = invalid || JSON.stringify(draft) !== JSON.stringify(baseline.value[name]);
   const setRaw = (next: boolean) => {
+    if (next === raw || !confirmDiscardChanges({ dirty: invalid, saving: save.isPending })) return;
     setInvalid(false);
     setRawMode(next);
   };
 
   const save = useMutation({
-    mutationFn: () =>
-      draft === undefined
-        ? api.singbox.deleteSection(config, name, document.etag)
-        : api.singbox.writeSection(config, name, draft, document.etag),
-    onSuccess: (saved) => {
+    mutationFn: (value: unknown) =>
+      value === undefined
+        ? api.singbox.deleteSection(config, name, baseline.etag)
+        : api.singbox.writeSection(config, name, value, baseline.etag),
+    onSuccess: (saved, value) => {
+      const next = { value: sectionDocument(baseline.value, name, value), etag: saved.etag };
+      setBaseline(next);
+      queryClient.setQueryData(configKey(config), next);
       void queryClient.invalidateQueries({ queryKey: configKey(config) });
       void queryClient.invalidateQueries({
         queryKey: ["singbox", "references"],
@@ -298,6 +313,16 @@ function useDraft(config: string, name: string, document: Versioned<JsonObject>)
     onError: saveError,
   });
 
+  if (observed !== document) {
+    setObserved(document);
+    // An entry dialog can hold edits that have not reached the section yet.
+    if (!dirty && !save.isPending && !editing) {
+      setBaseline(document);
+      setDraft(document.value[name]);
+      setRawRevision((revision) => revision + 1);
+    }
+  }
+  useDraftProtection({ dirty, saving: save.isPending });
   useLayoutEffect(() => {
     reportStatus?.({ dirty, saving: save.isPending });
   }, [reportStatus, dirty, save.isPending]);
@@ -309,7 +334,7 @@ function useDraft(config: string, name: string, document: Versioned<JsonObject>)
   );
 
   return {
-    held,
+    held: document.value[name],
     draft,
     setDraft,
     raw,
@@ -455,8 +480,8 @@ function FormView({
         empty={draft === undefined}
         raw={raw}
         onRaw={setRaw}
-        onSave={() => save.mutate()}
-        onReset={() => reset(held)}
+        onSave={() => save.mutate(draft)}
+        onReset={() => reset(held, true)}
         onClear={() => reset(undefined)}
       />
       <SectionHeading title={humanize(name)} />
@@ -477,9 +502,11 @@ function FormView({
           tree={tree}
           tags={tags}
           group={groupOf(tree, node, hideFor(name))}
+          key={rawKey}
           schema={node}
           value={draft}
           onChange={setDraft}
+          onInvalidChange={setInvalid}
         />
       )}
     </div>
@@ -502,8 +529,9 @@ function SplitView({
   cards: ArrayProperty[];
   document: Versioned<JsonObject>;
 }) {
+  const [editing, setEditing] = useState<EditTarget | null>(null);
   const { held, draft, setDraft, raw, setRaw, dirty, invalid, setInvalid, rawKey, reset, save } =
-    useDraft(config, name, document);
+    useDraft(config, name, document, editing !== null);
   const localDocument = useMemo(
     () => sectionDocument(document.value, name, draft),
     [document.value, name, draft],
@@ -522,7 +550,6 @@ function SplitView({
   );
   const rest = Object.fromEntries(Object.entries(object).filter(([key]) => !listed.has(key)));
   const lists = Object.fromEntries(Object.entries(object).filter(([key]) => listed.has(key)));
-  const [editing, setEditing] = useState<EditTarget | null>(null);
 
   const entriesOf = (property: string): JsonObject[] =>
     Array.isArray(object[property]) ? (object[property] as JsonObject[]) : [];
@@ -536,8 +563,8 @@ function SplitView({
         empty={draft === undefined}
         raw={raw}
         onRaw={setRaw}
-        onSave={() => save.mutate()}
-        onReset={() => reset(held)}
+        onSave={() => save.mutate(draft)}
+        onReset={() => reset(held, true)}
         onClear={() => reset(undefined)}
       />
       {raw ? (
@@ -564,8 +591,10 @@ function SplitView({
             <SchemaForm
               tree={tree}
               tags={tags}
+              key={rawKey}
               schema={scalar}
               value={rest}
+              onInvalidChange={setInvalid}
               // The lists are edited as cards, so they come from the draft as
               // they are; the rest of the object is the form's to replace.
               onChange={(next) => setDraft({ ...lists, ...(isObject(next) ? next : {}) })}
@@ -614,14 +643,14 @@ function EntriesView({
   item: JsonSchema;
   document: Versioned<JsonObject>;
 }) {
+  const [editing, setEditing] = useState<EditTarget | null>(null);
   const { held, draft, setDraft, raw, setRaw, dirty, invalid, setInvalid, rawKey, reset, save } =
-    useDraft(config, name, document);
+    useDraft(config, name, document, editing !== null);
   const localDocument = useMemo(
     () => sectionDocument(document.value, name, draft),
     [document.value, name, draft],
   );
   const entries = Array.isArray(draft) ? (draft as JsonObject[]) : [];
-  const [editing, setEditing] = useState<EditTarget | null>(null);
 
   return (
     <div>
@@ -632,8 +661,8 @@ function EntriesView({
         empty={draft === undefined}
         raw={raw}
         onRaw={setRaw}
-        onSave={() => save.mutate()}
-        onReset={() => reset(held)}
+        onSave={() => save.mutate(draft)}
+        onReset={() => reset(held, true)}
         onClear={() => reset(undefined)}
       />
       {raw ? (
@@ -773,6 +802,12 @@ function EntryDialog({
     return isObject(fresh) ? fresh : {};
   });
   const [raw, setRaw] = useState(false);
+  const [baseline] = useState(entry);
+  const [invalid, setInvalid] = useState(false);
+  useDraftProtection({
+    dirty: invalid || JSON.stringify(entry) !== JSON.stringify(baseline),
+    saving: false,
+  });
   const localDocument = useMemo(
     () => entryDocument(document, path, target.index, entry),
     [document, path, target.index, entry],
@@ -808,7 +843,7 @@ function EntryDialog({
           <Button onClick={onClose}>Cancel</Button>
           <Button
             variant="primary"
-            disabled={needsTag && !validTag}
+            disabled={invalid || (needsTag && !validTag)}
             onClick={() => {
               onApply(entry);
               onClose();
@@ -821,14 +856,26 @@ function EntryDialog({
     >
       <div className="grid gap-4">
         <div className="flex items-center justify-between gap-2">
-          <ModeToggle raw={raw} onChange={setRaw} />
+          <ModeToggle
+            raw={raw}
+            onChange={(next) => {
+              if (next !== raw && confirmDiscardChanges({ dirty: invalid, saving: false })) {
+                setInvalid(false);
+                setRaw(next);
+              }
+            }}
+          />
           <Generator />
         </div>
         {raw ? (
           <RawField
             key="raw"
+            objectOnly
             value={entry}
-            onChange={(next) => setEntry(isObject(next) ? next : {})}
+            onInvalidChange={setInvalid}
+            onChange={(next) => {
+              if (isObject(next)) setEntry(next);
+            }}
           />
         ) : (
           <SchemaForm
@@ -840,6 +887,7 @@ function EntryDialog({
             compact={hide === "all"}
             schema={item}
             value={entry}
+            onInvalidChange={setInvalid}
             onChange={(next) => setEntry(isObject(next) ? next : {})}
           />
         )}

@@ -1,4 +1,13 @@
-import { createContext, useContext, useId, useMemo, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import { ChevronRightIcon, PlusIcon, SearchIcon, XIcon } from "lucide-react";
 
 import { ArrayIndex } from "@/components/config-array-index";
@@ -69,6 +78,7 @@ interface FormContext {
 }
 
 const Context = createContext<FormContext | null>(null);
+const RawValidation = createContext<((id: string, invalid: boolean) => void) | null>(null);
 
 function useForm(): FormContext {
   const context = useContext(Context);
@@ -89,27 +99,46 @@ export function SchemaForm({
   schema,
   value,
   onChange,
+  onInvalidChange,
 }: Omit<FormContext, "generation" | "binding"> & {
   generate?: boolean;
   collectionContext?: CollectionBindingContext;
   schema: JsonSchema;
   value: unknown;
   onChange: Change;
+  onInvalidChange?: (invalid: boolean) => void;
 }) {
+  const [invalidFields, setInvalidFields] = useState<Set<string>>(() => new Set());
+  const reportInvalid = useCallback((id: string, invalid: boolean) => {
+    setInvalidFields((held) => {
+      if (held.has(id) === invalid) return held;
+      const next = new Set(held);
+      if (invalid) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }, []);
+  const invalid = invalidFields.size > 0;
+  useLayoutEffect(() => onInvalidChange?.(invalid), [onInvalidChange, invalid]);
+  useLayoutEffect(() => () => onInvalidChange?.(false), [onInvalidChange]);
   return (
-    <Context.Provider
-      value={{
-        tree,
-        tags,
-        group,
-        compact,
-        generation: generate && isObject(value) ? value : undefined,
-        binding:
-          collectionContext && isObject(value) ? { ...collectionContext, root: value } : undefined,
-      }}
-    >
-      <SchemaField schema={schema} value={value} onChange={onChange} />
-    </Context.Provider>
+    <RawValidation.Provider value={reportInvalid}>
+      <Context.Provider
+        value={{
+          tree,
+          tags,
+          group,
+          compact,
+          generation: generate && isObject(value) ? value : undefined,
+          binding:
+            collectionContext && isObject(value)
+              ? { ...collectionContext, root: value }
+              : undefined,
+        }}
+      >
+        <SchemaField schema={schema} value={value} onChange={onChange} />
+      </Context.Provider>
+    </RawValidation.Provider>
   );
 }
 
@@ -943,20 +972,29 @@ function entryLabel(entry: unknown): string {
   return "Item";
 }
 
-/** JSON text for anything the form does not render; applied only when it parses. */
+/** Invalid text stays local; its validity also gates the containing form's actions. */
 export function RawField({
   value,
   onChange,
   onInvalidChange,
+  objectOnly = false,
 }: {
   value: unknown;
   onChange: Change;
   onInvalidChange?: (invalid: boolean) => void;
+  objectOnly?: boolean;
 }) {
   const [text, setText] = useState(() =>
     value === undefined ? "" : JSON.stringify(value, null, 2),
   );
   const [invalid, setInvalid] = useState(false);
+  const id = useId();
+  const reportInvalid = useContext(RawValidation);
+  useLayoutEffect(() => {
+    onInvalidChange?.(invalid);
+    reportInvalid?.(id, invalid);
+  }, [onInvalidChange, reportInvalid, id, invalid]);
+  useLayoutEffect(() => () => reportInvalid?.(id, false), [reportInvalid, id]);
 
   return (
     <Textarea
@@ -967,18 +1005,16 @@ export function RawField({
       onChange={(event) => {
         const next = event.target.value;
         setText(next);
-        if (next.trim() === "") {
-          setInvalid(false);
-          onInvalidChange?.(false);
-          return onChange(undefined);
-        }
         try {
-          onChange(JSON.parse(next));
+          const parsed: unknown = next.trim() === "" ? undefined : JSON.parse(next);
+          if (objectOnly && !isObject(parsed)) {
+            setInvalid(true);
+            return;
+          }
           setInvalid(false);
-          onInvalidChange?.(false);
+          onChange(parsed);
         } catch {
           setInvalid(true);
-          onInvalidChange?.(true);
         }
       }}
     />

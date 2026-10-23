@@ -7,6 +7,7 @@ import { Generator } from "@/components/generator";
 import { CopyButton } from "@/components/shared";
 import { ApiError, api } from "@/lib/api";
 import { configKey, parseConfigJson } from "@/lib/config-json";
+import { useDraftProtection } from "@/lib/draft-protection";
 import type { JsonObject } from "@/lib/schema";
 import type { Versioned } from "@/lib/types";
 import { Button, IconButton } from "@/ui/button";
@@ -150,6 +151,7 @@ function DocumentEditor({
       }
     },
   });
+  useDraftProtection({ dirty, saving: save.isPending });
   const saveFailure =
     save.error instanceof ApiError && save.error.status === 412
       ? "configuration: changed elsewhere; copy your edits, then close and reopen"

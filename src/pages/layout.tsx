@@ -1,5 +1,5 @@
-import { useState, type ReactNode } from "react";
-import { Link, Outlet, useNavigate } from "@tanstack/react-router";
+import { useCallback, useState, type ReactNode } from "react";
+import { Link, Outlet, useBlocker, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Dialog as BaseDialog } from "@base-ui/react/dialog";
 import {
@@ -16,6 +16,12 @@ import {
 
 import { api, session } from "@/lib/api";
 import { cx } from "@/lib/cx";
+import {
+  DraftProtection,
+  confirmDiscardChanges,
+  useConfirmDiscard,
+  type DraftStatus,
+} from "@/lib/draft-protection";
 import { useTheme } from "@/lib/theme";
 import { IconButton } from "@/ui/button";
 import { buttonClass } from "@/ui/styles";
@@ -43,41 +49,59 @@ function useNav(): NavItem[] {
 
 export function AppLayout() {
   const [drawer, setDrawer] = useState(false);
+  const [drafts, setDrafts] = useState<Record<string, DraftStatus>>({});
+  const report = useCallback((id: string, status: DraftStatus | null) => {
+    setDrafts((held) => {
+      const next = { ...held };
+      if (status) next[id] = status;
+      else delete next[id];
+      return next;
+    });
+  }, []);
+  const dirty = Object.values(drafts).some((draft) => draft.dirty);
+  const saving = Object.values(drafts).some((draft) => draft.saving);
+  const confirmDiscard = () => confirmDiscardChanges({ dirty, saving });
+  useBlocker({
+    shouldBlockFn: () => !confirmDiscard(),
+    enableBeforeUnload: dirty || saving,
+  });
 
   return (
-    <div className="min-h-dvh bg-bg-subtle lg:flex">
-      <aside className="sticky top-0 hidden h-dvh w-56 shrink-0 flex-col border-r border-border lg:flex">
-        <Sidebar />
-      </aside>
+    <DraftProtection.Provider value={{ report, confirmDiscard }}>
+      <div className="min-h-dvh bg-bg-subtle lg:flex">
+        <aside className="sticky top-0 hidden h-dvh w-56 shrink-0 flex-col border-r border-border lg:flex">
+          <Sidebar />
+        </aside>
 
-      <header className="sticky top-0 z-30 flex h-12 items-center justify-between border-b border-border bg-bg-subtle/85 px-3 backdrop-blur lg:hidden">
-        <Brand />
-        <BaseDialog.Root open={drawer} onOpenChange={setDrawer}>
-          <BaseDialog.Trigger aria-label="Menu" className={buttonClass("ghost", "md", true)}>
-            <MenuIcon />
-          </BaseDialog.Trigger>
-          <BaseDialog.Portal>
-            <BaseDialog.Backdrop className="fixed inset-0 z-40 bg-black/40 transition-opacity duration-200 data-ending-style:opacity-0 data-starting-style:opacity-0" />
-            <BaseDialog.Popup className="fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-bg-subtle shadow-dialog transition-transform duration-200 ease-out outline-none data-ending-style:-translate-x-full data-starting-style:-translate-x-full">
-              <BaseDialog.Title className="sr-only">Navigation</BaseDialog.Title>
-              <BaseDialog.Close
-                aria-label="Close"
-                className={cx(buttonClass("ghost", "sm", true), "absolute top-3.5 right-3")}
-              >
-                <XIcon />
-              </BaseDialog.Close>
-              <Sidebar onNavigate={() => setDrawer(false)} />
-            </BaseDialog.Popup>
-          </BaseDialog.Portal>
-        </BaseDialog.Root>
-      </header>
+        <header className="sticky top-0 z-30 flex h-12 items-center justify-between border-b border-border bg-bg-subtle/85 px-3 backdrop-blur lg:hidden">
+          <Brand />
+          <BaseDialog.Root open={drawer} onOpenChange={setDrawer}>
+            <BaseDialog.Trigger aria-label="Menu" className={buttonClass("ghost", "md", true)}>
+              <MenuIcon />
+            </BaseDialog.Trigger>
+            <BaseDialog.Portal>
+              <BaseDialog.Backdrop className="fixed inset-0 z-40 bg-black/40 transition-opacity duration-200 data-ending-style:opacity-0 data-starting-style:opacity-0" />
+              <BaseDialog.Popup className="fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-bg-subtle shadow-dialog transition-transform duration-200 ease-out outline-none data-ending-style:-translate-x-full data-starting-style:-translate-x-full">
+                <BaseDialog.Title className="sr-only">Navigation</BaseDialog.Title>
+                <BaseDialog.Close
+                  aria-label="Close"
+                  className={cx(buttonClass("ghost", "sm", true), "absolute top-3.5 right-3")}
+                >
+                  <XIcon />
+                </BaseDialog.Close>
+                <Sidebar onNavigate={() => setDrawer(false)} />
+              </BaseDialog.Popup>
+            </BaseDialog.Portal>
+          </BaseDialog.Root>
+        </header>
 
-      <main className="min-w-0 flex-1 lg:bg-bg">
-        <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
-          <Outlet />
-        </div>
-      </main>
-    </div>
+        <main className="min-w-0 flex-1 lg:bg-bg">
+          <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
+            <Outlet />
+          </div>
+        </main>
+      </div>
+    </DraftProtection.Provider>
   );
 }
 
@@ -98,6 +122,7 @@ function Brand() {
 function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const nav = useNav();
   const navigate = useNavigate();
+  const confirmDiscard = useConfirmDiscard();
   const queryClient = useQueryClient();
   const { dark, toggle } = useTheme();
   const info = useQuery({
@@ -110,7 +135,8 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
     onSettled: () => {
       session.clear();
       queryClient.clear();
-      void navigate({ to: "/login" });
+      // Discard was confirmed before the session and query data were cleared.
+      void navigate({ to: "/login", ignoreBlocker: true });
     },
   });
 
@@ -145,7 +171,9 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           <IconButton
             label="Sign out"
             size="sm"
-            onClick={() => logout.mutate()}
+            onClick={() => {
+              if (confirmDiscard()) logout.mutate();
+            }}
             disabled={logout.isPending}
           >
             <LogOutIcon />

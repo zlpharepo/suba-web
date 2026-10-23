@@ -19,6 +19,7 @@ import { FullConfigJson } from "@/components/full-config-json";
 import { Generator } from "@/components/generator";
 import { ApiError, api, errorMessage } from "@/lib/api";
 import { cx } from "@/lib/cx";
+import { useConfirmDiscard } from "@/lib/draft-protection";
 import { ago, stripAnsi } from "@/lib/format";
 import type { ConfigView, Core, CoreAction, Privilege, Running, VersionView } from "@/lib/types";
 import { Button, IconButton } from "@/ui/button";
@@ -504,6 +505,7 @@ function ConfigsDialog({
     queryFn: api.singbox.configs,
     enabled: open,
   });
+  const confirmDiscard = useConfirmDiscard();
   const [action, setAction] = useState<ConfigAction>({ mode: "new" });
   const [name, setName] = useState("");
 
@@ -582,7 +584,9 @@ function ConfigsDialog({
               key={config.name}
               config={config}
               busy={use.isPending || remove.isPending || submit.isPending}
-              onUse={() => use.mutate(config.name)}
+              onUse={() => {
+                if (confirmDiscard()) use.mutate(config.name);
+              }}
               onRemove={() => remove.mutate(config.name)}
               onRename={() => {
                 setAction({ mode: "rename", from: config.name });
@@ -614,7 +618,11 @@ function ConfigsDialog({
             <Button
               variant="primary"
               disabled={!name || submit.isPending || (action.mode !== "rename" && taken)}
-              onClick={() => submit.mutate({ ...action, name })}
+              onClick={() => {
+                if (action.mode !== "rename" || action.from !== core.config || confirmDiscard()) {
+                  submit.mutate({ ...action, name });
+                }
+              }}
             >
               {label}
             </Button>
