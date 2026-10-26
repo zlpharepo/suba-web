@@ -4,7 +4,23 @@ export interface Identity {
   fingerprint: string;
 }
 
+export type HostMode = "direct" | "edge";
+
+export interface EdgeStatus {
+  state: "disabled" | "connecting" | "online" | "offline" | "unauthorized";
+  reason?: string;
+  connected_at?: number;
+  last_seen?: number;
+}
+
+export interface EdgeView extends EdgeStatus {
+  manager: { identity: Identity; endpoint: string } | null;
+  proxy_configured: boolean;
+  proxy_endpoint?: string;
+}
+
 export interface Invitation {
+  mode?: HostMode;
   version: 1;
   id: string;
   endpoint: string;
@@ -13,13 +29,14 @@ export interface Invitation {
   expires_at: number;
 }
 
-export interface Host {
+export type Host = {
   id: string;
   name: string;
-  endpoint: string;
   identity: Identity;
-  mode: "direct";
-}
+} & (
+  | { mode: "direct"; endpoint: string; connection?: never }
+  | { mode: "edge"; endpoint: string | null; connection?: EdgeStatus }
+);
 
 export interface TrustedPeer {
   id: string;
@@ -67,7 +84,22 @@ export function directEndpoint(value: string): string {
   return url.href.replace(/\/+$/, "");
 }
 
-export function subscriptionUrl(endpoint: string, path: string): string {
+export function managerEndpoint(value: string): string {
+  const endpoint = directEndpoint(value);
+  if (!endpoint.startsWith("https://")) throw new Error("endpoint: HTTPS is required for Edge");
+  return endpoint;
+}
+
+export function requireInvitationMode(invitation: Invitation, mode: HostMode): Invitation {
+  if ((invitation.mode ?? "direct") !== mode)
+    throw new Error(
+      `invitation.mode: expected ${mode === "edge" ? "an Edge" : "a Direct"} invitation`,
+    );
+  return invitation;
+}
+
+export function subscriptionUrl(endpoint: string | null, path: string): string | null {
+  if (endpoint === null) return null;
   if (
     !/^\/[^/]/.test(path) ||
     /[?#\\]/.test(path) ||
@@ -107,13 +139,17 @@ export function parseInvitation(text: string, now = Date.now() / 1000): Invitati
   }
   if (typeof invitation.endpoint !== "string")
     throw new Error("invitation.endpoint: expected a URL");
-  directEndpoint(invitation.endpoint);
+  if (invitation.mode !== undefined && invitation.mode !== "direct" && invitation.mode !== "edge")
+    throw new Error("invitation.mode: expected direct or edge");
+  if (invitation.mode === "edge") managerEndpoint(invitation.endpoint);
+  else directEndpoint(invitation.endpoint);
   if (typeof invitation.secret !== "string" || !invitation.secret.trim())
     throw new Error("invitation.secret: required");
   if (!Number.isSafeInteger(invitation.expires_at) || invitation.expires_at! <= now)
     throw new Error("invitation.expires_at: expired or invalid");
   // Only the public contract is forwarded; pasted metadata never becomes stored state.
   return {
+    ...(invitation.mode === undefined ? {} : { mode: invitation.mode }),
     version: 1,
     id: invitation.id,
     endpoint: invitation.endpoint,

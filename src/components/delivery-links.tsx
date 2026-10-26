@@ -124,19 +124,29 @@ function TokenRow({
       <span className="w-20 shrink-0 truncate text-[13px] font-medium text-fg sm:w-28">
         {link.name}
       </span>
-      <code className="min-w-0 flex-1 truncate font-mono text-xs text-fg-muted">{url}</code>
+      {url === null ? (
+        <span className="min-w-0 flex-1 text-xs text-fg-muted">
+          Subscription URL unavailable. Set this Edge host's Public Endpoint in Hosts.
+        </span>
+      ) : (
+        <code className="min-w-0 flex-1 truncate font-mono text-xs text-fg-muted">{url}</code>
+      )}
       <div className="flex shrink-0 items-center">
-        <CopyButton text={url} label="Copy link" />
-        <a
-          href={url}
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label="Open"
-          title="Open"
-          className={buttonClass("ghost", "sm", true)}
-        >
-          <ExternalLinkIcon />
-        </a>
+        {url !== null && (
+          <>
+            <CopyButton text={url} label="Copy link" />
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Open"
+              title="Open"
+              className={buttonClass("ghost", "sm", true)}
+            >
+              <ExternalLinkIcon />
+            </a>
+          </>
+        )}
         <Menu
           trigger={
             <button type="button" aria-label="More" className={buttonClass("ghost", "sm", true)}>
@@ -147,7 +157,10 @@ function TokenRow({
             {
               label: "Download",
               icon: <DownloadIcon />,
-              onSelect: () => window.open(`${url}/download`, "_self"),
+              disabled: url === null,
+              onSelect: () => {
+                if (url !== null) window.open(`${url}/download`, "_self");
+              },
             },
             {
               label: "Rotate",

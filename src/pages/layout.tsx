@@ -20,6 +20,8 @@ import { api as localApi, session } from "@/lib/api";
 import { TargetContext, useApi, useTarget } from "@/lib/target";
 import { ResourceScope } from "@/lib/target-scope";
 import type { Host } from "@/lib/hosts";
+import { EDGE_POLL_INTERVAL } from "@/lib/edge";
+import { EdgeConnection } from "@/components/edge-connection";
 import { Select } from "@/ui/select";
 import { cx } from "@/lib/cx";
 import {
@@ -64,10 +66,22 @@ function useNav(): NavItem[] {
 export function AppLayout() {
   const localClient = useQueryClient();
   const [host, select] = useState<Host | null>(null);
-  const hosts = useQuery({ queryKey: ["hosts"], queryFn: localApi.hosts.list });
+  const hosts = useQuery({
+    queryKey: ["hosts"],
+    queryFn: localApi.hosts.list,
+    refetchInterval: EDGE_POLL_INTERVAL,
+    retry: false,
+  });
   return (
     <TargetContext.Provider
-      value={{ host, select, hosts: hosts.data ?? [], error: hosts.error, localClient }}
+      value={{
+        host,
+        select,
+        hosts: hosts.data ?? [],
+        error: hosts.error,
+        updatedAt: hosts.dataUpdatedAt,
+        localClient,
+      }}
     >
       <ResourceScope key={host ? `${host.id}:${host.endpoint}:${host.name}` : "local"} host={host}>
         <ApplicationShell />
@@ -237,7 +251,10 @@ function TargetSelect({ compact = false }: { compact?: boolean }) {
         value={host?.id ?? "local"}
         options={[
           { value: "local", label: "Local" },
-          ...choices.map((item) => ({ value: item.id, label: `${item.name} · Direct` })),
+          ...choices.map((item) => ({
+            value: item.id,
+            label: `${item.name} · ${item.mode === "edge" ? "Edge" : "Direct"}`,
+          })),
         ]}
         onChange={(id) => {
           if (id === (host?.id ?? "local") || !confirmDiscard()) return;
@@ -253,15 +270,26 @@ function TargetSelect({ compact = false }: { compact?: boolean }) {
 }
 
 function TargetLabel() {
-  const { host } = useTarget();
+  const { host, hosts, error, updatedAt } = useTarget();
+  const latest = hosts.find((item) => item.id === host?.id);
   const local = useLocation({ select: (location) => location.pathname === "/hosts" });
   return (
-    <div className="mb-4 break-all text-xs text-fg-muted" role="status">
-      {local
-        ? "Hosts and trust · Local instance"
-        : host
-          ? `Operating: ${host.name} · Direct · ${host.endpoint}`
-          : "Operating: Local"}
+    <div className="mb-4 grid gap-2 break-all text-xs text-fg-muted" role="status">
+      <span>
+        {local
+          ? "Hosts and trust · Local instance"
+          : host
+            ? `Operating: ${host.name} · ${host.mode === "edge" ? "Edge" : "Direct"}${host.endpoint ? ` · ${host.endpoint}` : ""}`
+            : "Operating: Local"}
+      </span>
+      {!local && host?.mode === "edge" && (
+        <EdgeConnection
+          status={latest?.connection}
+          failed={!!error}
+          updatedAt={updatedAt}
+          compact
+        />
+      )}
     </div>
   );
 }

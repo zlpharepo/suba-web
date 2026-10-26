@@ -8,6 +8,7 @@ export const TargetContext = createContext<{
   host: Host | null;
   hosts: Host[];
   error: unknown;
+  updatedAt: number;
   localClient: QueryClient;
   select: (host: Host | null) => void;
 } | null>(null);

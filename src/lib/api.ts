@@ -36,7 +36,10 @@ import { observationQuery } from "./observation.ts";
 import {
   directEndpoint,
   hostId,
+  requireInvitationMode,
   subscriptionUrl,
+  type EdgeView,
+  type HostMode,
   type Host,
   type Identity,
   type Invitation,
@@ -176,11 +179,15 @@ function transport(prefix: string) {
 /** Each mounted target owns an immutable transport, including async follow-up writes. */
 export function createApi(host?: Pick<Host, "id" | "endpoint">) {
   const prefix = host ? `/api/hosts/${hostId(host.id)}` : "/api";
-  const endpoint = host ? directEndpoint(host.endpoint) : undefined;
+  const endpoint = host
+    ? host.endpoint === null
+      ? null
+      : directEndpoint(host.endpoint)
+    : undefined;
   const { json, none, send, tagged, guarded, artifact } = transport(prefix);
   return {
     subscriptionUrl: (path: string, localOrigin: string) =>
-      subscriptionUrl(endpoint ?? localOrigin, path),
+      subscriptionUrl(endpoint === undefined ? localOrigin : endpoint, path),
     system: {
       status: () => json<SystemStatus>("GET", "/system/status"),
       info: () => json<SystemInfo>("GET", "/system/info"),
@@ -316,20 +323,51 @@ export const api = {
   hosts: {
     list: () => json<Host[]>("GET", "/hosts"),
     add: (name: string, invitation: Invitation) =>
-      json<Host>("POST", "/hosts", { name, invitation }),
-    update: (id: string, name: string, endpoint: string) =>
+      json<Host>("POST", "/hosts", {
+        name,
+        invitation: requireInvitationMode(invitation, "direct"),
+      }),
+    update: (id: string, name: string, endpoint: string | null) =>
       json<Host>("PUT", `/hosts/${hostId(id)}`, { name, endpoint }),
     remove: (id: string) => none("DELETE", `/hosts/${hostId(id)}`),
   },
   peers: {
     identity: () => json<Identity>("GET", "/peers/identity"),
     list: () => json<TrustedPeer[]>("GET", "/peers"),
-    invite: (name: string, endpoint: string) =>
-      json<Invitation>("POST", "/peers/invitations", { name, endpoint }),
+    invite: (name: string, endpoint: string, mode?: HostMode) =>
+      json<Invitation>("POST", "/peers/invitations", { name, endpoint, ...(mode ? { mode } : {}) }),
+    edge: {
+      get: () => edgeRequest(() => json<EdgeView>("GET", "/peers/edge")),
+      connect: (invitation: Invitation, proxy?: string | null) => {
+        requireInvitationMode(invitation, "edge");
+        return edgeRequest(() => json<EdgeView>("POST", "/peers/edge", { invitation, proxy }));
+      },
+      update: (settings: { endpoint?: string; proxy?: string | null }) =>
+        edgeRequest(() => json<EdgeView>("PUT", "/peers/edge", settings)),
+      disconnect: () => edgeRequest(() => none("DELETE", "/peers/edge")),
+    },
     revokeInvitation: (id: string) => none("DELETE", `/peers/invitations/${hostId(id)}`),
     revoke: (id: string) => none("DELETE", `/peers/${hostId(id)}`),
   },
 };
+
+async function edgeRequest<T>(request: () => Promise<T>): Promise<T> {
+  try {
+    return await request();
+  } catch (error) {
+    // Proxy errors must not retain or display a server-echoed credential URL.
+    const status = error instanceof ApiError ? error.status : 0;
+    const reason =
+      status === 409
+        ? "disconnect the configured manager before connecting again"
+        : status === 400
+          ? "invalid invitation or connection settings"
+          : status === 401 || status === 403
+            ? "authorization failed; check the session and manager trust"
+            : "request failed; check the endpoint, explicit proxy and network";
+    throw new ApiError(status, `edge: ${reason}`);
+  }
+}
 
 export function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
