@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { CheckIcon, CopyIcon, PlusIcon, XIcon } from "lucide-react";
 
 import { makePattern, PATTERN_KINDS, patternKind, patternText } from "@/lib/pattern";
@@ -68,7 +68,15 @@ export function PatternsEditor({
   );
 }
 
-export function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) {
+export function CopyButton({
+  text,
+  label = "Copy",
+  icon = <CopyIcon />,
+}: {
+  text: string;
+  label?: string;
+  icon?: ReactNode;
+}) {
   const [done, setDone] = useState(false);
 
   return (
@@ -85,7 +93,7 @@ export function CopyButton({ text, label = "Copy" }: { text: string; label?: str
         );
       }}
     >
-      {done ? <CheckIcon className="text-success" /> : <CopyIcon />}
+      {done ? <CheckIcon className="text-success" /> : icon}
     </IconButton>
   );
 }

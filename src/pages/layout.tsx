@@ -11,6 +11,7 @@ import {
   MoonIcon,
   RssIcon,
   SunIcon,
+  UsersIcon,
   XIcon,
 } from "lucide-react";
 
@@ -43,7 +44,13 @@ function useNav(): NavItem[] {
     { to: "/", label: "Overview", icon: <GaugeIcon /> },
     { to: "/providers", label: "Providers", icon: <RssIcon /> },
     { to: "/collections", label: "Collections", icon: <BoxesIcon /> },
-    ...(core.isSuccess ? [{ to: "/sing-box", label: "sing-box", icon: <CpuIcon /> }] : []),
+    ...(core.isSuccess
+      ? [
+          // Users are a part of the sing-box module: their routes go with it.
+          { to: "/users", label: "Users", icon: <UsersIcon /> },
+          { to: "/sing-box", label: "sing-box", icon: <CpuIcon /> },
+        ]
+      : []),
   ];
 }
 

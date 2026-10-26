@@ -3,6 +3,7 @@ import type {
   Collection,
   CollectionNodes,
   CollectionSummary,
+  ConfigExports,
   ConfigView,
   Metrics,
   Core,
@@ -10,6 +11,8 @@ import type {
   Generated,
   GenerateCommand,
   DeliveryToken,
+  PoolEntry,
+  PoolView,
   Provider,
   ProviderNodes,
   ProviderSummary,
@@ -21,6 +24,7 @@ import type {
   Saved,
   SystemInfo,
   SystemStatus,
+  UserView,
   Versioned,
   VersionView,
 } from "./types";
@@ -134,6 +138,23 @@ async function guarded(
 }
 
 const segment = encodeURIComponent;
+const user = (name: string) => `/cores/sing-box/users/${segment(name)}`;
+
+/** A rendered subscription, with the counts the server reports beside it. */
+async function artifact(path: string, format?: string): Promise<Artifact> {
+  const query = format ? `?format=${segment(format)}` : "";
+  const response = await send("GET", `${path}${query}`);
+  const count = (header: string) => {
+    const value = response.headers.get(header);
+    return value === null ? null : Number(value);
+  };
+  return {
+    body: await response.text(),
+    format: response.headers.get("x-suba-format"),
+    nodes: count("x-suba-nodes"),
+    skipped: count("x-suba-skipped"),
+  };
+}
 
 export const api = {
   system: {
@@ -170,20 +191,8 @@ export const api = {
       json<Collection>("PUT", `/collections/${segment(name)}`, collection),
     remove: (name: string) => none("DELETE", `/collections/${segment(name)}`),
     nodes: (name: string) => json<CollectionNodes>("GET", `/collections/${segment(name)}/nodes`),
-    content: async (name: string, format?: string): Promise<Artifact> => {
-      const query = format ? `?format=${segment(format)}` : "";
-      const response = await send("GET", `/collections/${segment(name)}/content${query}`);
-      const count = (header: string) => {
-        const value = response.headers.get(header);
-        return value === null ? null : Number(value);
-      };
-      return {
-        body: await response.text(),
-        format: response.headers.get("x-suba-format"),
-        nodes: count("x-suba-nodes"),
-        skipped: count("x-suba-skipped"),
-      };
-    },
+    content: (name: string, format?: string) =>
+      artifact(`/collections/${segment(name)}/content`, format),
     tokens: (name: string) => json<DeliveryToken[]>("GET", `/collections/${segment(name)}/tokens`),
     mintToken: (name: string, label: string) =>
       json<DeliveryToken>("PUT", `/collections/${segment(name)}/tokens/${segment(label)}`),
@@ -240,6 +249,29 @@ export const api = {
         `/cores/sing-box/configs/${segment(name)}/sections/${segment(section)}`,
         etag,
       ),
+    // What every user of every inbound of the saved document reaches it with.
+    exports: (name: string) =>
+      json<ConfigExports>("GET", `/cores/sing-box/configs/${segment(name)}/exports`),
+
+    // Proxy identities, which pools grant inbounds to.
+    users: {
+      list: () => json<UserView[]>("GET", "/cores/sing-box/users"),
+      put: (name: string, body: { pools: string[]; collections: string[] }) =>
+        none("PUT", user(name), body),
+      remove: (name: string) => none("DELETE", user(name)),
+      renewCredentials: (name: string) => none("DELETE", `${user(name)}/credentials`),
+      content: (name: string, format?: string) => artifact(`${user(name)}/content`, format),
+      mintToken: (name: string, label: string) =>
+        json<DeliveryToken>("PUT", `${user(name)}/tokens/${segment(label)}`),
+      revokeToken: (name: string, label: string) =>
+        none("DELETE", `${user(name)}/tokens/${segment(label)}`),
+    },
+    pools: {
+      list: () => json<PoolView[]>("GET", "/cores/sing-box/pools"),
+      put: (name: string, entries: PoolEntry[]) =>
+        none("PUT", `/cores/sing-box/pools/${segment(name)}`, { entries }),
+      remove: (name: string) => none("DELETE", `/cores/sing-box/pools/${segment(name)}`),
+    },
   },
 };
 

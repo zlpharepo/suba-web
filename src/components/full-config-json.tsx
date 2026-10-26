@@ -10,6 +10,7 @@ import { configKey, parseConfigJson } from "@/lib/config-json";
 import { useDraftProtection } from "@/lib/draft-protection";
 import type { JsonObject } from "@/lib/schema";
 import type { Versioned } from "@/lib/types";
+import { exportsKey } from "@/lib/users";
 import { Button, IconButton } from "@/ui/button";
 import { Confirm, Dialog } from "@/ui/dialog";
 import { Textarea } from "@/ui/input";
@@ -143,6 +144,7 @@ function DocumentEditor({
       setText(JSON.stringify(value, null, 2));
       queryClient.setQueryData(configKey(name), next);
       void queryClient.invalidateQueries({ queryKey: ["singbox", "references"] });
+      void queryClient.invalidateQueries({ queryKey: exportsKey(name) });
       onSaved();
       if (saved.value.warnings.length) {
         toast.error("Saved, but the core may refuse this configuration.");

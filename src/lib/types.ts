@@ -249,6 +249,80 @@ export interface References {
   skipped?: { path: string; reason: string }[];
 }
 
+/** How far a pool user's credential has got on the core. */
+export type GrantState = "applied" | "pending" | "stopped" | "unused";
+
+/** A client node for one user of one inbound, or why there is none. */
+export interface Export {
+  link?: string;
+  /** Absent also when this build cannot write sing-box outbounds. */
+  outbound?: Record<string, unknown>;
+  reason?: string;
+}
+
+export interface GrantView extends Export {
+  config: string;
+  inbound: string;
+  via: string[];
+  /** Absent when the grant reaches no inbound a pool can give. */
+  state?: GrantState;
+}
+
+/** A proxy identity, not a SubA login. */
+export interface UserView {
+  name: string;
+  pools: string[];
+  collections: string[];
+  missing_pools: string[];
+  missing_collections: string[];
+  links: DeliveryToken[];
+  grants: GrantView[];
+}
+
+/** One inbound a pool grants: its tag, in one named configuration. */
+export interface PoolEntry {
+  config: string;
+  inbound: string;
+}
+
+export interface PoolView {
+  name: string;
+  /** `reason` says why the entry gives nobody anything. */
+  entries: (PoolEntry & { reason?: string })[];
+  members: string[];
+}
+
+/** A user written into the configuration by hand, by its array index. */
+export interface HandWrittenUser extends Export {
+  index: number;
+  /** Why the core refuses to start with it beside the pool users. */
+  conflict?: string;
+}
+
+export interface ManagedUser extends Export {
+  user: string;
+  via: string[];
+  state: GrantState;
+}
+
+export interface InboundUsers {
+  /** The inbound's position in the saved document. */
+  index: number;
+  tag: string | null;
+  /** Why pools cannot grant this inbound. */
+  refused?: string;
+  flow?: string;
+  users: HandWrittenUser[];
+  managed: ManagedUser[];
+  /** Names the running core still serves here that the configuration no longer has. */
+  departing?: string[];
+}
+
+export interface ConfigExports {
+  public_host?: string;
+  inbounds: InboundUsers[];
+}
+
 export type GenerateCommand =
   | "uuid"
   | "rand"

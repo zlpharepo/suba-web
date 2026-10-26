@@ -18,6 +18,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type ReactNode,
 } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { BracesIcon, CheckIcon, ListIcon, PlusIcon, Trash2Icon } from "lucide-react";
@@ -25,6 +26,7 @@ import { BracesIcon, CheckIcon, ListIcon, PlusIcon, Trash2Icon } from "lucide-re
 import { CollectionOutbounds } from "@/components/collection-outbounds";
 import { ConfigEntryCard } from "@/components/config-entry-card";
 import { Generator } from "@/components/generator";
+import { InboundBadges, InboundUsersPanel } from "@/components/inbound-users";
 import { ReferenceDiagnostics } from "@/components/reference-diagnostics";
 import { RawField, SchemaForm } from "@/components/schema-form";
 import { ApiError, api, errorMessage } from "@/lib/api";
@@ -61,6 +63,7 @@ import {
   type JsonSchema,
 } from "@/lib/schema";
 import type { Core, Tag, Versioned } from "@/lib/types";
+import { exportsKey, savedInbound } from "@/lib/users";
 import { Button, IconButton } from "@/ui/button";
 import { Confirm, Dialog } from "@/ui/dialog";
 import { Empty, ErrorNote, Skeleton } from "@/ui/misc";
@@ -325,6 +328,7 @@ function useDraft(config: string, name: string, document: Versioned<JsonObject>,
       void queryClient.invalidateQueries({
         queryKey: ["singbox", "references"],
       });
+      void queryClient.invalidateQueries({ queryKey: exportsKey(config) });
       if (saved.value.warnings.length > 0) {
         toast.error(`Saved, but the core will refuse it: ${saved.value.warnings.join("; ")}`);
       } else {
@@ -678,6 +682,14 @@ function EntriesView({
   );
   const { references } = useReferenceTags(localDocument);
   const entries = Array.isArray(draft) ? (draft as JsonObject[]) : [];
+  // Pools reach inbounds only, and only the saved document's.
+  const inbounds = name === "inbounds";
+  const exports = useQuery({
+    queryKey: exportsKey(config),
+    queryFn: () => api.singbox.exports(config),
+    enabled: inbounds,
+    retry: false,
+  });
 
   return (
     <div>
@@ -701,6 +713,13 @@ function EntriesView({
           item={item}
           references={references}
           entries={entries}
+          details={
+            inbounds
+              ? (entry, index) => (
+                  <InboundBadges inbound={savedInbound(exports.data, index, entry.tag)} />
+                )
+              : undefined
+          }
           onAdd={() => setEditing({ path: name, index: null })}
           onEdit={(index) => setEditing({ path: name, index })}
           onRemove={(index) => setDraft(entries.filter((_, at) => at !== index))}
@@ -715,6 +734,20 @@ function EntriesView({
           item={item}
           entries={entries}
           target={editing}
+          users={
+            inbounds
+              ? (index, entry, changed) => (
+                  <InboundUsersPanel
+                    config={config}
+                    exports={exports.data}
+                    error={exports.error}
+                    index={index}
+                    entry={entry}
+                    unsaved={dirty || changed}
+                  />
+                )
+              : undefined
+          }
           onClose={() => setEditing(null)}
           onApply={(entry) =>
             setDraft(
@@ -744,6 +777,7 @@ function CardList({
   onAdd,
   onEdit,
   onRemove,
+  details,
 }: {
   /** Where the list sits in the document, e.g. `dns.servers`. */
   path: string;
@@ -754,6 +788,8 @@ function CardList({
   onAdd: () => void;
   onEdit: (index: number) => void;
   onRemove: (index: number) => void;
+  /** What a card says beyond its entry, such as the users pools give an inbound. */
+  details?: (entry: JsonObject, index: number) => ReactNode;
 }) {
   const collectionContext = useContext(CollectionBindings);
   // A list whose entries carry no tag is shown as what it is — JSON — because
@@ -784,6 +820,7 @@ function CardList({
               titled={titled}
               missingReferences={missingReferences(tree, item, entry, references)}
               collectionContext={path === "outbounds" ? collectionContext : undefined}
+              details={details?.(entry, index)}
               onOpen={() => onEdit(index)}
               actions={
                 <Confirm
@@ -816,6 +853,7 @@ function EntryDialog({
   target,
   onClose,
   onApply,
+  users,
 }: {
   tree: SchemaTree;
   document: JsonObject;
@@ -825,6 +863,8 @@ function EntryDialog({
   target: EditTarget;
   onClose: () => void;
   onApply: (entry: JsonObject) => void;
+  /** What the server says about the users of the saved entry, given the entry as it opened. */
+  users?: (index: number, entry: JsonObject, changed: boolean) => ReactNode;
 }) {
   const collectionContext = useContext(CollectionBindings);
   const seed = target.index === null ? undefined : entries[target.index];
@@ -841,10 +881,8 @@ function EntryDialog({
   const [raw, setRaw] = useState(false);
   const [baseline] = useState(entry);
   const [invalid, setInvalid] = useState(false);
-  useDraftProtection({
-    dirty: invalid || JSON.stringify(entry) !== JSON.stringify(baseline),
-    saving: false,
-  });
+  const changed = invalid || JSON.stringify(entry) !== JSON.stringify(baseline);
+  useDraftProtection({ dirty: changed, saving: false });
   const localDocument = useMemo(
     () => entryDocument(document, path, target.index, entry),
     [document, path, target.index, entry],
@@ -929,6 +967,7 @@ function EntryDialog({
             onChange={(next) => setEntry(isObject(next) ? next : {})}
           />
         )}
+        {target.index !== null && users?.(target.index, baseline, changed)}
       </div>
     </Dialog>
   );
