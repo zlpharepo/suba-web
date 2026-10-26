@@ -1,24 +1,26 @@
-// Proxy users, the pools that grant them inbounds, and what the server says
-// each grant has become. Whether an inbound can be granted, and what a client
-// gets, is the server's answer; the previews here only combine its answers.
+// Proxy users, the inbounds they may use, and the address a client dials for
+// each of them. Whether an inbound can be used, and what a client gets, is the
+// server's answer; the previews here only combine its answers.
 
 import type {
   ConfigExports,
+  EndpointView,
+  EndpointsView,
   GrantState,
   GrantView,
+  InboundEntry,
   InboundUsers,
-  PoolEntry,
-  PoolView,
   UserView,
 } from "./types.ts";
 
 export const usersKey = ["singbox", "users"];
-export const poolsKey = ["singbox", "pools"];
+export const endpointsKey = ["singbox", "endpoints"];
 export const exportsKey = (config: string) => ["singbox", "exports", config];
 
 /** What the server accepts as a user name: it is the name every server logs. */
 export const USER_NAME = /^[A-Za-z0-9._-]{1,32}$/;
-export const POOL_NAME = /^[A-Za-z0-9._-]{1,64}$/;
+/** A port is 16 bits and non-zero: the server refuses 0 too. */
+export const PORT = /^[0-9]{1,5}$/;
 
 type Tone = "neutral" | "success" | "warning" | "danger";
 
@@ -38,7 +40,7 @@ export function grantSummary(grants: GrantView[]): { tone: Tone; text: string } 
   if (grants.length === 0) return { tone: "neutral", text: "No servers" };
 
   const parts = [`${grants.length} ${grants.length === 1 ? "server" : "servers"}`];
-  // A grant without a state reaches no inbound a pool can give.
+  // A grant without a state reaches no inbound that can take users.
   const unavailable = grants.filter((grant) => grant.state === undefined).length;
   const waiting = grants.filter(
     (grant) => grant.state !== undefined && grant.state !== "applied",
@@ -74,73 +76,34 @@ export function publicHostUnset(exports?: ConfigExports): boolean {
 }
 
 // Configuration names cannot hold a slash, so the key names one entry.
-export const entryKey = (entry: PoolEntry) => `${entry.config}/${entry.inbound}`;
+export const entryKey = (entry: InboundEntry) => `${entry.config}/${entry.inbound}`;
 
-export interface Server extends PoolEntry {
-  via: string[];
-}
+const sameEntry = (a: InboundEntry, b: InboundEntry) => entryKey(a) === entryKey(b);
 
-/** The inbounds `names` grant, each once and in pool order, the way the server derives them. */
-export function serversOf(names: string[], pools: PoolView[]): Server[] {
-  const servers: Server[] = [];
-  for (const name of names) {
-    for (const entry of pools.find((pool) => pool.name === name)?.entries ?? []) {
-      const held = servers.find((server) => entryKey(server) === entryKey(entry));
-      if (held) held.via.push(name);
-      else servers.push({ config: entry.config, inbound: entry.inbound, via: [name] });
-    }
-  }
-  return servers;
-}
-
-/** `after`, each marked when `before` did not have it, and what `before` had that is gone. */
-export function serverChanges(
-  before: Server[],
-  after: Server[],
-): { servers: (Server & { added: boolean })[]; removed: Server[] } {
-  const had = new Set(before.map(entryKey));
-  const has = new Set(after.map(entryKey));
-  return {
-    servers: after.map((server) => ({ ...server, added: !had.has(entryKey(server)) })),
-    removed: before.filter((server) => !has.has(entryKey(server))),
-  };
-}
-
-export interface EntryEffect extends PoolEntry {
-  users: string[];
+export interface Server extends InboundEntry {
+  added: boolean;
 }
 
 /**
- * Who gains and who loses which inbound when pool `name` is saved with
- * `entries`, or deleted when `entries` is null. A user naming a pool that does
- * not exist yet counts: creating it reaches them.
+ * What a user's saved inbounds and the chosen ones differ by: `servers` is the
+ * chosen list in order, each marked when it is new, and `removed` what is gone.
+ * A repeated entry grants nothing more, so it is collapsed as the server does.
  */
-export function poolEffect(
-  name: string,
-  entries: PoolEntry[] | null,
-  users: UserView[],
-  pools: PoolView[],
-): { gains: EntryEffect[]; losses: EntryEffect[] } {
-  const next = pools.filter((pool) => pool.name !== name);
-  if (entries) next.push({ name, entries, members: [] });
-
-  const gains: EntryEffect[] = [];
-  const losses: EntryEffect[] = [];
-  const add = (list: EntryEffect[], entry: PoolEntry, user: string) => {
-    const held = list.find((effect) => entryKey(effect) === entryKey(entry));
-    if (held) held.users.push(user);
-    else list.push({ config: entry.config, inbound: entry.inbound, users: [user] });
-  };
-  for (const user of users) {
-    if (!user.pools.includes(name)) continue;
-    const { servers, removed } = serverChanges(
-      serversOf(user.pools, pools),
-      serversOf(user.pools, next),
-    );
-    for (const server of servers) if (server.added) add(gains, server, user.name);
-    for (const server of removed) add(losses, server, user.name);
+export function serverChanges(
+  before: InboundEntry[],
+  after: InboundEntry[],
+): { servers: Server[]; removed: InboundEntry[] } {
+  const unique: InboundEntry[] = [];
+  for (const entry of after) {
+    if (!unique.some((held) => sameEntry(held, entry))) unique.push(entry);
   }
-  return { gains, losses };
+  return {
+    servers: unique.map((entry) => ({
+      ...entry,
+      added: !before.some((held) => sameEntry(held, entry)),
+    })),
+    removed: before.filter((entry) => !after.some((held) => sameEntry(held, entry))),
+  };
 }
 
 /**
@@ -157,9 +120,158 @@ export function savedInbound(
   return inbound && inbound.tag === (typeof tag === "string" ? tag : null) ? inbound : undefined;
 }
 
-/** Whether any pool names the inbound tagged `tag` in `config`. */
-export function pooled(pools: PoolView[], config: string, tag: string | null): boolean {
-  return pools.some((pool) =>
-    pool.entries.some((entry) => entry.config === config && entry.inbound === tag),
-  );
+/** Whether a user's chosen inbounds already hold this one. */
+export function chosen(entries: InboundEntry[], entry: InboundEntry): boolean {
+  return entries.some((held) => sameEntry(held, entry));
+}
+
+export interface EndpointGroup {
+  config: string;
+  entries: EndpointView[];
+}
+
+/** The endpoints as the Endpoints tab shows them: grouped, nothing dropped. */
+export function endpointGroups(endpoints?: EndpointsView): EndpointGroup[] {
+  const groups: EndpointGroup[] = [];
+  for (const entry of endpoints?.entries ?? []) {
+    const held = groups.find((group) => group.config === entry.config);
+    if (held) held.entries.push(entry);
+    else groups.push({ config: entry.config, entries: [entry] });
+  }
+  return groups;
+}
+
+export interface EffectiveAddress {
+  /** The host and port a client would dial, or null when nothing gives one. */
+  host: string | null;
+  port: number | null;
+  /** Whether the host is the operator's override rather than the instance default. */
+  overridden: boolean;
+  /**
+   * Why no address can be dialed, when that is the case. Only an absent
+   * fallback is reported here; anything wrong with the inbound itself is
+   * `reason` on the entry.
+   */
+  reason?: string;
+}
+
+/**
+ * What a client dials for one endpoint: the stored override when there is one,
+ * otherwise the instance public host. The port is the stored override, else the
+ * `listen_port` the saved document gives, with null where it gives none.
+ *
+ * Never invents an address: with neither an override nor a public host it
+ * answers null and says why.
+ */
+export function effectiveAddress(
+  endpoint: EndpointView,
+  publicHost: string | undefined,
+  listenPort: number | null,
+): EffectiveAddress {
+  const stored = endpoint.address ? endpoint.address : null;
+  const fallback = publicHost ? publicHost : null;
+  const host = stored ?? fallback;
+  if (host === null) {
+    return {
+      host: null,
+      port: null,
+      overridden: false,
+      reason: "No address: set one here, or a public-host on the instance.",
+    };
+  }
+  return {
+    host,
+    port: endpoint.port ?? listenPort,
+    overridden: stored !== null,
+  };
+}
+
+/**
+ * The `listen_port` the saved document gives one endpoint's inbound, which is
+ * what a client dials when no port override is stored. Read from the document
+ * rather than guessed, and null when the inbound, its tag, or its port is not
+ * there.
+ */
+export function listenPort(document: unknown, inbound: string): number | null {
+  if (typeof document !== "object" || document === null) return null;
+  const list = (document as { inbounds?: unknown }).inbounds;
+  if (!Array.isArray(list)) return null;
+  for (const entry of list) {
+    if (typeof entry !== "object" || entry === null) continue;
+    const held = entry as { tag?: unknown; listen_port?: unknown };
+    if (held.tag !== inbound) continue;
+    return typeof held.listen_port === "number" && Number.isInteger(held.listen_port)
+      ? held.listen_port
+      : null;
+  }
+  return null;
+}
+
+/** `endpoints` with one entry replaced by the server's answer for it. */
+export function withEndpoint(endpoints: EndpointsView, entry: EndpointView): EndpointsView {
+  const held = endpoints.entries.some((present) => entryKey(present) === entryKey(entry));
+  return {
+    ...endpoints,
+    entries: held
+      ? endpoints.entries.map((present) =>
+          entryKey(present) === entryKey(entry) ? entry : present,
+        )
+      : [...endpoints.entries, entry],
+  };
+}
+
+/**
+ * `endpoints` with one entry's stored override gone. `DELETE` answers no body,
+ * so the entry itself stays — it is still an inbound, with the reason the
+ * server already gave for it.
+ */
+export function withoutEndpoint(endpoints: EndpointsView, entry: InboundEntry): EndpointsView {
+  return {
+    ...endpoints,
+    entries: endpoints.entries.map((present) => {
+      if (entryKey(present) !== entryKey(entry)) return present;
+      const cleared: EndpointView = { config: present.config, inbound: present.inbound };
+      if (present.reason !== undefined) cleared.reason = present.reason;
+      return cleared;
+    }),
+  };
+}
+
+/** The port an operator typed: its number, or why it cannot be stored. */
+export function parsePort(text: string): { port: number | null; error?: string } {
+  const trimmed = text.trim();
+  if (trimmed === "") return { port: null };
+  if (!PORT.test(trimmed)) return { port: null, error: "Use digits only." };
+  const port = Number(trimmed);
+  if (port < 1 || port > 65535) return { port: null, error: "Use a port from 1 to 65535." };
+  return { port };
+}
+
+/**
+ * Whether an address holds a character the server refuses: whitespace, or
+ * anything in Unicode's control categories. The control range is written as
+ * code units because a regular expression may not name them.
+ */
+function unruly(address: string): boolean {
+  for (let at = 0; at < address.length; at++) {
+    const code = address.charCodeAt(at);
+    if (code < 0x20 || (code >= 0x7f && code <= 0x9f)) return true;
+  }
+  return /\s/.test(address);
+}
+
+/**
+ * Why an operator's address cannot be stored, or undefined when it can. The
+ * server checks the same shape; this only spares a round trip, so it refuses
+ * nothing the server accepts.
+ */
+export function addressError(address: string): string | undefined {
+  const trimmed = address.trim();
+  if (trimmed === "" || trimmed.length > 253) return "Enter a host name or IP address.";
+  if (trimmed !== address || unruly(address) || /[/?#@\\]/.test(address)) {
+    return "Enter a host name or IP address, with no scheme, port or path.";
+  }
+  if (trimmed.startsWith("[") && trimmed.endsWith("]")) return undefined;
+  if (trimmed.includes(":")) return "Write an IPv6 address in brackets.";
+  return undefined;
 }

@@ -11,11 +11,12 @@ import type {
   ObservationMetrics,
   Core,
   CoreAction,
+  EndpointView,
+  EndpointsView,
   Generated,
   GenerateCommand,
   DeliveryToken,
-  PoolEntry,
-  PoolView,
+  InboundEntry,
   Provider,
   ProviderNodes,
   ProviderSummary,
@@ -284,10 +285,10 @@ export function createApi(host?: Pick<Host, "id" | "endpoint">) {
       exports: (name: string) =>
         json<ConfigExports>("GET", `/cores/sing-box/configs/${segment(name)}/exports`),
 
-      // Proxy identities, which pools grant inbounds to.
+      // Proxy identities and the inbounds they may use.
       users: {
         list: () => json<UserView[]>("GET", "/cores/sing-box/users"),
-        put: (name: string, body: { pools: string[]; collections: string[] }) =>
+        put: (name: string, body: { inbounds: InboundEntry[]; collections: string[] }) =>
           none("PUT", user(name), body),
         remove: (name: string) => none("DELETE", user(name)),
         renewCredentials: (name: string) => none("DELETE", `${user(name)}/credentials`),
@@ -297,11 +298,23 @@ export function createApi(host?: Pick<Host, "id" | "endpoint">) {
         revokeToken: (name: string, label: string) =>
           none("DELETE", `${user(name)}/tokens/${segment(label)}`),
       },
-      pools: {
-        list: () => json<PoolView[]>("GET", "/cores/sing-box/pools"),
-        put: (name: string, entries: PoolEntry[]) =>
-          none("PUT", `/cores/sing-box/pools/${segment(name)}`, { entries }),
-        remove: (name: string) => none("DELETE", `/cores/sing-box/pools/${segment(name)}`),
+      // Where clients dial each inbound. Stored per inbound, apart from users,
+      // because one inbound has one address however many users may use it.
+      endpoints: {
+        list: () => json<EndpointsView>("GET", "/cores/sing-box/endpoints"),
+        put: (
+          config: string,
+          inbound: string,
+          // An omitted field keeps the stored value; null clears it.
+          body: { address?: string | null; port?: number | null },
+        ) =>
+          json<EndpointView>(
+            "PUT",
+            `/cores/sing-box/endpoints/${segment(config)}/${segment(inbound)}`,
+            body,
+          ),
+        remove: (config: string, inbound: string) =>
+          none("DELETE", `/cores/sing-box/endpoints/${segment(config)}/${segment(inbound)}`),
       },
     },
   };

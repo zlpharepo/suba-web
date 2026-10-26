@@ -55,8 +55,9 @@ function useNav(): NavItem[] {
     { to: "/collections", label: "Collections", icon: <BoxesIcon /> },
     ...(core.isSuccess
       ? [
-          // Users are a part of the sing-box module: their routes go with it.
-          { to: "/users", label: "Users", icon: <UsersIcon /> },
+          // The inbounds and their users are part of the sing-box module, so
+          // their routes go with it.
+          { to: "/users", label: "Inbounds", icon: <UsersIcon /> },
           { to: "/sing-box", label: "sing-box", icon: <CpuIcon /> },
         ]
       : []),

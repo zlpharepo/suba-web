@@ -311,7 +311,7 @@ export interface References {
   skipped?: { path: string; reason: string }[];
 }
 
-/** How far a pool user's credential has got on the core. */
+/** How far a managed user's credential has got on the core. */
 export type GrantState = "applied" | "pending" | "stopped" | "unused";
 
 /** A client node for one user of one inbound, or why there is none. */
@@ -322,36 +322,45 @@ export interface Export {
   reason?: string;
 }
 
+/** One inbound of one configuration: the tag is its name within that document. */
+export interface InboundEntry {
+  config: string;
+  inbound: string;
+}
+
 export interface GrantView extends Export {
   config: string;
   inbound: string;
-  via: string[];
-  /** Absent when the grant reaches no inbound a pool can give. */
+  /** Absent when the entry reaches no inbound that can take users. */
   state?: GrantState;
 }
 
 /** A proxy identity, not a SubA login. */
 export interface UserView {
   name: string;
-  pools: string[];
+  /** The inbounds it may use, in the order they were chosen. */
+  inbounds: InboundEntry[];
   collections: string[];
-  missing_pools: string[];
   missing_collections: string[];
   links: DeliveryToken[];
   grants: GrantView[];
 }
 
-/** One inbound a pool grants: its tag, in one named configuration. */
-export interface PoolEntry {
-  config: string;
-  inbound: string;
+/** One inbound of one configuration, with the address a client dials. */
+export interface EndpointView extends InboundEntry {
+  /** The stored override, when the operator set one. */
+  address?: string;
+  /** The stored port override, when the operator set one. */
+  port?: number;
+  /** Why this inbound cannot be exported at all, when it cannot. */
+  reason?: string;
 }
 
-export interface PoolView {
-  name: string;
-  /** `reason` says why the entry gives nobody anything. */
-  entries: (PoolEntry & { reason?: string })[];
-  members: string[];
+/** Every address override, and the instance default they fall back to. */
+export interface EndpointsView {
+  entries: EndpointView[];
+  /** Absent when the operator has set none. */
+  public_host?: string;
 }
 
 /** A user written into the configuration by hand, by its array index. */
@@ -363,7 +372,6 @@ export interface HandWrittenUser extends Export {
 
 export interface ManagedUser extends Export {
   user: string;
-  via: string[];
   state: GrantState;
 }
 
@@ -371,7 +379,7 @@ export interface InboundUsers {
   /** The inbound's position in the saved document. */
   index: number;
   tag: string | null;
-  /** Why pools cannot grant this inbound. */
+  /** Why SubA cannot add users to this inbound. */
   refused?: string;
   flow?: string;
   users: HandWrittenUser[];

@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   BoxesIcon,
   EyeIcon,
-  LayersIcon,
+  NetworkIcon,
   PencilIcon,
   PlusIcon,
   RotateCwIcon,
@@ -21,10 +21,10 @@ import { useApi } from "@/lib/target";
 import { cx } from "@/lib/cx";
 import type { ConfigExports, GrantView, UserView } from "@/lib/types";
 import {
+  endpointsKey,
   entryKey,
   exportsKey,
   grantSummary,
-  poolsKey,
   publicHostUnset,
   restartChanges,
   stateBadge,
@@ -35,24 +35,23 @@ import { Dialog } from "@/ui/dialog";
 import { PageHeader } from "@/ui/layout";
 import { Badge, Card, Dot, Empty, ErrorNote, Skeleton } from "@/ui/misc";
 import { toast } from "@/ui/notify";
-import { PoolCard, PoolDialog } from "./pools";
+import { EndpointsPanel } from "./endpoints";
 import { UserDialog } from "./user-dialog";
 
-type Tab = "users" | "pools";
+type Tab = "users" | "endpoints";
 
 export function UsersPage() {
   const api = useApi();
   const [tab, setTab] = useState<Tab>("users");
   // `""` opens a new one; a name opens that one.
   const [editingUser, setEditingUser] = useState<string | null>(null);
-  const [editingPool, setEditingPool] = useState<string | null>(null);
   const [previewing, setPreviewing] = useState<string | null>(null);
   const [observing, setObserving] = useState<string | null>(null);
   const observation = useObservationMetrics();
 
   const core = useQuery({ queryKey: ["singbox"], queryFn: api.singbox.get });
   const users = useQuery({ queryKey: usersKey, queryFn: api.singbox.users.list });
-  const pools = useQuery({ queryKey: poolsKey, queryFn: api.singbox.pools.list });
+  const endpoints = useQuery({ queryKey: endpointsKey, queryFn: api.singbox.endpoints.list });
   const inUse = core.data?.config;
   // Only the configuration in use has names the running core is about to drop.
   const exports = useQuery({
@@ -63,23 +62,20 @@ export function UsersPage() {
   });
 
   const heldUsers = users.data ?? [];
-  const heldPools = pools.data ?? [];
-  // PUT replaces an existing name, so creation must wait for both catalogs.
-  const ready = users.isSuccess && pools.isSuccess;
+  // PUT replaces an existing name, so creation must wait for the catalog.
+  const ready = users.isSuccess;
 
   return (
     <>
       <PageHeader
-        title="Users"
+        title="Inbounds"
         actions={
-          <Button
-            variant="primary"
-            disabled={!ready}
-            onClick={() => (tab === "users" ? setEditingUser("") : setEditingPool(""))}
-          >
-            <PlusIcon />
-            {tab === "users" ? "New User" : "New Pool"}
-          </Button>
+          tab === "users" && (
+            <Button variant="primary" disabled={!ready} onClick={() => setEditingUser("")}>
+              <PlusIcon />
+              New User
+            </Button>
+          )
         }
       />
       <Tabs
@@ -97,11 +93,11 @@ export function UsersPage() {
             ),
           },
           {
-            value: "pools",
+            value: "endpoints",
             label: (
               <>
-                <LayersIcon />
-                Pools
+                <NetworkIcon />
+                Endpoints
               </>
             ),
           },
@@ -109,7 +105,7 @@ export function UsersPage() {
       />
       {core.error && <ErrorNote error={core.error} />}
       {users.error && <ErrorNote error={users.error} />}
-      {pools.error && <ErrorNote error={pools.error} />}
+      {endpoints.error && <ErrorNote error={endpoints.error} />}
       {exports.error && <ErrorNote error={exports.error} />}
       {users.data && <Notice users={users.data} exports={exports.data} />}
 
@@ -157,31 +153,11 @@ export function UsersPage() {
       ) : (
         <>
           <p className="mb-4 text-[13px] text-fg-muted">
-            A pool is a set of inbounds. Everyone in it gets a credential of their own on each, and
-            a change to the pool reaches everyone in it.
+            The address clients dial for each inbound, shared by every user of it. One without an
+            address of its own inherits the instance public-host.
           </p>
-          {pools.isPending && <Skeleton className="h-32" />}
-          {pools.data && heldPools.length === 0 && (
-            <Empty
-              icon={<LayersIcon />}
-              title="No pools yet."
-              action={
-                <Button disabled={!ready} onClick={() => setEditingPool("")}>
-                  <PlusIcon />
-                  New Pool
-                </Button>
-              }
-            />
-          )}
-          <div className="grid grid-cols-[minmax(0,1fr)] gap-3 md:grid-cols-2">
-            {heldPools.map((pool) => (
-              <PoolCard
-                key={pool.name}
-                pool={pool}
-                onEdit={ready ? () => setEditingPool(pool.name) : undefined}
-              />
-            ))}
-          </div>
+          {endpoints.isPending && <Skeleton className="h-32" />}
+          {endpoints.data && <EndpointsPanel endpoints={endpoints.data} />}
         </>
       )}
 
@@ -190,18 +166,8 @@ export function UsersPage() {
           key={editingUser}
           user={heldUsers.find((user) => user.name === editingUser) ?? null}
           users={heldUsers}
-          pools={heldPools}
+          endpoints={endpoints.data}
           onClose={() => setEditingUser(null)}
-        />
-      )}
-      {editingPool !== null && (
-        <PoolDialog
-          key={editingPool}
-          pool={heldPools.find((pool) => pool.name === editingPool) ?? null}
-          users={heldUsers}
-          pools={heldPools}
-          inUse={inUse}
-          onClose={() => setEditingPool(null)}
         />
       )}
       {observing !== null && (
@@ -325,16 +291,6 @@ function UserCard({
             <h2 className="max-w-full truncate font-mono text-[15px] font-semibold text-fg">
               {user.name}
             </h2>
-            {user.pools.map((pool) => (
-              <Badge
-                key={pool}
-                tone={user.missing_pools.includes(pool) ? "danger" : "accent"}
-                className="max-w-full"
-              >
-                <LayersIcon className="size-3 shrink-0" />
-                <span className="truncate">{pool}</span>
-              </Badge>
-            ))}
             {user.collections.map((collection) => (
               <Badge
                 key={collection}
@@ -378,12 +334,12 @@ function UserCard({
   );
 }
 
-/** The inbounds a user's pools grant, each with the node a client reaches it by. */
+/** The inbounds of a user, each with the node a client reaches it by. */
 function Grants({ grants, inUse }: { grants: GrantView[]; inUse?: string }) {
   if (grants.length === 0) {
     return (
       <p className="border-t border-border px-4 py-3 text-[13px] text-fg-subtle">
-        No pool of this user grants an inbound.
+        This user has chosen no inbound.
       </p>
     );
   }
@@ -401,9 +357,6 @@ function Grants({ grants, inUse }: { grants: GrantView[]; inUse?: string }) {
               {grant.config !== inUse && (
                 <span className="truncate font-mono text-xs text-fg-subtle">in {grant.config}</span>
               )}
-            </span>
-            <span className="min-w-0 truncate text-xs text-fg-subtle">
-              via {grant.via.join(", ")}
             </span>
             {state && <Badge tone={state.tone}>{state.label}</Badge>}
             <span className="ml-auto flex min-w-0 items-center">
@@ -468,7 +421,8 @@ function SubscriptionDialog({ user, onClose }: { user: UserView | null; onClose:
           )
         )}
         <p className="text-xs text-fg-subtle">
-          The inbounds of the configuration in use come first, in pool order, then the nodes of{" "}
+          The inbounds of the configuration in use come first, in the order they were chosen, then
+          the nodes of{" "}
           {user && user.collections.length > 0 ? user.collections.join(", ") : "no collection"}.
         </p>
       </div>

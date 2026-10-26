@@ -1,23 +1,21 @@
-// What the inbound editor says about an inbound's users: the ones pools grant,
+// What the inbound editor says about an inbound's users: the ones SubA adds,
 // which never appear in the document, and the nodes clients reach every user
 // by. All of it describes the saved document, as the server answers it.
 
 import { Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
 import { LockIcon, UsersIcon } from "lucide-react";
 
 import { ArrayIndex } from "@/components/config-array-index";
 import { ExportActions } from "@/components/export-actions";
 import { InboundObservation } from "@/components/observation";
-import { useApi } from "@/lib/target";
 import type { ConfigExports, InboundUsers } from "@/lib/types";
-import { pooled, poolsKey, savedInbound, stateBadge } from "@/lib/users";
+import { savedInbound, stateBadge } from "@/lib/users";
 import { SectionTitle } from "@/ui/layout";
 import { Badge, ErrorNote, Skeleton } from "@/ui/misc";
 
 const UNSAVED = "Save to export";
 
-/** The badges an inbound card gets: how many users pools add, and a refused hand-written one. */
+/** The badges an inbound card gets: how many users SubA adds, and a refused hand-written one. */
 export function InboundBadges({ inbound }: { inbound?: InboundUsers }) {
   if (!inbound) return null;
   const managed = inbound.managed.length;
@@ -54,8 +52,6 @@ export function InboundUsersPanel({
   entry: Record<string, unknown>;
   unsaved: boolean;
 }) {
-  const api = useApi();
-  const pools = useQuery({ queryKey: poolsKey, queryFn: api.singbox.pools.list, retry: false });
   const inbound = savedInbound(exports, index, entry.tag);
   const disabled = unsaved ? UNSAVED : undefined;
   const written = Array.isArray(entry.users) ? (entry.users as unknown[]) : [];
@@ -87,22 +83,20 @@ export function InboundUsersPanel({
 
       {inbound &&
         (inbound.refused ? (
-          pools.data &&
-          pooled(pools.data, config, inbound.tag) && (
-            <div className="grid gap-2">
-              <SectionTitle>Managed Users</SectionTitle>
-              <p className="text-xs text-danger">Pools cannot grant it: {inbound.refused}</p>
-            </div>
-          )
+          <div className="grid gap-2">
+            <SectionTitle>Managed Users</SectionTitle>
+            <p className="text-xs text-danger">SubA cannot add users to it: {inbound.refused}</p>
+          </div>
         ) : (
           <div className="grid gap-2">
             <SectionTitle>Managed Users</SectionTitle>
             <p className="flex items-start gap-1.5 text-xs text-fg-muted">
               <LockIcon className="mt-px size-3.5 shrink-0" />
               <span>
-                Granted by pools and added when sing-box starts. Edit them on the{" "}
+                Added to every inbound the user chose, and written when sing-box starts. Edit them
+                on the{" "}
                 <Link to="/users" className="text-fg underline underline-offset-2">
-                  Users page
+                  Inbounds page
                 </Link>
                 .
               </span>
@@ -118,13 +112,6 @@ export function InboundUsersPanel({
                     <span className="min-w-0 truncate font-mono text-[13px] text-fg">
                       {user.user}
                     </span>
-                    <span className="flex flex-wrap gap-1">
-                      {user.via.map((pool) => (
-                        <Badge key={pool} tone="accent">
-                          {pool}
-                        </Badge>
-                      ))}
-                    </span>
                     <Badge tone={state.tone}>{state.label}</Badge>
                     <span className="ml-auto flex min-w-0 items-center">
                       <ExportActions item={user} unsaved={disabled} />
@@ -134,7 +121,7 @@ export function InboundUsersPanel({
               })}
               {inbound.managed.length === 0 && (
                 <p className="px-3 py-3 text-center text-[13px] text-fg-subtle">
-                  No pool grants this inbound.
+                  No user chose this inbound.
                 </p>
               )}
             </div>

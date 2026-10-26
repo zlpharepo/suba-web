@@ -686,7 +686,7 @@ function EntriesView({
   );
   const { references } = useReferenceTags(localDocument);
   const entries = Array.isArray(draft) ? (draft as JsonObject[]) : [];
-  // Pools reach inbounds only, and only the saved document's.
+  // Managed users reach inbounds only, and only the saved document's.
   const inbounds = name === "inbounds";
   const exports = useQuery({
     queryKey: exportsKey(config),
@@ -792,7 +792,7 @@ function CardList({
   onAdd: () => void;
   onEdit: (index: number) => void;
   onRemove: (index: number) => void;
-  /** What a card says beyond its entry, such as the users pools give an inbound. */
+  /** What a card says beyond its entry, such as the users SubA adds to an inbound. */
   details?: (entry: JsonObject, index: number) => ReactNode;
 }) {
   const collectionContext = useContext(CollectionBindings);
