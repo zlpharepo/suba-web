@@ -35,6 +35,12 @@ export default defineConfig({
   build: {
     rolldownOptions: {
       onwarn(warning) {
+        // The bundler's timing advisory is exempt, as vite-plus's own
+        // `failOnWarn` exempts it: it reports how the build spent its time
+        // rather than what it produced, and it fires on any machine whose
+        // compiler plugin is a large share of a short build. Every other
+        // warning is still fatal.
+        if (warning.code === "PLUGIN_TIMINGS") return;
         throw new Error(warning.message);
       },
     },
