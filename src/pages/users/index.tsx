@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   BoxesIcon,
@@ -13,6 +14,8 @@ import {
 import { DeliveryLinks } from "@/components/delivery-links";
 import { ExportActions } from "@/components/export-actions";
 import { CopyButton } from "@/components/shared";
+import { ConnectionsDialog, ObservationSummary } from "@/components/observation";
+import { useObservationMetrics, type MetricsSnapshot } from "@/lib/use-observation";
 import { api, errorMessage } from "@/lib/api";
 import { cx } from "@/lib/cx";
 import type { ConfigExports, GrantView, UserView } from "@/lib/types";
@@ -42,6 +45,8 @@ export function UsersPage() {
   const [editingUser, setEditingUser] = useState<string | null>(null);
   const [editingPool, setEditingPool] = useState<string | null>(null);
   const [previewing, setPreviewing] = useState<string | null>(null);
+  const [observing, setObserving] = useState<string | null>(null);
+  const observation = useObservationMetrics();
 
   const core = useQuery({ queryKey: ["singbox"], queryFn: api.singbox.get });
   const users = useQuery({ queryKey: usersKey, queryFn: api.singbox.users.list });
@@ -108,6 +113,13 @@ export function UsersPage() {
 
       {tab === "users" ? (
         <>
+          <p className="mb-4 text-[13px] text-fg-muted">
+            Observation covers the current local core only. Enable it in the{" "}
+            <Link to="/sing-box" className="text-fg underline underline-offset-2">
+              sing-box configuration
+            </Link>
+            .
+          </p>
           {users.isPending && (
             <div className="grid gap-3">
               <Skeleton className="h-40" />
@@ -134,6 +146,8 @@ export function UsersPage() {
                 inUse={inUse}
                 onEdit={ready ? () => setEditingUser(user.name) : undefined}
                 onPreview={() => setPreviewing(user.name)}
+                observation={observation}
+                onObserve={() => setObserving(user.name)}
               />
             ))}
           </div>
@@ -187,6 +201,9 @@ export function UsersPage() {
           inUse={inUse}
           onClose={() => setEditingPool(null)}
         />
+      )}
+      {observing !== null && (
+        <ConnectionsDialog filter={{ user: observing }} onClose={() => setObserving(null)} />
       )}
       <SubscriptionDialog
         user={heldUsers.find((user) => user.name === previewing) ?? null}
@@ -283,7 +300,11 @@ function UserCard({
   inUse,
   onEdit,
   onPreview,
+  observation,
+  onObserve,
 }: {
+  observation: MetricsSnapshot;
+  onObserve: () => void;
   user: UserView;
   inUse?: string;
   onEdit?: () => void;
@@ -334,6 +355,13 @@ function UserCard({
             <PencilIcon />
           </IconButton>
         </div>
+      </div>
+      <div className="border-t border-border p-4">
+        <ObservationSummary
+          snapshot={observation}
+          filter={{ user: user.name }}
+          onOpen={onObserve}
+        />
       </div>
       <Grants grants={user.grants} inUse={inUse} />
       <DeliveryLinks

@@ -6,6 +6,9 @@ import type {
   ConfigExports,
   ConfigView,
   Metrics,
+  ObservationConnections,
+  ObservationFilter,
+  ObservationMetrics,
   Core,
   CoreAction,
   Generated,
@@ -27,8 +30,9 @@ import type {
   UserView,
   Versioned,
   VersionView,
-} from "./types";
-import type { JsonObject, JsonSchema } from "./schema";
+} from "./types.ts";
+import type { JsonObject, JsonSchema } from "./schema.ts";
+import { observationQuery } from "./observation.ts";
 
 const TOKEN_KEY = "suba.token";
 
@@ -211,6 +215,10 @@ export const api = {
     status: (tail?: number) =>
       json<Running>("GET", `/cores/sing-box/status${tail ? `?tail=${tail}` : ""}`),
     act: (action: CoreAction) => json<Running>("PUT", "/cores/sing-box/status", { action }),
+    metrics: (filter?: ObservationFilter) =>
+      json<ObservationMetrics>("GET", `/cores/sing-box/metrics${observationQuery(filter)}`),
+    connections: (filter?: ObservationFilter) =>
+      json<ObservationConnections>("GET", `/cores/sing-box/connections${observationQuery(filter)}`),
     versions: () => json<VersionView[]>("GET", "/cores/sing-box/versions"),
     install: (version: string) =>
       json<VersionView>("POST", `/cores/sing-box/versions/${segment(version)}`),

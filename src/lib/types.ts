@@ -183,6 +183,68 @@ export interface Running {
 
 export type CoreAction = "start" | "stop" | "restart";
 
+/** Observation timestamps are epoch milliseconds, unlike process status timestamps. */
+export interface ObservationMetadata {
+  state:
+    | "stopped"
+    | "disabled"
+    | "unsupported"
+    | "connecting"
+    | "live"
+    | "disconnected"
+    | "unauthorized"
+    | "invalid-config";
+  reason?: string;
+  /** The running document, not the configuration selected for the next start. */
+  config?: string;
+  run_id?: string;
+  window_started_at?: number;
+  updated_at?: number;
+  gap: boolean;
+}
+
+export interface ObservationCounters {
+  connections: number;
+  /** Upload and download rates are bytes per second. */
+  uplink: number;
+  downlink: number;
+  /** Bytes since the current continuous observation window began. */
+  uplink_total: number;
+  downlink_total: number;
+}
+
+export interface ObservationGroup extends ObservationCounters {
+  user: string | null;
+  inbound: string;
+}
+
+export interface ObservationMetrics extends ObservationMetadata {
+  totals: ObservationCounters | null;
+  groups: ObservationGroup[];
+}
+
+export interface ObservedConnection {
+  id: string;
+  inbound: string;
+  user: string | null;
+  network: string;
+  source: string;
+  destination: string;
+  domain: string;
+  created_at: number;
+  uplink_total: number;
+  downlink_total: number;
+}
+
+export interface ObservationConnections extends ObservationMetadata {
+  connections: ObservedConnection[];
+}
+
+export interface ObservationFilter {
+  user?: string;
+  inbound?: string;
+}
+
 export type Installation =
   | { status: "not-installed" }
   | {

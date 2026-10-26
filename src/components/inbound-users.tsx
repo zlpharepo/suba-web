@@ -8,6 +8,7 @@ import { LockIcon, UsersIcon } from "lucide-react";
 
 import { ArrayIndex } from "@/components/config-array-index";
 import { ExportActions } from "@/components/export-actions";
+import { InboundObservation } from "@/components/observation";
 import { api } from "@/lib/api";
 import type { ConfigExports, InboundUsers } from "@/lib/types";
 import { pooled, poolsKey, savedInbound, stateBadge } from "@/lib/users";
@@ -66,6 +67,7 @@ export function InboundUsersPanel({
 
   return (
     <div className="grid gap-4 border-t border-border pt-4">
+      {!unsaved && inbound?.tag && <InboundObservation config={config} inbound={inbound.tag} />}
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <h3 className="text-[13px] font-semibold text-fg">Users</h3>
         {exports &&

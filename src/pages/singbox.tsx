@@ -16,6 +16,7 @@ import {
 
 import { ConfigEditor, type SectionDraftStatus } from "@/components/config-editor";
 import { FullConfigJson } from "@/components/full-config-json";
+import { EnableObservation } from "@/components/enable-observation";
 import { Generator } from "@/components/generator";
 import { ApiError, api, errorMessage } from "@/lib/api";
 import { cx } from "@/lib/cx";
@@ -93,6 +94,15 @@ function ConfigurationWorkspace({ core, failure }: { core: Core; failure: string
           </span>
         )}
         <PrivilegesChip core={core} />
+        {core.version && (
+          <EnableObservation
+            key={`${editing}:${core.version}`}
+            name={editing}
+            version={core.version}
+            section={sectionDraft}
+            onResetSection={() => setSectionRevision((revision) => revision + 1)}
+          />
+        )}
         {core.note && <span className="text-xs text-warning">Restart to apply changes</span>}
       </div>
       {failure && <p className="mb-6 text-[13px] text-danger">{failure}</p>}
