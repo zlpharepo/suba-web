@@ -11,6 +11,8 @@ import {
 
 import { CopyButton } from "@/components/shared";
 import { errorMessage } from "@/lib/api";
+import { useDraftProtection } from "@/lib/draft-protection";
+import { useApi } from "@/lib/target";
 import type { DeliveryToken } from "@/lib/types";
 import { Button } from "@/ui/button";
 import { Dialog } from "@/ui/dialog";
@@ -49,6 +51,11 @@ export function DeliveryLinks({
     mutationFn: revoke,
     onSuccess: onChange,
     onError: (error) => toast.error(errorMessage(error)),
+  });
+
+  useDraftProtection({
+    dirty: adding && label !== "",
+    saving: minting.isPending || revoking.isPending,
   });
 
   const submit = (event: FormEvent) => {
@@ -108,7 +115,8 @@ function TokenRow({
   onRotate: () => void;
   onRevoke: () => void;
 }) {
-  const url = `${window.location.origin}${link.path}`;
+  const api = useApi();
+  const url = api.subscriptionUrl(link.path, window.location.origin);
   const [confirm, setConfirm] = useState<"rotate" | "revoke" | null>(null);
 
   return (

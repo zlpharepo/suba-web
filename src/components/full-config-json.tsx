@@ -5,7 +5,8 @@ import { BracesIcon, CheckIcon } from "lucide-react";
 import type { SectionDraftStatus } from "@/components/config-editor";
 import { Generator } from "@/components/generator";
 import { CopyButton } from "@/components/shared";
-import { ApiError, api } from "@/lib/api";
+import { ApiError } from "@/lib/api";
+import { useApi } from "@/lib/target";
 import { configKey, parseConfigJson } from "@/lib/config-json";
 import { useDraftProtection } from "@/lib/draft-protection";
 import type { JsonObject } from "@/lib/schema";
@@ -80,6 +81,7 @@ function LoadDocument({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const api = useApi();
   const document = useQuery({
     queryKey: configKey(name),
     queryFn: () => api.singbox.config(name),
@@ -124,6 +126,7 @@ function DocumentEditor({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const api = useApi();
   const queryClient = useQueryClient();
   // Refetches must not advance the ETag of a draft based on an older document.
   const [baseline, setBaseline] = useState(document);

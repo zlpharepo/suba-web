@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { LayersIcon, PencilIcon, Trash2Icon, UsersIcon, XIcon } from "lucide-react";
 
-import { api, errorMessage } from "@/lib/api";
+import { errorMessage } from "@/lib/api";
+import { useApi } from "@/lib/target";
 import { cx } from "@/lib/cx";
 import { confirmDiscardChanges, useDraftProtection } from "@/lib/draft-protection";
 import type { PoolEntry, PoolView, UserView } from "@/lib/types";
@@ -95,6 +96,7 @@ export function PoolDialog({
   inUse?: string;
   onClose: () => void;
 }) {
+  const api = useApi();
   const queryClient = useQueryClient();
   const configs = useQuery({ queryKey: ["singbox", "configs"], queryFn: api.singbox.configs });
   const [name, setName] = useState(pool?.name ?? "");

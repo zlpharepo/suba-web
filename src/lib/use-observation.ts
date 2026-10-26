@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
-import { api } from "./api";
+import { useApi } from "@/lib/target";
 import { OBSERVATION_INTERVAL, observationMetricsKey } from "./observation";
 import type { ObservationMetrics } from "./types";
 
@@ -15,6 +15,7 @@ export function useObservationClock() {
 }
 
 export function useObservationMetrics() {
+  const api = useApi();
   const query = useQuery({
     queryKey: observationMetricsKey,
     queryFn: () => api.singbox.metrics(),

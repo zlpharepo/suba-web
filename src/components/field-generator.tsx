@@ -2,7 +2,8 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { KeyRoundIcon } from "lucide-react";
 
 import { CopyButton } from "@/components/shared";
-import { api } from "@/lib/api";
+import { useDraftProtection } from "@/lib/draft-protection";
+import { useApi } from "@/lib/target";
 import {
   applyGeneratedFields,
   generatedFields,
@@ -26,6 +27,7 @@ export function FieldGenerator({
   value: JsonObject;
   onChange: (value: JsonObject) => void;
 }) {
+  const api = useApi();
   const [name, setName] = useState(plan.name ?? "");
   const [pending, setPending] = useState(false);
   const [companion, setCompanion] = useState<GeneratedFields["companion"]>();
@@ -41,6 +43,8 @@ export function FieldGenerator({
       latest.current = null;
     };
   }, [value, onChange]);
+
+  useDraftProtection({ dirty: name !== (plan.name ?? ""), saving: pending });
 
   const generate = async () => {
     if (inFlight.current || invalidName) return;

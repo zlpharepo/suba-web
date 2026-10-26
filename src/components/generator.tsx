@@ -2,7 +2,8 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { KeyRoundIcon } from "lucide-react";
 
 import { CopyButton } from "@/components/shared";
-import { api } from "@/lib/api";
+import { useDraftProtection } from "@/lib/draft-protection";
+import { useApi } from "@/lib/target";
 import { validGenerationName } from "@/lib/generate";
 import type { GenerateCommand } from "@/lib/types";
 import { Button } from "@/ui/button";
@@ -23,6 +24,7 @@ const COMMANDS: { command: GenerateCommand; needs?: "name" | "length" }[] = [
 ];
 
 export function Generator({ iconOnly = false }: { iconOnly?: boolean }) {
+  const api = useApi();
   const [command, setCommand] = useState<GenerateCommand>("uuid");
   const [argument, setArgument] = useState("");
   const [pending, setPending] = useState(false);
@@ -42,6 +44,8 @@ export function Generator({ iconOnly = false }: { iconOnly?: boolean }) {
       mounted.current = false;
     };
   }, []);
+
+  useDraftProtection({ dirty: output !== undefined || argument !== "", saving: pending });
 
   const generate = async () => {
     if (inFlight.current || invalid) return;

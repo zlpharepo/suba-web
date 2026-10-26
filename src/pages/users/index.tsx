@@ -16,7 +16,8 @@ import { ExportActions } from "@/components/export-actions";
 import { CopyButton } from "@/components/shared";
 import { ConnectionsDialog, ObservationSummary } from "@/components/observation";
 import { useObservationMetrics, type MetricsSnapshot } from "@/lib/use-observation";
-import { api, errorMessage } from "@/lib/api";
+import { errorMessage } from "@/lib/api";
+import { useApi } from "@/lib/target";
 import { cx } from "@/lib/cx";
 import type { ConfigExports, GrantView, UserView } from "@/lib/types";
 import {
@@ -40,6 +41,7 @@ import { UserDialog } from "./user-dialog";
 type Tab = "users" | "pools";
 
 export function UsersPage() {
+  const api = useApi();
   const [tab, setTab] = useState<Tab>("users");
   // `""` opens a new one; a name opens that one.
   const [editingUser, setEditingUser] = useState<string | null>(null);
@@ -114,7 +116,7 @@ export function UsersPage() {
       {tab === "users" ? (
         <>
           <p className="mb-4 text-[13px] text-fg-muted">
-            Observation covers the current local core only. Enable it in the{" "}
+            Observation covers only the selected instance’s running core. Enable it in the{" "}
             <Link to="/sing-box" className="text-fg underline underline-offset-2">
               sing-box configuration
             </Link>
@@ -251,6 +253,7 @@ function Tabs<T extends string>({
 }
 
 function Notice({ users, exports }: { users: UserView[]; exports?: ConfigExports }) {
+  const api = useApi();
   const queryClient = useQueryClient();
   const changes = restartChanges(users, exports);
   const unset = publicHostUnset(exports);
@@ -310,6 +313,7 @@ function UserCard({
   onEdit?: () => void;
   onPreview: () => void;
 }) {
+  const api = useApi();
   const queryClient = useQueryClient();
   const summary = grantSummary(user.grants);
 
@@ -421,6 +425,7 @@ const FORMAT_LABELS: Record<string, string> = {
 
 // Fetched only when opened: the subscription carries every credential of the user.
 function SubscriptionDialog({ user, onClose }: { user: UserView | null; onClose: () => void }) {
+  const api = useApi();
   const info = useQuery({ queryKey: ["system", "info"], queryFn: api.system.info });
   const [format, setFormat] = useState("links");
   const name = user?.name ?? "";

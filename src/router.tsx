@@ -29,6 +29,12 @@ const appRoute = createRoute({
   component: AppLayout,
 });
 
+const hostsRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/hosts",
+  component: lazyRouteComponent(() => import("@/pages/hosts"), "HostsPage"),
+});
+
 const overviewRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "/",
@@ -61,7 +67,14 @@ const singboxRoute = createRoute({
 
 const routeTree = rootRoute.addChildren([
   loginRoute,
-  appRoute.addChildren([overviewRoute, providersRoute, collectionsRoute, usersRoute, singboxRoute]),
+  appRoute.addChildren([
+    hostsRoute,
+    overviewRoute,
+    providersRoute,
+    collectionsRoute,
+    usersRoute,
+    singboxRoute,
+  ]),
 ]);
 
 // Hash history: the server's `/{prefix}/{token}` delivery route would answer

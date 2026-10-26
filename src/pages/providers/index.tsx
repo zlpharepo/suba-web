@@ -11,7 +11,13 @@ import {
 } from "lucide-react";
 
 import { PatternsEditor } from "@/components/shared";
-import { api, errorMessage } from "@/lib/api";
+import { errorMessage } from "@/lib/api";
+import {
+  confirmDiscardChanges,
+  useConfirmDiscard,
+  useDraftProtection,
+} from "@/lib/draft-protection";
+import { useApi } from "@/lib/target";
 import { cx } from "@/lib/cx";
 import { ago, formatInterval, formatTime } from "@/lib/format";
 import { nodeKey } from "@/lib/nodes";
@@ -29,6 +35,7 @@ import { Switch } from "@/ui/toggle";
 import { toast } from "@/ui/notify";
 
 export function ProvidersPage() {
+  const api = useApi();
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
@@ -242,6 +249,7 @@ function ProviderPanel({
   provider?: Provider;
   onClose: () => void;
 }) {
+  const api = useApi();
   const [tab, setTab] = useState<"nodes" | "payload">("nodes");
   const nodes = useQuery({
     queryKey: ["providers", name, "nodes"],
@@ -365,10 +373,13 @@ function ProviderDialog({
   name?: string;
   provider?: Provider;
 }) {
+  const confirmDiscard = useConfirmDiscard();
   return (
     <Dialog
       open={open}
-      onOpenChange={onOpenChange}
+      onOpenChange={(next) => {
+        if (next || confirmDiscard()) onOpenChange(next);
+      }}
       title={name ? `Edit ${name}` : "New provider"}
       width="md"
     >
@@ -390,6 +401,7 @@ function ProviderForm({
   provider?: Provider;
   onDone: () => void;
 }) {
+  const api = useApi();
   const queryClient = useQueryClient();
   const [name, setName] = useState(initialName ?? "");
   const [type, setType] = useState<ProviderType>(provider?.type ?? "remote");
@@ -415,6 +427,22 @@ function ProviderForm({
   const [advanced, setAdvanced] = useState(
     headers.length > 0 || timeout !== "" || includes.length > 0 || excludes.length > 0,
   );
+
+  const snapshot = JSON.stringify({
+    name,
+    type,
+    url,
+    path,
+    payload,
+    interval,
+    headers,
+    timeout,
+    disabled,
+    includes,
+    excludes,
+  });
+  const [initial] = useState(snapshot);
+  const dirty = snapshot !== initial;
 
   const save = useMutation({
     mutationFn: () => {
@@ -447,6 +475,8 @@ function ProviderForm({
       onDone();
     },
   });
+
+  useDraftProtection({ dirty, saving: save.isPending });
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
@@ -557,7 +587,13 @@ function ProviderForm({
       {save.error && <ErrorNote error={save.error} />}
 
       <div className="-mx-5 -mb-4 flex justify-end gap-2 border-t border-border bg-bg-subtle px-5 py-3">
-        <Button onClick={onDone}>Cancel</Button>
+        <Button
+          onClick={() => {
+            if (confirmDiscardChanges({ dirty, saving: save.isPending })) onDone();
+          }}
+        >
+          Cancel
+        </Button>
         <Button type="submit" variant="primary" disabled={save.isPending}>
           {save.isPending ? "Fetching…" : "Save"}
         </Button>

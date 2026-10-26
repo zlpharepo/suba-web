@@ -4,7 +4,7 @@ import { RefreshCwIcon } from "lucide-react";
 
 import { ConfigEntryCard } from "@/components/config-entry-card";
 import { CopyButton } from "@/components/shared";
-import { api } from "@/lib/api";
+import { useApi } from "@/lib/target";
 import { cx } from "@/lib/cx";
 import type { Core, Tag } from "@/lib/types";
 import { Button, IconButton } from "@/ui/button";
@@ -31,6 +31,7 @@ export function CollectionOutbounds({
   failed: boolean;
   onRefresh: () => void;
 }) {
+  const api = useApi();
   const queryClient = useQueryClient();
   const known = useQuery({
     queryKey: ["collections"],

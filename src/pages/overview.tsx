@@ -3,7 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowDownIcon, ArrowUpIcon, Layers3Icon } from "lucide-react";
 
-import { api } from "@/lib/api";
+import { useApi } from "@/lib/target";
 import { cx } from "@/lib/cx";
 import { bytes, duration, rate } from "@/lib/format";
 import { Button } from "@/ui/button";
@@ -12,6 +12,7 @@ import { Badge, Card, ErrorNote, Skeleton } from "@/ui/misc";
 import { Popover } from "@/ui/popover";
 
 export function OverviewPage() {
+  const api = useApi();
   // Polled: CPU and network are rates, measured between two samples.
   const metrics = useQuery({
     queryKey: ["system", "metrics"],
@@ -184,6 +185,7 @@ function Count({
 }
 
 function Formats() {
+  const api = useApi();
   const info = useQuery({
     queryKey: ["system", "info"],
     queryFn: api.system.info,

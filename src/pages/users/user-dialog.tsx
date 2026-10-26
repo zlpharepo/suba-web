@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { RefreshCwIcon, Trash2Icon } from "lucide-react";
 
-import { api, errorMessage } from "@/lib/api";
+import { errorMessage } from "@/lib/api";
+import { useApi } from "@/lib/target";
 import { cx } from "@/lib/cx";
 import { confirmDiscardChanges, useDraftProtection } from "@/lib/draft-protection";
 import type { PoolView, UserView } from "@/lib/types";
@@ -32,6 +33,7 @@ export function UserDialog({
   pools: PoolView[];
   onClose: () => void;
 }) {
+  const api = useApi();
   const queryClient = useQueryClient();
   const collections = useQuery({ queryKey: ["collections"], queryFn: api.collections.list });
   const [name, setName] = useState(user?.name ?? "");

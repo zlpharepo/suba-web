@@ -1,6 +1,6 @@
 import { useCallback, useState, type ReactNode } from "react";
-import { Link, Outlet, useBlocker, useNavigate } from "@tanstack/react-router";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link, Outlet, useBlocker, useNavigate, useLocation } from "@tanstack/react-router";
+import { useIsMutating, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Dialog as BaseDialog } from "@base-ui/react/dialog";
 import {
   BoxesIcon,
@@ -10,12 +10,17 @@ import {
   MenuIcon,
   MoonIcon,
   RssIcon,
+  ServerIcon,
   SunIcon,
   UsersIcon,
   XIcon,
 } from "lucide-react";
 
-import { api, session } from "@/lib/api";
+import { api as localApi, session } from "@/lib/api";
+import { TargetContext, useApi, useTarget } from "@/lib/target";
+import { ResourceScope } from "@/lib/target-scope";
+import type { Host } from "@/lib/hosts";
+import { Select } from "@/ui/select";
 import { cx } from "@/lib/cx";
 import {
   DraftProtection,
@@ -34,6 +39,7 @@ interface NavItem {
 }
 
 function useNav(): NavItem[] {
+  const api = useApi();
   // The route group is absent (404) when this build cannot run a core.
   const core = useQuery({
     queryKey: ["singbox"],
@@ -41,6 +47,7 @@ function useNav(): NavItem[] {
     retry: false,
   });
   return [
+    { to: "/hosts", label: "Hosts", icon: <ServerIcon /> },
     { to: "/", label: "Overview", icon: <GaugeIcon /> },
     { to: "/providers", label: "Providers", icon: <RssIcon /> },
     { to: "/collections", label: "Collections", icon: <BoxesIcon /> },
@@ -55,6 +62,24 @@ function useNav(): NavItem[] {
 }
 
 export function AppLayout() {
+  const localClient = useQueryClient();
+  const [host, select] = useState<Host | null>(null);
+  const hosts = useQuery({ queryKey: ["hosts"], queryFn: localApi.hosts.list });
+  return (
+    <TargetContext.Provider
+      value={{ host, select, hosts: hosts.data ?? [], error: hosts.error, localClient }}
+    >
+      <ResourceScope key={host ? `${host.id}:${host.endpoint}:${host.name}` : "local"} host={host}>
+        <ApplicationShell />
+      </ResourceScope>
+    </TargetContext.Provider>
+  );
+}
+
+function ApplicationShell() {
+  const { localClient } = useTarget();
+  const mutations = useIsMutating();
+  const localMutations = useIsMutating({}, localClient);
   const [drawer, setDrawer] = useState(false);
   const [drafts, setDrafts] = useState<Record<string, DraftStatus>>({});
   const report = useCallback((id: string, status: DraftStatus | null) => {
@@ -66,7 +91,8 @@ export function AppLayout() {
     });
   }, []);
   const dirty = Object.values(drafts).some((draft) => draft.dirty);
-  const saving = Object.values(drafts).some((draft) => draft.saving);
+  const saving =
+    mutations > 0 || localMutations > 0 || Object.values(drafts).some((draft) => draft.saving);
   const confirmDiscard = () => confirmDiscardChanges({ dirty, saving });
   useBlocker({
     shouldBlockFn: () => !confirmDiscard(),
@@ -82,6 +108,7 @@ export function AppLayout() {
 
         <header className="sticky top-0 z-30 flex h-12 items-center justify-between border-b border-border bg-bg-subtle/85 px-3 backdrop-blur lg:hidden">
           <Brand />
+          <TargetSelect compact />
           <BaseDialog.Root open={drawer} onOpenChange={setDrawer}>
             <BaseDialog.Trigger aria-label="Menu" className={buttonClass("ghost", "md", true)}>
               <MenuIcon />
@@ -104,6 +131,7 @@ export function AppLayout() {
 
         <main className="min-w-0 flex-1 lg:bg-bg">
           <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
+            <TargetLabel />
             <Outlet />
           </div>
         </main>
@@ -127,6 +155,8 @@ function Brand() {
 }
 
 function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
+  const api = useApi();
+  const { localClient } = useTarget();
   const nav = useNav();
   const navigate = useNavigate();
   const confirmDiscard = useConfirmDiscard();
@@ -138,10 +168,11 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   });
 
   const logout = useMutation({
-    mutationFn: api.auth.logout,
+    mutationFn: localApi.auth.logout,
     onSettled: () => {
       session.clear();
       queryClient.clear();
+      localClient.clear();
       // Discard was confirmed before the session and query data were cleared.
       void navigate({ to: "/login", ignoreBlocker: true });
     },
@@ -151,6 +182,9 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
     <div className="flex h-full flex-col p-3">
       <div className="flex h-9 items-center px-1">
         <Brand />
+      </div>
+      <div className="mt-4">
+        <TargetSelect />
       </div>
       <nav className="mt-5 grid gap-0.5">
         {nav.map((item) => (
@@ -187,6 +221,47 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           </IconButton>
         </div>
       </div>
+    </div>
+  );
+}
+
+function TargetSelect({ compact = false }: { compact?: boolean }) {
+  const { host, hosts, error, select } = useTarget();
+  const confirmDiscard = useConfirmDiscard();
+  const choices = host && !hosts.some((item) => item.id === host.id) ? [...hosts, host] : hosts;
+  return (
+    <div className={compact ? "min-w-0 max-w-48" : "grid gap-1"}>
+      {!compact && <span className="px-1 text-xs text-fg-subtle">Operation Target</span>}
+      <Select
+        aria-label="Operation Target"
+        value={host?.id ?? "local"}
+        options={[
+          { value: "local", label: "Local" },
+          ...choices.map((item) => ({ value: item.id, label: `${item.name} · Direct` })),
+        ]}
+        onChange={(id) => {
+          if (id === (host?.id ?? "local") || !confirmDiscard()) return;
+          const next = id === "local" ? null : choices.find((item) => item.id === id);
+          if (next !== undefined) select(next);
+        }}
+      />
+      {error && !compact ? (
+        <span className="text-xs text-danger">Host registry unavailable</span>
+      ) : null}
+    </div>
+  );
+}
+
+function TargetLabel() {
+  const { host } = useTarget();
+  const local = useLocation({ select: (location) => location.pathname === "/hosts" });
+  return (
+    <div className="mb-4 break-all text-xs text-fg-muted" role="status">
+      {local
+        ? "Hosts and trust · Local instance"
+        : host
+          ? `Operating: ${host.name} · Direct · ${host.endpoint}`
+          : "Operating: Local"}
     </div>
   );
 }

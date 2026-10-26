@@ -18,9 +18,10 @@ import { ConfigEditor, type SectionDraftStatus } from "@/components/config-edito
 import { FullConfigJson } from "@/components/full-config-json";
 import { EnableObservation } from "@/components/enable-observation";
 import { Generator } from "@/components/generator";
-import { ApiError, api, errorMessage } from "@/lib/api";
+import { ApiError, errorMessage } from "@/lib/api";
+import { useApi } from "@/lib/target";
 import { cx } from "@/lib/cx";
-import { useConfirmDiscard } from "@/lib/draft-protection";
+import { useConfirmDiscard, useDraftProtection } from "@/lib/draft-protection";
 import { ago, stripAnsi } from "@/lib/format";
 import type { ConfigView, Core, CoreAction, Privilege, Running, VersionView } from "@/lib/types";
 import { Button, IconButton } from "@/ui/button";
@@ -35,6 +36,7 @@ import { Switch } from "@/ui/toggle";
 import { toast } from "@/ui/notify";
 
 export function SingboxPage() {
+  const api = useApi();
   const core = useQuery({ queryKey: ["singbox"], queryFn: api.singbox.get });
   // Polled so a core that dies a moment after it was started is a thing this
   // page can say, rather than a start that looks like it worked.
@@ -150,6 +152,7 @@ function NoVersion() {
 /* ---------------------------------------------------------------- process */
 
 function Controls({ running, hasVersion }: { running: boolean; hasVersion: boolean }) {
+  const api = useApi();
   const queryClient = useQueryClient();
   const [log, setLog] = useState(false);
 
@@ -220,6 +223,7 @@ function LogDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const api = useApi();
   const status = useQuery({
     queryKey: ["singbox", "status"],
     queryFn: () => api.singbox.status(),
@@ -302,6 +306,7 @@ function VersionsDialog({
   onOpenChange: (open: boolean) => void;
   current: string | null;
 }) {
+  const api = useApi();
   const queryClient = useQueryClient();
   const versions = useQuery({
     queryKey: ["singbox", "versions"],
@@ -342,6 +347,11 @@ function VersionsDialog({
     mutationFn: (version: string) => api.singbox.uninstall(version),
     onSuccess: invalidate,
     onError: (error) => toast.error(errorMessage(error)),
+  });
+
+  useDraftProtection({
+    dirty: open && release !== null,
+    saving: choose.isPending || install.isPending || uninstall.isPending,
   });
 
   const installed = new Set(versions.data?.map((item) => item.version));
@@ -536,6 +546,7 @@ function ConfigsDialog({
   editing: string;
   onSelect: (name: string) => void;
 }) {
+  const api = useApi();
   const queryClient = useQueryClient();
   const configs = useQuery({
     queryKey: ["singbox", "configs"],
@@ -604,6 +615,11 @@ function ConfigsDialog({
       refresh();
       toast.error(errorMessage(error));
     },
+  });
+
+  useDraftProtection({
+    dirty: open && name !== "",
+    saving: use.isPending || remove.isPending || submit.isPending,
   });
 
   const held = configs.data ?? [];
@@ -788,6 +804,7 @@ function ConfigRow({
  * to be is refused, and the answer names which way out to take.
  */
 function PrivilegesChip({ core }: { core: Core }) {
+  const api = useApi();
   const queryClient = useQueryClient();
   const choose = useMutation({
     mutationFn: (privilege: Privilege) =>

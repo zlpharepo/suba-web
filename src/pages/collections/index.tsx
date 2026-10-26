@@ -4,7 +4,13 @@ import { BoxesIcon, EyeIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-rea
 
 import { DeliveryLinks } from "@/components/delivery-links";
 import { CopyButton, PatternsEditor } from "@/components/shared";
-import { api, errorMessage } from "@/lib/api";
+import { errorMessage } from "@/lib/api";
+import {
+  confirmDiscardChanges,
+  useConfirmDiscard,
+  useDraftProtection,
+} from "@/lib/draft-protection";
+import { useApi } from "@/lib/target";
 import { nodeKey } from "@/lib/nodes";
 import { patternKind, patternText } from "@/lib/pattern";
 import type { CollectionSummary, DeliveryToken, Pattern } from "@/lib/types";
@@ -18,6 +24,7 @@ import { Checkbox } from "@/ui/toggle";
 import { toast } from "@/ui/notify";
 
 export function CollectionsPage() {
+  const api = useApi();
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
@@ -165,6 +172,7 @@ function CollectionCard({
 }
 
 function Tokens({ name, links }: { name: string; links: DeliveryToken[] }) {
+  const api = useApi();
   const queryClient = useQueryClient();
 
   return (
@@ -188,10 +196,13 @@ function CollectionDialog({
   name?: string;
   collection?: CollectionSummary;
 }) {
+  const confirmDiscard = useConfirmDiscard();
   return (
     <Dialog
       open={open}
-      onOpenChange={onOpenChange}
+      onOpenChange={(next) => {
+        if (next || confirmDiscard()) onOpenChange(next);
+      }}
       title={name ? `Edit ${name}` : "New collection"}
       width="md"
     >
@@ -215,6 +226,7 @@ function CollectionForm({
   collection?: CollectionSummary;
   onDone: () => void;
 }) {
+  const api = useApi();
   const queryClient = useQueryClient();
   const providers = useQuery({
     queryKey: ["providers"],
@@ -229,6 +241,10 @@ function CollectionForm({
   // A member may name a provider that does not exist (yet); it stays listed.
   const known = Object.keys(providers.data ?? {}).sort();
   const choices = [...known, ...members.filter((member) => !known.includes(member))];
+
+  const snapshot = JSON.stringify({ name, members, includes, excludes });
+  const [initial] = useState(snapshot);
+  const dirty = snapshot !== initial;
 
   const save = useMutation({
     // A PUT replaces the whole definition, tokens included; read them fresh.
@@ -246,6 +262,8 @@ function CollectionForm({
       onDone();
     },
   });
+
+  useDraftProtection({ dirty, saving: save.isPending });
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
@@ -294,7 +312,13 @@ function CollectionForm({
       {save.error && <ErrorNote error={save.error} />}
 
       <div className="-mx-5 -mb-4 flex justify-end gap-2 border-t border-border bg-bg-subtle px-5 py-3">
-        <Button onClick={onDone}>Cancel</Button>
+        <Button
+          onClick={() => {
+            if (confirmDiscardChanges({ dirty, saving: save.isPending })) onDone();
+          }}
+        >
+          Cancel
+        </Button>
         <Button type="submit" variant="primary" disabled={save.isPending}>
           Save
         </Button>
@@ -307,6 +331,7 @@ const DEFAULT_FORMAT = "base64";
 
 // Fetched only when opened: the artifact carries every node's credentials.
 function PreviewDialog({ name, onClose }: { name: string | null; onClose: () => void }) {
+  const api = useApi();
   const info = useQuery({
     queryKey: ["system", "info"],
     queryFn: api.system.info,

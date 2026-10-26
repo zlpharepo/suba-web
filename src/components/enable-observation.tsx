@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import type { SectionDraftStatus } from "@/components/config-editor";
-import { ApiError, api } from "@/lib/api";
+import { ApiError } from "@/lib/api";
+import { useApi } from "@/lib/target";
 import { configKey } from "@/lib/config-json";
 import { confirmDiscardChanges, useDraftProtection } from "@/lib/draft-protection";
 import {
@@ -79,6 +80,7 @@ function LoadSetup({
   onClose: () => void;
   onSaved: (warnings: boolean) => void;
 }) {
+  const api = useApi();
   const document = useQuery({
     queryKey: configKey(name),
     queryFn: () => api.singbox.config(name),
@@ -151,6 +153,7 @@ function SetupEditor({
   onClose: () => void;
   onSaved: (warnings: boolean) => void;
 }) {
+  const api = useApi();
   const client = useQueryClient();
   const [address, setAddress] = useState("127.0.0.1");
   const [port, setPort] = useState("19090");

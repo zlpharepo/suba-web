@@ -9,7 +9,7 @@ import { LockIcon, UsersIcon } from "lucide-react";
 import { ArrayIndex } from "@/components/config-array-index";
 import { ExportActions } from "@/components/export-actions";
 import { InboundObservation } from "@/components/observation";
-import { api } from "@/lib/api";
+import { useApi } from "@/lib/target";
 import type { ConfigExports, InboundUsers } from "@/lib/types";
 import { pooled, poolsKey, savedInbound, stateBadge } from "@/lib/users";
 import { SectionTitle } from "@/ui/layout";
@@ -54,6 +54,7 @@ export function InboundUsersPanel({
   entry: Record<string, unknown>;
   unsaved: boolean;
 }) {
+  const api = useApi();
   const pools = useQuery({ queryKey: poolsKey, queryFn: api.singbox.pools.list, retry: false });
   const inbound = savedInbound(exports, index, entry.tag);
   const disabled = unsaved ? UNSAVED : undefined;

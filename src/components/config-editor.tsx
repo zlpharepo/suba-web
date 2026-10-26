@@ -29,7 +29,8 @@ import { Generator } from "@/components/generator";
 import { InboundBadges, InboundUsersPanel } from "@/components/inbound-users";
 import { ReferenceDiagnostics } from "@/components/reference-diagnostics";
 import { RawField, SchemaForm } from "@/components/schema-form";
-import { ApiError, api, errorMessage } from "@/lib/api";
+import { ApiError, errorMessage } from "@/lib/api";
+import { useApi } from "@/lib/target";
 import type { CollectionBindingContext } from "@/lib/collection-bindings";
 import { configKey } from "@/lib/config-json";
 import { cx } from "@/lib/cx";
@@ -104,6 +105,7 @@ export function ConfigEditor({
   revision: number;
   onDraftStatus: (status: SectionDraftStatus) => void;
 }) {
+  const api = useApi();
   const { collections } = core;
   const schema = useQuery({
     queryKey: ["singbox", "schema"],
@@ -293,6 +295,7 @@ function Section({
  * every keystroke being a request, and Discard is one assignment.
  */
 function useDraft(config: string, name: string, document: Versioned<JsonObject>, editing = false) {
+  const api = useApi();
   const queryClient = useQueryClient();
   // A refetch may replace the cache, but not the version that produced this draft.
   const [baseline, setBaseline] = useState(document);
@@ -673,6 +676,7 @@ function EntriesView({
   item: JsonSchema;
   document: Versioned<JsonObject>;
 }) {
+  const api = useApi();
   const [editing, setEditing] = useState<EditTarget | null>(null);
   const { held, draft, setDraft, raw, setRaw, dirty, invalid, setInvalid, rawKey, reset, save } =
     useDraft(config, name, document, editing !== null);

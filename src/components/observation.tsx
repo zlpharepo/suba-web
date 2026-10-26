@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
-import { api } from "@/lib/api";
+import { useApi } from "@/lib/target";
 import { bytes, rate } from "@/lib/format";
 import { OBSERVATION_INTERVAL, observationStatus, observedCounters } from "@/lib/observation";
 import type { ObservationFilter, ObservationMetadata } from "@/lib/types";
@@ -119,6 +119,7 @@ export function ConnectionsDialog({
   config?: string;
   onClose: () => void;
 }) {
+  const api = useApi();
   const query = useQuery({
     queryKey: ["singbox", "observation", "connections", filter],
     queryFn: () => api.singbox.connections(filter),
