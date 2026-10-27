@@ -149,6 +149,8 @@ export interface Core {
   config: string;
   privilege: Privilege;
   collections: string[];
+  /** Whether the core starts with the server, rather than only on demand. */
+  autostart: boolean;
   installed: boolean;
   assembled: boolean;
   running: boolean;

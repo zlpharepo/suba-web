@@ -226,11 +226,18 @@ export function createApi(host?: Pick<Host, "id" | "endpoint">) {
 
     singbox: {
       get: () => json<Core>("GET", "/cores/sing-box"),
+      /**
+       * Save the module's settings.
+       *
+       * `version` and `autostart` may be left out, and leaving one out keeps
+       * what is stored: the server merges rather than replaces.
+       */
       choose: (settings: {
-        version: string | null;
+        version?: string | null;
         config: string;
         privilege: Privilege;
         collections: string[];
+        autostart?: boolean;
       }) => json<Core>("PUT", "/cores/sing-box", settings),
       status: (tail?: number) =>
         json<Running>("GET", `/cores/sing-box/status${tail ? `?tail=${tail}` : ""}`),

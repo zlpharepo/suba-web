@@ -96,6 +96,7 @@ function ConfigurationWorkspace({ core, failure }: { core: Core; failure: string
           </span>
         )}
         <PrivilegesChip core={core} />
+        <AutostartChip core={core} />
         {core.version && (
           <EnableObservation
             key={`${editing}:${core.version}`}
@@ -789,6 +790,62 @@ function ConfigRow({
         ]}
       />
     </div>
+  );
+}
+
+/* ------------------------------------------------------------- autostart */
+
+/**
+ * Whether the core comes up with the server.
+ *
+ * Off by default: a core that starts by itself is a decision about this
+ * machine, and one that silently began running at every boot would be a
+ * surprise. The switch is the only thing that saves it — the server keeps the
+ * flag when it saves anything else, so toggling a version or a privilege never
+ * turns it off behind the operator.
+ */
+function AutostartChip({ core }: { core: Core }) {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  const choose = useMutation({
+    mutationFn: (autostart: boolean) =>
+      api.singbox.choose({
+        version: core.version,
+        config: core.config,
+        privilege: core.privilege,
+        collections: core.collections,
+        autostart,
+      }),
+    onSuccess: (updated) => queryClient.setQueryData(["singbox"], updated),
+    onError: (error) => toast.error(errorMessage(error)),
+  });
+
+  return (
+    <Popover
+      className="w-80"
+      trigger={
+        <button type="button" className={buttonClass("secondary", "sm")}>
+          <PlayIcon className="text-fg-subtle" />
+          <span className="text-fg-subtle">Autostart</span>
+          {core.autostart ? "On" : "Off"}
+          <ChevronDownIcon className="!size-3.5 text-fg-subtle" />
+        </button>
+      }
+    >
+      <div className="grid gap-2.5">
+        <Switch
+          checked={core.autostart}
+          onChange={(on) => choose.mutate(on)}
+          label="Start Core with SubA"
+        />
+        <p className="text-xs text-fg-subtle">
+          The core is assembled and started once, when this server starts, and is then left alone —
+          if it stops later it stays stopped until you start it. A start that cannot go through —
+          the version is not installed, the configuration does not check out, a collection is gone —
+          is written to the log and the server keeps serving, so you can fix it from here.
+        </p>
+      </div>
+    </Popover>
   );
 }
 
