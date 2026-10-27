@@ -372,7 +372,7 @@ function Grants({ grants, inUse }: { grants: GrantView[]; inUse?: string }) {
 const FORMAT_LABELS: Record<string, string> = {
   links: "Links",
   base64: "Base64",
-  singbox: "sing-box",
+  "sing-box": "sing-box",
   clash: "Clash",
 };
 
