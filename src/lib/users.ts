@@ -75,8 +75,13 @@ export function publicHostUnset(exports?: ConfigExports): boolean {
   return exports !== undefined && !exports.public_host;
 }
 
-// Configuration names cannot hold a slash, so the key names one entry.
-export const entryKey = (entry: InboundEntry) => `${entry.config}/${entry.inbound}`;
+// Configuration names cannot hold a slash and host ids cannot hold a colon, so
+// the key names one entry across every instance. A local entry keeps the key it
+// has always had.
+export const entryKey = (entry: InboundEntry) =>
+  entry.host
+    ? `${entry.host}:${entry.config}/${entry.inbound}`
+    : `${entry.config}/${entry.inbound}`;
 
 const sameEntry = (a: InboundEntry, b: InboundEntry) => entryKey(a) === entryKey(b);
 

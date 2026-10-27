@@ -326,11 +326,14 @@ export interface Export {
 
 /** One inbound of one configuration: the tag is its name within that document. */
 export interface InboundEntry {
+  /** The instance that runs it; absent is the one holding the entry. */
+  host?: string;
   config: string;
   inbound: string;
 }
 
 export interface GrantView extends Export {
+  host?: string;
   config: string;
   inbound: string;
   /** Absent when the entry reaches no inbound that can take users. */
