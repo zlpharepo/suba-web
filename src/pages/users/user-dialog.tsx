@@ -58,7 +58,7 @@ export function UserDialog({
 
   const save = useMutation({
     mutationFn: () =>
-      api.singbox.users.put(trimmed, {
+      api.inbounds.users.put(trimmed, {
         inbounds: chosenInbounds,
         collections: chosenCollections,
       }),
@@ -69,7 +69,7 @@ export function UserDialog({
     },
   });
   const remove = useMutation({
-    mutationFn: (held: string) => api.singbox.users.remove(held),
+    mutationFn: (held: string) => api.inbounds.users.remove(held),
     onSuccess: (_, held) => {
       toast.success(`Deleted ${held}`);
       refresh();
@@ -78,7 +78,7 @@ export function UserDialog({
     onError: (error) => toast.error(errorMessage(error)),
   });
   const renew = useMutation({
-    mutationFn: (held: string) => api.singbox.users.renewCredentials(held),
+    mutationFn: (held: string) => api.inbounds.users.renewCredentials(held),
     onSuccess: (_, held) => {
       toast.success(`Replaced the credentials of ${held}`);
       refresh();

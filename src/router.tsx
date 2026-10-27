@@ -53,9 +53,9 @@ const collectionsRoute = createRoute({
   component: lazyRouteComponent(() => import("@/pages/collections"), "CollectionsPage"),
 });
 
-const usersRoute = createRoute({
+const inboundsRoute = createRoute({
   getParentRoute: () => appRoute,
-  path: "/users",
+  path: "/inbounds",
   component: lazyRouteComponent(() => import("@/pages/users"), "UsersPage"),
 });
 
@@ -72,7 +72,7 @@ const routeTree = rootRoute.addChildren([
     overviewRoute,
     providersRoute,
     collectionsRoute,
-    usersRoute,
+    inboundsRoute,
     singboxRoute,
   ]),
 ]);

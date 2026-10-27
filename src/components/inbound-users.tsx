@@ -95,7 +95,7 @@ export function InboundUsersPanel({
               <span>
                 Added to every inbound the user chose, and written when sing-box starts. Edit them
                 on the{" "}
-                <Link to="/users" className="text-fg underline underline-offset-2">
+                <Link to="/inbounds" className="text-fg underline underline-offset-2">
                   Inbounds page
                 </Link>
                 .

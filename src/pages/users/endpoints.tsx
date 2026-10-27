@@ -218,7 +218,7 @@ function EndpointDialog({
 
   const save = useMutation({
     mutationFn: () =>
-      api.singbox.endpoints.put(endpoint.config, endpoint.inbound, {
+      api.inbounds.endpoints.put(endpoint.config, endpoint.inbound, {
         address: address.trim() === "" ? null : address.trim(),
         port: parsed.port,
       }),
@@ -229,7 +229,7 @@ function EndpointDialog({
     },
   });
   const clear = useMutation({
-    mutationFn: () => api.singbox.endpoints.remove(endpoint.config, endpoint.inbound),
+    mutationFn: () => api.inbounds.endpoints.remove(endpoint.config, endpoint.inbound),
     onSuccess: () => {
       toast.success(`Cleared ${endpoint.inbound}`);
       queryClient.setQueryData<EndpointsView>(["singbox", "endpoints"], (held) =>

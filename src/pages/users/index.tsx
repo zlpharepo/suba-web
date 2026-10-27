@@ -50,13 +50,13 @@ export function UsersPage() {
   const observation = useObservationMetrics();
 
   const core = useQuery({ queryKey: ["singbox"], queryFn: api.singbox.get });
-  const users = useQuery({ queryKey: usersKey, queryFn: api.singbox.users.list });
-  const endpoints = useQuery({ queryKey: endpointsKey, queryFn: api.singbox.endpoints.list });
+  const users = useQuery({ queryKey: usersKey, queryFn: api.inbounds.users.list });
+  const endpoints = useQuery({ queryKey: endpointsKey, queryFn: api.inbounds.endpoints.list });
   const inUse = core.data?.config;
   // Only the configuration in use has names the running core is about to drop.
   const exports = useQuery({
     queryKey: exportsKey(inUse ?? ""),
-    queryFn: () => api.singbox.exports(inUse ?? ""),
+    queryFn: () => api.inbounds.exports(inUse ?? ""),
     enabled: inUse !== undefined,
     retry: false,
   });
@@ -326,8 +326,8 @@ function UserCard({
       <Grants grants={user.grants} inUse={inUse} />
       <DeliveryLinks
         links={user.links}
-        mint={(label) => api.singbox.users.mintToken(user.name, label)}
-        revoke={(label) => api.singbox.users.revokeToken(user.name, label)}
+        mint={(label) => api.inbounds.users.mintToken(user.name, label)}
+        revoke={(label) => api.inbounds.users.revokeToken(user.name, label)}
         onChange={() => void queryClient.invalidateQueries({ queryKey: usersKey })}
       />
     </Card>
@@ -384,7 +384,7 @@ function SubscriptionDialog({ user, onClose }: { user: UserView | null; onClose:
   const name = user?.name ?? "";
   const content = useQuery({
     queryKey: [...usersKey, name, "content", format],
-    queryFn: () => api.singbox.users.content(name, format),
+    queryFn: () => api.inbounds.users.content(name, format),
     enabled: user !== null,
   });
   const formats = info.data?.formats.map((held) => held.name) ?? ["links"];

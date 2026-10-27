@@ -690,7 +690,7 @@ function EntriesView({
   const inbounds = name === "inbounds";
   const exports = useQuery({
     queryKey: exportsKey(config),
-    queryFn: () => api.singbox.exports(config),
+    queryFn: () => api.inbounds.exports(config),
     enabled: inbounds,
     retry: false,
   });

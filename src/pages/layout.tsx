@@ -57,7 +57,7 @@ function useNav(): NavItem[] {
       ? [
           // The inbounds and their users are part of the sing-box module, so
           // their routes go with it.
-          { to: "/users", label: "Inbounds", icon: <UsersIcon /> },
+          { to: "/inbounds", label: "Inbounds", icon: <UsersIcon /> },
           { to: "/sing-box", label: "sing-box", icon: <CpuIcon /> },
         ]
       : []),

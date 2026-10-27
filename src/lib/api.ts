@@ -96,7 +96,7 @@ async function fail(response: Response): Promise<never> {
 }
 
 const segment = encodeURIComponent;
-const user = (name: string) => `/cores/sing-box/users/${segment(name)}`;
+const user = (name: string) => `/inbounds/users/${segment(name)}`;
 
 function transport(prefix: string) {
   async function send(method: string, path: string, body?: unknown): Promise<Response> {
@@ -288,13 +288,19 @@ export function createApi(host?: Pick<Host, "id" | "endpoint">) {
           `/cores/sing-box/configs/${segment(name)}/sections/${segment(section)}`,
           etag,
         ),
+    },
+
+    // Proxy users and the addresses clients dial for an inbound. Neither is
+    // sing-box configuration content: `users` and `endpoints` are configuration
+    // keys there, so these are their own group.
+    inbounds: {
       // What every user of every inbound of the saved document reaches it with.
       exports: (name: string) =>
-        json<ConfigExports>("GET", `/cores/sing-box/configs/${segment(name)}/exports`),
+        json<ConfigExports>("GET", `/inbounds/configs/${segment(name)}/exports`),
 
       // Proxy identities and the inbounds they may use.
       users: {
-        list: () => json<UserView[]>("GET", "/cores/sing-box/users"),
+        list: () => json<UserView[]>("GET", "/inbounds/users"),
         put: (name: string, body: { inbounds: InboundEntry[]; collections: string[] }) =>
           none("PUT", user(name), body),
         remove: (name: string) => none("DELETE", user(name)),
@@ -308,7 +314,7 @@ export function createApi(host?: Pick<Host, "id" | "endpoint">) {
       // Where clients dial each inbound. Stored per inbound, apart from users,
       // because one inbound has one address however many users may use it.
       endpoints: {
-        list: () => json<EndpointsView>("GET", "/cores/sing-box/endpoints"),
+        list: () => json<EndpointsView>("GET", "/inbounds/endpoints"),
         put: (
           config: string,
           inbound: string,
@@ -317,11 +323,11 @@ export function createApi(host?: Pick<Host, "id" | "endpoint">) {
         ) =>
           json<EndpointView>(
             "PUT",
-            `/cores/sing-box/endpoints/${segment(config)}/${segment(inbound)}`,
+            `/inbounds/endpoints/${segment(config)}/${segment(inbound)}`,
             body,
           ),
         remove: (config: string, inbound: string) =>
-          none("DELETE", `/cores/sing-box/endpoints/${segment(config)}/${segment(inbound)}`),
+          none("DELETE", `/inbounds/endpoints/${segment(config)}/${segment(inbound)}`),
       },
     },
   };
