@@ -144,7 +144,7 @@ export function InboundUsersPanel({
                   </span>
                 </span>
                 {user.conflict && (
-                  <span className="min-w-0 text-xs font-medium break-words text-danger">
+                  <span className="min-w-0 text-xs font-medium wrap-break-word text-danger">
                     {user.conflict}
                   </span>
                 )}

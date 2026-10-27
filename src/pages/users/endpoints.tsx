@@ -146,7 +146,7 @@ function EndpointRow({
       </div>
       {endpoint.reason ? (
         <>
-          <span className="min-w-0 text-xs break-words text-danger">
+          <span className="min-w-0 text-xs wrap-break-word text-danger">
             Not exportable: {endpoint.reason}
           </span>
           {stored && (
@@ -159,7 +159,7 @@ function EndpointRow({
           )}
         </>
       ) : effective.host === null ? (
-        <span className="min-w-0 text-xs break-words text-warning">{effective.reason}</span>
+        <span className="min-w-0 text-xs wrap-break-word text-warning">{effective.reason}</span>
       ) : (
         <span className="flex min-w-0 flex-wrap items-baseline gap-x-2">
           <span className="min-w-0 truncate font-mono text-xs text-fg-muted">
@@ -323,7 +323,7 @@ function EndpointDialog({
         </Field>
 
         {endpoint.reason && (
-          <p className="text-xs break-words text-danger">
+          <p className="text-xs wrap-break-word text-danger">
             This inbound cannot be exported: {endpoint.reason}
           </p>
         )}

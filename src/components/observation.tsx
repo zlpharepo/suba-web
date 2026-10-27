@@ -35,7 +35,7 @@ function ObservationState({
       {state.matches && data && (
         <>
           {data.config && <span className="break-all">Running config: {data.config}</span>}
-          {data.reason && <span className="break-words">{data.reason}</span>}
+          {data.reason && <span className="wrap-break-word">{data.reason}</span>}
           {!state.live && <span>Values are unknown or stale, not zero.</span>}
           {data.window_started_at !== undefined && (
             <span>Window started {new Date(data.window_started_at).toLocaleString()}.</span>

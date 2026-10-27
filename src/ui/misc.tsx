@@ -70,7 +70,7 @@ export function ErrorNote({ error }: { error: unknown }) {
   return (
     <div className="flex items-start gap-2 rounded-md bg-danger-subtle px-3 py-2.5 text-[13px] text-danger">
       <CircleAlertIcon className="mt-0.5 size-4 shrink-0" />
-      <span className="min-w-0 break-words">{errorMessage(error)}</span>
+      <span className="min-w-0 wrap-break-word">{errorMessage(error)}</span>
     </div>
   );
 }

@@ -44,7 +44,7 @@ function ToastList() {
       >
         <Toast.Content className="flex items-start gap-3 px-3.5 py-3 transition-opacity data-behind:opacity-0 data-expanded:opacity-100">
           <span className={cx("mt-1.5 size-1.5 shrink-0 rounded-full", dots[tone])} />
-          <Toast.Title className="min-w-0 flex-1 text-[13px] leading-5 break-words text-fg" />
+          <Toast.Title className="min-w-0 flex-1 text-[13px] leading-5 wrap-break-word text-fg" />
           <Toast.Close
             aria-label="Dismiss"
             className="-mr-1 rounded-sm p-0.5 text-fg-subtle hover:text-fg"

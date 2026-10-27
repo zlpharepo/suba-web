@@ -219,7 +219,7 @@ export function UserDialog({
                           {entry.reason !== undefined && (on || refused) && (
                             <span
                               className={cx(
-                                "pl-6 text-xs break-words",
+                                "pl-6 text-xs wrap-break-word",
                                 on ? "text-danger" : "text-fg-subtle",
                               )}
                             >

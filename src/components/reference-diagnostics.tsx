@@ -13,7 +13,7 @@ export function ReferenceDiagnostics({ skipped }: { skipped: References["skipped
       </p>
       <ul className="mt-2 grid gap-1" aria-label="Skipped Node Diagnostics">
         {skipped.map(({ path, reason }, index) => (
-          <li key={index} className="break-words text-fg-muted">
+          <li key={index} className="wrap-break-word text-fg-muted">
             <code className="font-mono">{path}</code>: {reason}
           </li>
         ))}
