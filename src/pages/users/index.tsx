@@ -1,8 +1,8 @@
 import { useState, type ReactNode } from "react";
-import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   BoxesIcon,
+  ActivityIcon,
   EyeIcon,
   NetworkIcon,
   PencilIcon,
@@ -14,7 +14,7 @@ import {
 import { DeliveryLinks } from "@/components/delivery-links";
 import { ExportActions } from "@/components/export-actions";
 import { CopyButton } from "@/components/shared";
-import { ConnectionsDialog, ObservationSummary } from "@/components/observation";
+import { ObservationState, ObservationSummary } from "@/components/observation";
 import { useObservationMetrics, type MetricsSnapshot } from "@/lib/use-observation";
 import { errorMessage } from "@/lib/api";
 import { useApi } from "@/lib/target";
@@ -37,8 +37,9 @@ import { Badge, Card, Dot, Empty, ErrorNote, Skeleton } from "@/ui/misc";
 import { toast } from "@/ui/notify";
 import { EndpointsPanel } from "./endpoints";
 import { UserDialog } from "./user-dialog";
+import { ConnectionsPanel } from "./connections";
 
-type Tab = "users" | "endpoints";
+type Tab = "users" | "endpoints" | "connections";
 
 export function UsersPage() {
   const api = useApi();
@@ -46,8 +47,7 @@ export function UsersPage() {
   // `""` opens a new one; a name opens that one.
   const [editingUser, setEditingUser] = useState<string | null>(null);
   const [previewing, setPreviewing] = useState<string | null>(null);
-  const [observing, setObserving] = useState<string | null>(null);
-  const observation = useObservationMetrics();
+  const observation = useObservationMetrics(tab === "users");
 
   const core = useQuery({ queryKey: ["singbox"], queryFn: api.singbox.get });
   const users = useQuery({ queryKey: usersKey, queryFn: api.inbounds.users.list });
@@ -101,23 +101,32 @@ export function UsersPage() {
               </>
             ),
           },
+          {
+            value: "connections",
+            label: (
+              <>
+                <ActivityIcon />
+                Connections
+              </>
+            ),
+          },
         ]}
       />
-      {core.error && <ErrorNote error={core.error} />}
-      {users.error && <ErrorNote error={users.error} />}
-      {endpoints.error && <ErrorNote error={endpoints.error} />}
-      {exports.error && <ErrorNote error={exports.error} />}
-      {users.data && <Notice users={users.data} exports={exports.data} />}
+      {tab !== "connections" && (
+        <>
+          {core.error && <ErrorNote error={core.error} />}
+          {users.error && <ErrorNote error={users.error} />}
+          {endpoints.error && <ErrorNote error={endpoints.error} />}
+          {exports.error && <ErrorNote error={exports.error} />}
+          {users.data && <Notice users={users.data} exports={exports.data} />}
+        </>
+      )}
 
       {tab === "users" ? (
         <>
-          <p className="mb-4 text-[13px] text-fg-muted">
-            Observation covers only the selected instance’s running core. Enable it in the{" "}
-            <Link to="/sing-box" className="text-fg underline underline-offset-2">
-              sing-box configuration
-            </Link>
-            .
-          </p>
+          <div className="mb-4">
+            <ObservationState {...observation} />
+          </div>
           {users.isPending && (
             <div className="grid gap-3">
               <Skeleton className="h-40" />
@@ -145,12 +154,11 @@ export function UsersPage() {
                 onEdit={ready ? () => setEditingUser(user.name) : undefined}
                 onPreview={() => setPreviewing(user.name)}
                 observation={observation}
-                onObserve={() => setObserving(user.name)}
               />
             ))}
           </div>
         </>
-      ) : (
+      ) : tab === "endpoints" ? (
         <>
           <p className="mb-4 text-[13px] text-fg-muted">
             The address clients dial for each inbound, shared by every user of it. One without an
@@ -159,7 +167,8 @@ export function UsersPage() {
           {endpoints.isPending && <Skeleton className="h-32" />}
           {endpoints.data && <EndpointsPanel endpoints={endpoints.data} />}
         </>
-      )}
+      ) : null}
+      <ConnectionsPanel active={tab === "connections"} />
 
       {editingUser !== null && (
         <UserDialog
@@ -169,9 +178,6 @@ export function UsersPage() {
           endpoints={endpoints.data}
           onClose={() => setEditingUser(null)}
         />
-      )}
-      {observing !== null && (
-        <ConnectionsDialog filter={{ user: observing }} onClose={() => setObserving(null)} />
       )}
       <SubscriptionDialog
         user={heldUsers.find((user) => user.name === previewing) ?? null}
@@ -207,7 +213,7 @@ function Tabs<T extends string>({
           aria-pressed={value === option.value}
           onClick={() => onChange(option.value)}
           className={cx(
-            "flex h-7 shrink-0 items-center gap-1.5 rounded-[6px] px-3 text-[13px] font-medium transition-colors [&_svg]:size-3.5",
+            "flex h-7 shrink-0 items-center gap-1.5 rounded-sm px-3 text-[13px] font-medium transition-colors [&_svg]:size-3.5",
             value === option.value ? "bg-bg text-fg shadow-sm" : "text-fg-muted hover:text-fg",
           )}
         >
@@ -270,10 +276,8 @@ function UserCard({
   onEdit,
   onPreview,
   observation,
-  onObserve,
 }: {
   observation: MetricsSnapshot;
-  onObserve: () => void;
   user: UserView;
   inUse?: string;
   onEdit?: () => void;
@@ -316,13 +320,11 @@ function UserCard({
           </IconButton>
         </div>
       </div>
-      <div className="border-t border-border p-4">
-        <ObservationSummary
-          snapshot={observation}
-          filter={{ user: user.name }}
-          onOpen={onObserve}
-        />
-      </div>
+      <ObservationSummary
+        snapshot={observation}
+        filter={{ user: user.name }}
+        className="border-t border-border p-4"
+      />
       <Grants grants={user.grants} inUse={inUse} />
       <DeliveryLinks
         links={user.links}

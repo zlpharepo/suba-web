@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ActivityIcon, ChevronDownIcon } from "lucide-react";
 
 import type { SectionDraftStatus } from "@/components/config-editor";
 import { ApiError } from "@/lib/api";
@@ -10,8 +11,9 @@ import {
   addObservationService,
   observationAddressIssue,
   observationSetupIssue,
+  observationConfiguration,
 } from "@/lib/observation";
-import type { JsonObject, JsonSchema } from "@/lib/schema";
+import { isObject, type JsonObject, type JsonSchema } from "@/lib/schema";
 import type { Versioned } from "@/lib/types";
 import { exportsKey } from "@/lib/users";
 import { Button } from "@/ui/button";
@@ -30,6 +32,21 @@ export function EnableObservation({
   section: SectionDraftStatus;
   onResetSection: () => void;
 }) {
+  const api = useApi();
+  const document = useQuery({
+    queryKey: configKey(name),
+    queryFn: () => api.singbox.config(name),
+    retry: false,
+  });
+  const schema = useQuery({
+    queryKey: ["singbox", "schema", version],
+    queryFn: api.singbox.schema,
+    retry: false,
+  });
+  const configuration =
+    document.data && schema.data && !document.isError && !schema.isError
+      ? observationConfiguration(document.data.value, schema.data)
+      : null;
   const [open, setOpen] = useState(false);
   const [saved, setSaved] = useState<string | null>(null);
   return (
@@ -43,7 +60,10 @@ export function EnableObservation({
           setOpen(true);
         }}
       >
-        Enable Observation
+        <ActivityIcon className="text-fg-subtle" />
+        <span className="text-fg-subtle">Observation</span>
+        {configuration ? (configuration.enabled ? "On" : "Off") : "Unknown"}
+        <ChevronDownIcon className="!size-3.5 text-fg-subtle" />
       </Button>
       {saved && <span className="text-xs text-fg-muted">{saved}</span>}
       {open && (
@@ -58,8 +78,8 @@ export function EnableObservation({
             onResetSection();
             setSaved(
               warnings
-                ? "Saved, but the core may refuse this configuration. Review it before a manual start or restart."
-                : "Saved. Start or restart manually to enable observation.",
+                ? "Saved with validation warnings. Review before starting."
+                : "Start or restart to apply.",
             );
             setOpen(false);
           }}
@@ -109,6 +129,28 @@ function LoadSetup({
     !schema.error
   ) {
     setInitial({ document: document.data, schema: schema.data });
+  }
+  if (initial && observationConfiguration(initial.document.value, initial.schema).enabled) {
+    const services = initial.document.value.services as unknown[];
+    const service = services.filter(isObject).find((item) => item.type === "api")!;
+    return (
+      <Dialog open onOpenChange={(next) => !next && onClose()} title="Observation">
+        <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 text-[13px] [&_dt]:text-fg-subtle [&_dd]:break-all">
+          <dt>Config</dt>
+          <dd className="font-mono">{name}</dd>
+          <dt>Status</dt>
+          <dd>On</dd>
+          <dt>Service</dt>
+          <dd className="font-mono">{typeof service.tag === "string" ? service.tag : "api"}</dd>
+          <dt>Listen</dt>
+          <dd className="font-mono">{String(service.listen)}</dd>
+          <dt>Port</dt>
+          <dd className="font-mono">{String(service.listen_port)}</dd>
+          <dt>Authentication</dt>
+          <dd>Configured</dd>
+        </dl>
+      </Dialog>
+    );
   }
   if (initial)
     return (
@@ -165,7 +207,9 @@ function SetupEditor({
       alive.current = false;
     };
   }, []);
-  const issue = observationSetupIssue(document.value, schema);
+  const issue =
+    observationConfiguration(document.value, schema).issue ??
+    observationSetupIssue(document.value, schema);
   const validation = observationAddressIssue(address, port);
   const dirty = address !== "127.0.0.1" || port !== "19090";
   const save = useMutation({
@@ -240,17 +284,16 @@ function SetupEditor({
       }
     >
       <div className="grid gap-4">
-        <p className="text-[13px] text-fg-muted">
-          Add one native API service to <span className="font-mono break-all">{name}.json</span>. A
-          random secret is generated on save. Existing JSON is preserved; this does not select,
-          start, or restart the core.
-        </p>
-        <p className="text-xs text-fg-subtle">
-          Only a raw loopback IP, no TLS, and a nonempty secret are supported. Edit an existing API
-          service in Services; it will never be overwritten here.
-        </p>
         {!issue && (
           <>
+            <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 rounded-md border border-border p-3 text-xs [&_dt]:text-fg-subtle [&_dd]:break-all">
+              <dt>Config</dt>
+              <dd className="font-mono">{name}</dd>
+              <dt>Service</dt>
+              <dd className="font-mono">api · suba-api</dd>
+              <dt>Secret</dt>
+              <dd>Generated on save</dd>
+            </dl>
             <label className="grid gap-1.5 text-[13px]">
               Loopback IP
               <Input
@@ -269,10 +312,7 @@ function SetupEditor({
                 inputMode="numeric"
               />
             </label>
-            <p className="text-xs text-fg-muted">
-              After saving, start or restart manually. Observation begins a new traffic window on
-              every reconnect.
-            </p>
+            <p className="text-xs text-fg-muted">Start or restart to apply.</p>
           </>
         )}
         {error && (

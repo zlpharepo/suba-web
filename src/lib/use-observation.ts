@@ -14,12 +14,13 @@ export function useObservationClock() {
   return now;
 }
 
-export function useObservationMetrics() {
+export function useObservationMetrics(enabled = true) {
   const api = useApi();
   const query = useQuery({
     queryKey: observationMetricsKey,
     queryFn: () => api.singbox.metrics(),
-    refetchInterval: OBSERVATION_INTERVAL,
+    enabled,
+    refetchInterval: enabled ? OBSERVATION_INTERVAL : false,
     retry: false,
   });
   return { data: query.data, failed: query.isError, now: useObservationClock() };

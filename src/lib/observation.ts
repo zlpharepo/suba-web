@@ -114,6 +114,40 @@ export function observationSetupIssue(document: JsonObject, schema: JsonSchema):
   return null;
 }
 
+export function observationConfiguration(
+  document: JsonObject,
+  schema: JsonSchema,
+): { enabled: boolean; issue: string | null } {
+  const unavailable = (issue: string) => ({ enabled: false, issue });
+  if (!supportsObservation(schema))
+    return unavailable("schema: this core does not support the native API service");
+  if (document.services !== undefined && !Array.isArray(document.services))
+    return unavailable("services: expected an array");
+  const services: unknown[] = Array.isArray(document.services) ? document.services : [];
+  const apis = services.filter(isObject).filter((service) => service.type === "api");
+  if (apis.length === 0) return { enabled: false, issue: null };
+  if (apis.length > 1) return unavailable("services: observation requires exactly one API service");
+  const api = apis[0];
+  if (
+    api.tls !== undefined &&
+    api.tls !== null &&
+    (!isObject(api.tls) || api.tls.enabled !== false)
+  )
+    return unavailable("services.api.tls: TLS observation is not supported");
+  if (typeof api.listen !== "string" || !isLoopbackAddress(api.listen))
+    return unavailable("services.api.listen: an explicit loopback IP address is required");
+  if (
+    typeof api.listen_port !== "number" ||
+    !Number.isInteger(api.listen_port) ||
+    api.listen_port < 1 ||
+    api.listen_port > 65535
+  )
+    return unavailable("services.api.listen_port: a fixed nonzero port is required");
+  if (typeof api.secret !== "string" || !/^[\x20-\x7e]+$/.test(api.secret))
+    return unavailable("services.api.secret: a nonempty ASCII secret is required");
+  return { enabled: true, issue: null };
+}
+
 export function isLoopbackAddress(value: string): boolean {
   if (value.includes(":")) {
     if (!/^[0-9a-f:]+$/i.test(value)) return false;

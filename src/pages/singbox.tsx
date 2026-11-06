@@ -17,6 +17,8 @@ import {
 import { ConfigEditor, type SectionDraftStatus } from "@/components/config-editor";
 import { FullConfigJson } from "@/components/full-config-json";
 import { EnableObservation } from "@/components/enable-observation";
+import { ObservationState } from "@/components/observation";
+import { useObservationMetrics } from "@/lib/use-observation";
 import { Generator } from "@/components/generator";
 import { ApiError, errorMessage } from "@/lib/api";
 import { useApi } from "@/lib/target";
@@ -71,6 +73,7 @@ export function SingboxPage() {
 }
 
 function ConfigurationWorkspace({ core, failure }: { core: Core; failure: string | null }) {
+  const observation = useObservationMetrics();
   // Editing is local to this page; runtime settings must keep their actual selection.
   const [editing, setEditing] = useState(core.config);
   const [sectionDraft, setSectionDraft] = useState<SectionDraftStatus>({
@@ -109,6 +112,9 @@ function ConfigurationWorkspace({ core, failure }: { core: Core; failure: string
         {core.note && <span className="text-xs text-warning">Restart to apply changes</span>}
       </div>
       {failure && <p className="mb-6 text-[13px] text-danger">{failure}</p>}
+      <div className="mb-4">
+        <ObservationState {...observation} />
+      </div>
       {core.version ? (
         <ConfigEditor
           key={editing}
