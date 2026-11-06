@@ -190,7 +190,7 @@ export function ConfigEditor({
         })}
       </nav>
       <div className="min-w-0">
-        {section === "outbounds" ? (
+        {section === "outbounds" && !core.managed ? (
           <CollectionOutbounds
             core={core}
             entries={generated}
@@ -225,12 +225,16 @@ export function ConfigEditor({
           value={{ tags: catalog, complete: references.isSuccess && !references.isFetching }}
         >
           <CollectionBindings.Provider
-            value={{
-              selected: collections,
-              catalog,
-              pending: references.isPending,
-              failed: references.isError,
-            }}
+            value={
+              core.managed
+                ? undefined
+                : {
+                    selected: collections,
+                    catalog,
+                    pending: references.isPending,
+                    failed: references.isError,
+                  }
+            }
           >
             <DraftStatus.Provider value={onDraftStatus}>
               <Section

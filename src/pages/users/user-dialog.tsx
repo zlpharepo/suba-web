@@ -99,9 +99,7 @@ export function UserDialog({
   const groups = endpointGroups(endpoints);
   // A chosen entry the list does not show: a configuration or tag since gone.
   const listed = (entry: InboundEntry) =>
-    (endpoints?.entries ?? []).some(
-      (held) => held.config === entry.config && held.inbound === entry.inbound,
-    );
+    (endpoints?.entries ?? []).some((held) => entryKey(held) === entryKey(entry));
   const elsewhere = chosenInbounds.filter((entry) => !listed(entry));
 
   const { servers, removed } = serverChanges(user?.inbounds ?? [], chosenInbounds);
@@ -117,6 +115,7 @@ export function UserDialog({
       onOpenChange={(open) => !open && close()}
       width="lg"
       title={user ? `Edit ${user.name}` : "New User"}
+      description="Start or restart each affected host to apply saved access changes."
       footer={
         <>
           {user && (
@@ -190,13 +189,21 @@ export function UserDialog({
           ) : (
             <div className="grid gap-3 rounded-md border border-border p-3">
               {groups.map((group) => (
-                <div key={group.config} className="grid min-w-0 gap-1.5">
+                <div
+                  key={`${group.host ?? "local"}:${group.config}`}
+                  className="grid min-w-0 gap-1.5"
+                >
                   <span className="min-w-0 truncate font-mono text-xs text-fg-subtle">
+                    {group.host && `${group.host_name ?? group.host} / `}
                     {group.config}
                   </span>
                   <div className="grid grid-cols-[minmax(0,1fr)] gap-1.5 sm:grid-cols-2">
                     {group.entries.map((entry) => {
-                      const held = { config: entry.config, inbound: entry.inbound };
+                      const held = {
+                        ...(entry.host ? { host: entry.host } : {}),
+                        config: entry.config,
+                        inbound: entry.inbound,
+                      };
                       const on = chosen(chosenInbounds, held);
                       // An inbound the server cannot export is not offered;
                       // one already chosen stays visible so it can be removed.
@@ -291,6 +298,8 @@ export function UserDialog({
                 className="flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-1.5 text-[13px]"
               >
                 <span className="min-w-0 truncate font-mono text-fg">
+                  {server.host &&
+                    `${endpoints?.entries.find((entry) => entry.host === server.host)?.host_name ?? server.host} / `}
                   {server.config} › {server.inbound}
                 </span>
                 {server.added && (
@@ -306,6 +315,8 @@ export function UserDialog({
                 className="flex flex-wrap items-center gap-2 px-3 py-1.5 text-[13px]"
               >
                 <span className="min-w-0 truncate font-mono text-fg-subtle line-through">
+                  {server.host &&
+                    `${endpoints?.entries.find((entry) => entry.host === server.host)?.host_name ?? server.host} / `}
                   {server.config} › {server.inbound}
                 </span>
                 <Badge tone="danger" className="ml-auto">

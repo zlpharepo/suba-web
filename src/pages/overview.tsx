@@ -3,7 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowDownIcon, ArrowUpIcon, Layers3Icon } from "lucide-react";
 
-import { useApi } from "@/lib/target";
+import { useApi, useTarget } from "@/lib/target";
 import { cx } from "@/lib/cx";
 import { bytes, duration, rate } from "@/lib/format";
 import { Button } from "@/ui/button";
@@ -13,6 +13,7 @@ import { Popover } from "@/ui/popover";
 
 export function OverviewPage() {
   const api = useApi();
+  const { host, hosts, error, updatedAt } = useTarget();
   // Polled: CPU and network are rates, measured between two samples.
   const metrics = useQuery({
     queryKey: ["system", "metrics"],
@@ -91,7 +92,7 @@ export function OverviewPage() {
         />
       </div>
 
-      <div className="mt-8 grid grid-cols-2 gap-3 sm:max-w-md">
+      <div className="mt-8 grid grid-cols-2 gap-3 sm:max-w-2xl sm:grid-cols-3">
         <Count
           label="Providers"
           to="/providers"
@@ -102,6 +103,9 @@ export function OverviewPage() {
           to="/collections"
           value={collections.data && Object.keys(collections.data).length}
         />
+        {!host && (
+          <Count label="Hosts" to="/hosts" value={!error && updatedAt ? hosts.length : undefined} />
+        )}
       </div>
     </>
   );
@@ -170,7 +174,7 @@ function Count({
   value,
 }: {
   label: string;
-  to: "/providers" | "/collections";
+  to: "/providers" | "/collections" | "/hosts";
   value: number | undefined;
 }) {
   return (

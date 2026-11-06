@@ -145,6 +145,7 @@ export interface SystemInfo extends SystemStatus {
 }
 
 export interface Core {
+  managed?: boolean;
   version: string | null;
   config: string;
   privilege: Privilege;
@@ -314,7 +315,7 @@ export interface References {
 }
 
 /** How far a managed user's credential has got on the core. */
-export type GrantState = "applied" | "pending" | "stopped" | "unused";
+export type GrantState = "applied" | "pending" | "stopped" | "unused" | "unknown";
 
 /** A client node for one user of one inbound, or why there is none. */
 export interface Export {
@@ -334,6 +335,7 @@ export interface InboundEntry {
 
 export interface GrantView extends Export {
   host?: string;
+  host_name?: string;
   config: string;
   inbound: string;
   /** Absent when the entry reaches no inbound that can take users. */
@@ -353,6 +355,7 @@ export interface UserView {
 
 /** One inbound of one configuration, with the address a client dials. */
 export interface EndpointView extends InboundEntry {
+  host_name?: string;
   /** The stored override, when the operator set one. */
   address?: string;
   /** The stored port override, when the operator set one. */
@@ -394,6 +397,7 @@ export interface InboundUsers {
 }
 
 export interface ConfigExports {
+  host?: string;
   public_host?: string;
   inbounds: InboundUsers[];
 }

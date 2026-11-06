@@ -25,6 +25,7 @@ export const PORT = /^[0-9]{1,5}$/;
 type Tone = "neutral" | "success" | "warning" | "danger";
 
 const STATES: Record<GrantState, { label: string; tone: Tone }> = {
+  unknown: { label: "Unverified", tone: "warning" },
   applied: { label: "Applied", tone: "neutral" },
   pending: { label: "Restart to Apply", tone: "warning" },
   stopped: { label: "Core Stopped", tone: "neutral" },
@@ -43,14 +44,16 @@ export function grantSummary(grants: GrantView[]): { tone: Tone; text: string } 
   // A grant without a state reaches no inbound that can take users.
   const unavailable = grants.filter((grant) => grant.state === undefined).length;
   const waiting = grants.filter(
-    (grant) => grant.state !== undefined && grant.state !== "applied",
+    (grant) => grant.state !== undefined && grant.state !== "applied" && grant.state !== "unknown",
   ).length;
   if (unavailable > 0) parts.push(`${unavailable} unavailable`);
+  const unknown = grants.filter((grant) => grant.state === "unknown").length;
+  if (unknown > 0) parts.push(`${unknown} unverified`);
   if (waiting > 0) parts.push(`${waiting} not applied yet`);
   if (parts.length === 1) parts.push("All applied");
 
   return {
-    tone: unavailable > 0 ? "danger" : waiting > 0 ? "warning" : "success",
+    tone: unavailable > 0 ? "danger" : waiting > 0 || unknown > 0 ? "warning" : "success",
     text: parts.join(" · "),
   };
 }
@@ -61,7 +64,8 @@ export function grantSummary(grants: GrantView[]): { tone: Tone; text: string } 
  */
 export function restartChanges(users: UserView[], exports?: ConfigExports): number {
   const pending = users.reduce(
-    (count, user) => count + user.grants.filter((grant) => grant.state === "pending").length,
+    (count, user) =>
+      count + user.grants.filter((grant) => !grant.host && grant.state === "pending").length,
     0,
   );
   const departing = (exports?.inbounds ?? []).reduce(
@@ -72,7 +76,7 @@ export function restartChanges(users: UserView[], exports?: ConfigExports): numb
 }
 
 export function publicHostUnset(exports?: ConfigExports): boolean {
-  return exports !== undefined && !exports.public_host;
+  return exports !== undefined && !exports.host && !exports.public_host;
 }
 
 // Configuration names cannot hold a slash and host ids cannot hold a colon, so
@@ -131,6 +135,8 @@ export function chosen(entries: InboundEntry[], entry: InboundEntry): boolean {
 }
 
 export interface EndpointGroup {
+  host?: string;
+  host_name?: string;
   config: string;
   entries: EndpointView[];
 }
@@ -139,9 +145,14 @@ export interface EndpointGroup {
 export function endpointGroups(endpoints?: EndpointsView): EndpointGroup[] {
   const groups: EndpointGroup[] = [];
   for (const entry of endpoints?.entries ?? []) {
-    const held = groups.find((group) => group.config === entry.config);
+    const held = groups.find((group) => group.config === entry.config && group.host === entry.host);
     if (held) held.entries.push(entry);
-    else groups.push({ config: entry.config, entries: [entry] });
+    else
+      groups.push({
+        ...(entry.host ? { host: entry.host, host_name: entry.host_name } : {}),
+        config: entry.config,
+        entries: [entry],
+      });
   }
   return groups;
 }
@@ -174,14 +185,16 @@ export function effectiveAddress(
   listenPort: number | null,
 ): EffectiveAddress {
   const stored = endpoint.address ? endpoint.address : null;
-  const fallback = publicHost ? publicHost : null;
+  const fallback = !endpoint.host && publicHost ? publicHost : null;
   const host = stored ?? fallback;
   if (host === null) {
     return {
       host: null,
       port: null,
       overridden: false,
-      reason: "No address: set one here, or a public-host on the instance.",
+      reason: endpoint.host
+        ? "Set the public address for this Agent inbound."
+        : "No address: set one here, or a public-host on the instance.",
     };
   }
   return {
@@ -219,7 +232,12 @@ export function withEndpoint(endpoints: EndpointsView, entry: EndpointView): End
     ...endpoints,
     entries: held
       ? endpoints.entries.map((present) =>
-          entryKey(present) === entryKey(entry) ? entry : present,
+          entryKey(present) === entryKey(entry)
+            ? {
+                ...entry,
+                ...(present.host_name && !entry.host_name ? { host_name: present.host_name } : {}),
+              }
+            : present,
         )
       : [...endpoints.entries, entry],
   };
@@ -236,6 +254,8 @@ export function withoutEndpoint(endpoints: EndpointsView, entry: InboundEntry): 
     entries: endpoints.entries.map((present) => {
       if (entryKey(present) !== entryKey(entry)) return present;
       const cleared: EndpointView = { config: present.config, inbound: present.inbound };
+      if (present.host !== undefined) cleared.host = present.host;
+      if (present.host_name !== undefined) cleared.host_name = present.host_name;
       if (present.reason !== undefined) cleared.reason = present.reason;
       return cleared;
     }),

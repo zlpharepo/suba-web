@@ -1,14 +1,15 @@
 import { useState, type FormEvent } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PencilIcon, PlusIcon, ServerIcon, Trash2Icon } from "lucide-react";
 
 import { CopyButton } from "@/components/shared";
 import { EdgeConnection } from "@/components/edge-connection";
-import { EdgeUpstream } from "@/components/edge-upstream";
 import { EDGE_POLL_INTERVAL } from "@/lib/edge";
 import { api } from "@/lib/api";
 import { confirmDiscardChanges, useDraftProtection } from "@/lib/draft-protection";
 import {
+  agentCommand,
   directEndpoint,
   managerEndpoint,
   parseInvitation,
@@ -21,8 +22,8 @@ import { LocalRegistry } from "@/lib/target-scope";
 import { Button, IconButton } from "@/ui/button";
 import { Confirm, Dialog } from "@/ui/dialog";
 import { Field, Input, Textarea } from "@/ui/input";
-import { PageHeader, SectionTitle } from "@/ui/layout";
-import { Badge, Card, Empty, ErrorNote, Skeleton } from "@/ui/misc";
+import { List, PageHeader } from "@/ui/layout";
+import { Badge, Empty, ErrorNote, Skeleton } from "@/ui/misc";
 
 export function HostsPage() {
   return (
@@ -35,20 +36,31 @@ export function HostsPage() {
 function Hosts() {
   const client = useQueryClient();
   const target = useTarget();
+  const navigate = useNavigate();
   const hosts = useQuery({
     queryKey: ["hosts"],
     queryFn: api.hosts.list,
     refetchInterval: EDGE_POLL_INTERVAL,
     retry: false,
   });
-  const identity = useQuery({ queryKey: ["peers", "identity"], queryFn: api.peers.identity });
-  const peers = useQuery({ queryKey: ["peers", "trusted"], queryFn: api.peers.list });
   const [editing, setEditing] = useState<Host | "new" | null>(null);
   const [allowing, setAllowing] = useState<HostMode | null>(null);
+  const [trusting, setTrusting] = useState(false);
+  const identity = useQuery({
+    queryKey: ["peers", "identity"],
+    queryFn: api.peers.identity,
+    enabled: trusting,
+  });
+  const peers = useQuery({
+    queryKey: ["peers", "trusted"],
+    queryFn: api.peers.list,
+    enabled: trusting,
+  });
   const remove = useMutation({
     mutationFn: api.hosts.remove,
     onSuccess: (_, id) => {
       void client.invalidateQueries({ queryKey: ["hosts"] });
+      void client.invalidateQueries({ queryKey: ["peers", "trusted"] });
       if (target.host?.id === id) target.select(null);
     },
   });
@@ -56,53 +68,60 @@ function Hosts() {
     mutationFn: api.peers.revoke,
     onSuccess: () => void client.invalidateQueries({ queryKey: ["peers", "trusted"] }),
   });
-
   return (
     <>
       <PageHeader
         title="Hosts"
         actions={
-          <div className="flex flex-wrap gap-2">
-            <Button variant="primary" onClick={() => setEditing("new")}>
+          <>
+            <Button onClick={() => setTrusting(true)}>Trust</Button>
+            <Button onClick={() => setEditing("new")}>Add Direct Host</Button>
+            <Button variant="primary" onClick={() => setAllowing("edge")}>
               <PlusIcon />
-              Add Direct Host
+              Add Agent
             </Button>
-            <Button onClick={() => setAllowing("edge")}>Add Edge Node</Button>
-          </div>
+          </>
         }
       />
-      <SectionTitle>Host Connections</SectionTitle>
-      <p className="mb-4 text-[13px] text-fg-muted">
-        Operate another instance without moving its configuration, users or subscriptions here. Its
-        services continue when this instance stops.
-      </p>
       {hosts.error && <ErrorNote error={hosts.error} />}
       {remove.error && <ErrorNote error={remove.error} />}
       {hosts.isPending && <Skeleton className="h-32" />}
       {hosts.isSuccess && hosts.data.length === 0 && (
         <Empty icon={<ServerIcon />} title="No hosts yet." />
       )}
-      <div className="mb-8 grid gap-3">
-        {hosts.data?.map((host) => (
-          <Card key={host.id}>
-            <div className="flex items-start justify-between gap-3 p-4">
-              <div className="grid min-w-0 gap-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="break-all font-semibold">{host.name}</h2>
-                  <Badge>{host.mode === "edge" ? "Edge" : "Direct"}</Badge>
-                </div>
-                <span className="break-all font-mono text-xs text-fg-muted">
-                  {host.endpoint ?? "Public Endpoint not set; subscription URLs unavailable."}
+      {!!hosts.data?.length && (
+        <List>
+          {hosts.data.map((host) => (
+            <div key={host.id} className="flex items-center gap-3 px-4 py-3">
+              <button
+                type="button"
+                aria-label={`Open ${host.name}`}
+                className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                onClick={() => {
+                  target.select(host);
+                  void navigate({ to: "/sing-box" });
+                }}
+              >
+                <ServerIcon className="size-4 shrink-0 text-fg-muted" />
+                <span className="grid min-w-0 gap-1">
+                  <span className="truncate text-[13px] font-medium">{host.name}</span>
+                  {host.mode === "direct" && (
+                    <span className="truncate font-mono text-xs text-fg-subtle">
+                      {host.endpoint}
+                    </span>
+                  )}
                 </span>
-                {host.mode === "edge" && (
-                  <EdgeConnection
-                    status={host.connection}
-                    failed={!!hosts.error}
-                    updatedAt={hosts.dataUpdatedAt}
-                  />
-                )}
-                <Fingerprint value={host.identity.fingerprint} />
-              </div>
+              </button>
+              {host.mode === "edge" ? (
+                <EdgeConnection
+                  status={host.connection}
+                  failed={!!hosts.error}
+                  updatedAt={hosts.dataUpdatedAt}
+                  compact
+                />
+              ) : (
+                <Badge>Direct</Badge>
+              )}
               <div className="flex shrink-0">
                 <IconButton label={`Edit ${host.name}`} onClick={() => setEditing(host)}>
                   <PencilIcon />
@@ -113,76 +132,20 @@ function Hosts() {
                       <Trash2Icon />
                     </IconButton>
                   }
-                  title={`Remove ${host.mode === "edge" ? "Edge" : "Direct"} Connection?`}
+                  title={`Remove ${host.name}?`}
                   description={
                     host.mode === "edge"
-                      ? "This removes the host and closes its Edge connection on this manager. The node's core and services keep running. Trust on the node is not revoked; disconnect the manager on the node to revoke its access."
-                      : "This removes only the connection on this instance. It does not stop the remote service or revoke permission there. To revoke access, remove this instance from Trusted Peers on the remote host."
+                      ? "Closes the Agent connection and revokes its trust on this Manager. Its running core and last successful runtime copy remain on the Agent."
+                      : "Removes this connection. Revoke this instance in the remote host's Trust settings to withdraw its access."
                   }
-                  confirmLabel="Remove Connection"
+                  confirmLabel="Remove"
                   onConfirm={() => remove.mutate(host.id)}
                 />
               </div>
             </div>
-          </Card>
-        ))}
-      </div>
-      <EdgeUpstream />
-      <SectionTitle
-        actions={<Button onClick={() => setAllowing("direct")}>Allow Direct Access</Button>}
-      >
-        Local Identity and Trust
-      </SectionTitle>
-      <p className="mb-3 text-[13px] text-fg-muted">
-        Allow another instance to operate this one. Compare fingerprints through a separate trusted
-        channel before pairing.
-      </p>
-      {identity.error && <ErrorNote error={identity.error} />}
-      {identity.isPending && <Skeleton className="h-16" />}
-      {identity.data && (
-        <Card>
-          <div className="grid gap-2 p-4">
-            <span className="text-xs text-fg-muted">Local Identity Fingerprint</span>
-            <Fingerprint value={identity.data.fingerprint} />
-          </div>
-        </Card>
+          ))}
+        </List>
       )}
-      <div className="mt-6">
-        <SectionTitle>Trusted Peers</SectionTitle>
-      </div>
-      <p className="mb-3 text-[13px] text-fg-muted">
-        These instances may operate this local instance. Trust does not automatically create an
-        outgoing connection.
-      </p>
-      {peers.error && <ErrorNote error={peers.error} />}
-      {revoke.error && <ErrorNote error={revoke.error} />}
-      {peers.isPending && <Skeleton className="h-24" />}
-      {peers.isSuccess && peers.data.length === 0 && (
-        <p className="text-[13px] text-fg-subtle">No trusted peers.</p>
-      )}
-      <div className="grid gap-3">
-        {peers.data?.map((peer) => (
-          <Card key={peer.id}>
-            <div className="flex items-start justify-between gap-3 p-4">
-              <div className="grid min-w-0 gap-2">
-                <h3 className="break-all font-medium">{peer.name}</h3>
-                <Fingerprint value={peer.fingerprint} />
-              </div>
-              <Confirm
-                trigger={
-                  <Button variant="danger" disabled={revoke.isPending}>
-                    Revoke Access
-                  </Button>
-                }
-                title="Revoke Incoming Access?"
-                description="This peer will no longer be able to operate this instance. Local services, configuration and subscriptions are not removed. Pair again to restore access."
-                confirmLabel="Revoke Access"
-                onConfirm={() => revoke.mutate(peer.id)}
-              />
-            </div>
-          </Card>
-        ))}
-      </div>
       {editing && (
         <HostDialog
           host={editing === "new" ? undefined : editing}
@@ -190,6 +153,47 @@ function Hosts() {
         />
       )}
       {allowing && <InvitationDialog mode={allowing} onClose={() => setAllowing(null)} />}
+      {trusting && (
+        <Dialog open title="Trust" onOpenChange={setTrusting} width="lg">
+          <div className="grid gap-5">
+            {identity.error && <ErrorNote error={identity.error} />}
+            {identity.isPending && <Skeleton className="h-10" />}
+            {identity.data && (
+              <Field label="Local Fingerprint">
+                <Fingerprint value={identity.data.fingerprint} />
+              </Field>
+            )}
+            <div className="flex justify-end">
+              <Button onClick={() => setAllowing("direct")}>Allow Direct Access</Button>
+            </div>
+            {peers.error && <ErrorNote error={peers.error} />}
+            {revoke.error && <ErrorNote error={revoke.error} />}
+            {peers.isPending && <Skeleton className="h-20" />}
+            {peers.isSuccess && peers.data.length === 0 && (
+              <span className="text-[13px] text-fg-muted">No trusted peers.</span>
+            )}
+            {peers.data?.map((peer) => (
+              <div key={peer.id} className="grid gap-2 border-t border-border pt-3">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="truncate text-[13px] font-medium">{peer.name}</span>
+                  <Confirm
+                    trigger={
+                      <Button size="sm" disabled={revoke.isPending}>
+                        Revoke
+                      </Button>
+                    }
+                    title="Revoke Access?"
+                    description="Withdraws this peer's access. Pair again to restore it."
+                    confirmLabel="Revoke"
+                    onConfirm={() => revoke.mutate(peer.id)}
+                  />
+                </div>
+                <Fingerprint value={peer.fingerprint} />
+              </div>
+            ))}
+          </div>
+        </Dialog>
+      )}
     </>
   );
 }
@@ -226,7 +230,7 @@ function HostDialog({ host, onClose }: { host?: Host; onClose: () => void }) {
         ? await api.hosts.update(
             host.id,
             name.trim(),
-            host.mode === "edge" && !endpoint.trim() ? null : directEndpoint(endpoint),
+            host.mode === "edge" ? host.endpoint : directEndpoint(endpoint),
           )
         : await api.hosts.add(name.trim(), parseInvitation(text));
       setText("");
@@ -243,7 +247,7 @@ function HostDialog({ host, onClose }: { host?: Host; onClose: () => void }) {
     <Dialog
       open
       onOpenChange={(open) => !open && close()}
-      title={host ? `Edit ${host.mode === "edge" ? "Edge" : "Direct"} Host` : "Add Direct Host"}
+      title={host ? `Edit ${host.name}` : "Add Direct Host"}
     >
       <form className="grid gap-4" onSubmit={(event) => void submit(event)}>
         <Field label="Local Name">
@@ -257,24 +261,21 @@ function HostDialog({ host, onClose }: { host?: Host; onClose: () => void }) {
         </Field>
         {host ? (
           <>
-            <Field label={host.mode === "edge" ? "Public Endpoint" : "Endpoint"}>
-              <Input
-                value={endpoint}
-                onChange={(event) => setEndpoint(event.target.value)}
-                required={host.mode === "direct"}
-                disabled={saving}
-              />
-            </Field>
-            <p className="text-xs text-fg-muted">
-              {host.mode === "edge"
-                ? "Optional public delivery/API URL, including any reverse-proxy path. It is never used to dial the node. Leave empty to disable public subscription URLs. Identity and Edge mode remain unchanged."
-                : "Changing the endpoint preserves the paired identity. A different remote identity will be rejected."}
-            </p>
+            {host.mode === "direct" && (
+              <Field label="Endpoint">
+                <Input
+                  value={endpoint}
+                  onChange={(event) => setEndpoint(event.target.value)}
+                  required
+                  disabled={saving}
+                />
+              </Field>
+            )}
             <Fingerprint value={host.identity.fingerprint} />
           </>
         ) : (
           <>
-            <Field label="Invitation JSON">
+            <Field label="Remote Invitation JSON">
               <Textarea
                 aria-label="Invitation JSON"
                 value={text}
@@ -286,10 +287,6 @@ function HostDialog({ host, onClose }: { host?: Host; onClose: () => void }) {
                 rows={8}
               />
             </Field>
-            <p className="text-xs text-fg-muted">
-              Generate an invitation with Allow Direct Access on the remote host. It contains a
-              one-time secret; share it only with the intended instance.
-            </p>
           </>
         )}
         {error !== undefined && <ErrorNote error={error} />}
@@ -313,7 +310,7 @@ function InvitationDialog({ mode, onClose }: { mode: HostMode; onClose: () => vo
   const [invitation, setInvitation] = useState<Invitation>();
   const [error, setError] = useState<unknown>();
   const [saving, setSaving] = useState(false);
-  const dirty = name !== "" || endpoint !== initialEndpoint || invitation !== undefined;
+  const dirty = !invitation && (name !== "" || endpoint !== initialEndpoint);
   useDraftProtection({ dirty, saving });
   const close = () => {
     if (confirmDiscardChanges({ dirty, saving })) onClose();
@@ -356,17 +353,12 @@ function InvitationDialog({ mode, onClose }: { mode: HostMode; onClose: () => vo
     <Dialog
       open
       onOpenChange={(open) => !open && close()}
-      title={mode === "edge" ? "Add Edge Node" : "Allow Direct Access"}
+      title={mode === "edge" ? "Add Agent" : "Allow Direct Access"}
     >
       <div className="grid gap-4">
-        <p className="text-[13px] text-fg-muted">
-          {mode === "edge"
-            ? "Paste this invitation into Connect to Manager on the node. The node opens a long-lived WSS connection to this manager, which can operate its resources. No node public endpoint is required."
-            : "The invited instance will be able to manage this instance's resources. No administrator session or private key is shared."}
-        </p>
         {!invitation ? (
           <form className="grid gap-4" onSubmit={(event) => void generate(event)}>
-            <Field label={mode === "edge" ? "Node Name" : "Caller Name"}>
+            <Field label={mode === "edge" ? "Name" : "Caller Name"}>
               <Input
                 value={name}
                 onChange={(event) => setName(event.target.value)}
@@ -375,7 +367,7 @@ function InvitationDialog({ mode, onClose }: { mode: HostMode; onClose: () => vo
                 autoFocus
               />
             </Field>
-            <Field label="Public Endpoint">
+            <Field label={mode === "edge" ? "Manager URL" : "Public URL"}>
               <Input
                 value={endpoint}
                 onChange={(event) => setEndpoint(event.target.value)}
@@ -383,11 +375,6 @@ function InvitationDialog({ mode, onClose }: { mode: HostMode; onClose: () => vo
                 disabled={saving}
               />
             </Field>
-            <p className="text-xs text-fg-muted">
-              Use this instance's reachable HTTPS base URL, including any reverse-proxy path.
-              {mode === "direct" &&
-                " HTTP is allowed only for literal loopback addresses in local tests."}
-            </p>
             <Button type="submit" variant="primary" disabled={saving || !name.trim()}>
               {saving ? "Generating…" : "Generate Invitation"}
             </Button>
@@ -395,22 +382,28 @@ function InvitationDialog({ mode, onClose }: { mode: HostMode; onClose: () => vo
         ) : (
           <>
             <Fingerprint value={invitation.identity.fingerprint} />
-            <Field label="Invitation JSON">
+            <Field label={mode === "edge" ? "Initial Pairing Command" : "Invitation JSON"}>
               <Textarea
-                aria-label="Invitation JSON"
-                value={JSON.stringify(invitation, null, 2)}
+                aria-label={mode === "edge" ? "Agent Command" : "Invitation JSON"}
+                className="font-mono text-xs"
+                value={
+                  mode === "edge" ? agentCommand(invitation) : JSON.stringify(invitation, null, 2)
+                }
                 readOnly
-                rows={10}
+                rows={mode === "edge" ? 5 : 10}
                 spellCheck={false}
               />
             </Field>
             <p className="text-xs text-fg-muted">
-              Expires {new Date(invitation.expires_at * 1000).toLocaleString()}. Closing hides this
-              secret but does not revoke the invitation. Restarting this instance also invalidates
-              pending invitations.
+              Expires {new Date(invitation.expires_at * 1000).toLocaleString()}.
             </p>
             <div className="flex items-center justify-between gap-2">
-              <CopyButton text={JSON.stringify(invitation, null, 2)} label="Copy Invitation JSON" />
+              <CopyButton
+                text={
+                  mode === "edge" ? agentCommand(invitation) : JSON.stringify(invitation, null, 2)
+                }
+                label={mode === "edge" ? "Copy Agent Command" : "Copy Invitation JSON"}
+              />
               <Button variant="danger" onClick={() => void revoke()} disabled={saving}>
                 {saving ? "Revoking…" : "Revoke Invitation"}
               </Button>

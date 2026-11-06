@@ -8,7 +8,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { NetworkIcon, PencilIcon } from "lucide-react";
 
-import { errorMessage } from "@/lib/api";
+import { createApi, errorMessage } from "@/lib/api";
 import { useApi } from "@/lib/target";
 import { configKey } from "@/lib/config-json";
 import { confirmDiscardChanges, useDraftProtection } from "@/lib/draft-protection";
@@ -46,7 +46,9 @@ export function EndpointsPanel({ endpoints }: { endpoints: EndpointsView | undef
       <div className="grid grid-cols-[minmax(0,1fr)] gap-3">
         {groups.map((group) => (
           <ConfigEndpoints
-            key={group.config}
+            key={`${group.host ?? "local"}:${group.config}`}
+            host={group.host}
+            hostName={group.host_name}
             config={group.config}
             entries={group.entries}
             publicHost={endpoints.public_host}
@@ -58,7 +60,7 @@ export function EndpointsPanel({ endpoints }: { endpoints: EndpointsView | undef
         <EndpointDialog
           key={entryKey(editing)}
           endpoint={editing}
-          publicHost={endpoints.public_host}
+          publicHost={editing.host ? undefined : endpoints.public_host}
           onClose={() => setEditing(null)}
         />
       )}
@@ -68,19 +70,24 @@ export function EndpointsPanel({ endpoints }: { endpoints: EndpointsView | undef
 
 /** One configuration's inbounds, each with the address a client would dial. */
 function ConfigEndpoints({
+  host,
+  hostName,
   config,
   entries,
   publicHost,
   onEdit,
 }: {
+  host?: string;
+  hostName?: string;
   config: string;
   entries: EndpointView[];
   publicHost?: string;
   onEdit: (endpoint: EndpointView) => void;
 }) {
-  const api = useApi();
+  const local = useApi();
+  const api = host ? createApi({ id: host, endpoint: null }) : local;
   const document = useQuery({
-    queryKey: configKey(config),
+    queryKey: host ? [...configKey(config), host] : configKey(config),
     queryFn: () => api.singbox.config(config),
   });
 
@@ -88,7 +95,10 @@ function ConfigEndpoints({
     <Card>
       <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2.5">
         <NetworkIcon className="size-4 shrink-0 text-fg-subtle" />
-        <h2 className="min-w-0 truncate font-mono text-[15px] font-semibold text-fg">{config}</h2>
+        <h2 className="min-w-0 truncate font-mono text-[15px] font-semibold text-fg">
+          {host && `${hostName ?? host} / `}
+          {config}
+        </h2>
       </div>
       {document.error && (
         <div className="px-4 py-3">
@@ -190,10 +200,13 @@ function EndpointDialog({
   publicHost?: string;
   onClose: () => void;
 }) {
-  const api = useApi();
+  const local = useApi();
+  const api = endpoint.host ? createApi({ id: endpoint.host, endpoint: null }) : local;
   const queryClient = useQueryClient();
   const document = useQuery({
-    queryKey: configKey(endpoint.config),
+    queryKey: endpoint.host
+      ? [...configKey(endpoint.config), endpoint.host]
+      : configKey(endpoint.config),
     queryFn: () => api.singbox.config(endpoint.config),
   });
   const inherited = document.data ? listenPort(document.data.value, endpoint.inbound) : null;
@@ -293,9 +306,11 @@ function EndpointDialog({
           label="Address"
           hint={
             addressProblem ??
-            (publicHost
-              ? `Empty inherits ${publicHost} from the instance.`
-              : "Empty inherits the instance public-host, which is not set.")
+            (endpoint.host
+              ? "Public address for this Agent inbound."
+              : publicHost
+                ? `Empty inherits ${publicHost} from the instance.`
+                : "Empty inherits the instance public-host, which is not set.")
           }
         >
           <Input

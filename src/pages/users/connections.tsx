@@ -7,6 +7,8 @@ import { selectConnections, type ConnectionFilters, type ConnectionSort } from "
 import { bytes } from "@/lib/format";
 import { OBSERVATION_INTERVAL, observationStatus } from "@/lib/observation";
 import { useApi, useTarget } from "@/lib/target";
+import { ResourceScope } from "@/lib/target-scope";
+import type { Host } from "@/lib/hosts";
 import { useObservationClock } from "@/lib/use-observation";
 import { Button } from "@/ui/button";
 import { Input } from "@/ui/input";
@@ -33,10 +35,38 @@ const choices = (values: (string | null)[], all: string, empty: string) => [
 const parseChoice = (value: string): string | undefined =>
   value ? (JSON.parse(value) as string) : undefined;
 
-export function ConnectionsPanel({ active }: { active: boolean }) {
+export function ConnectionsView({ active }: { active: boolean }) {
+  const target = useTarget();
+  const [host, setHost] = useState<Host | null>(target.host);
+  const choices =
+    host && !target.hosts.some((item) => item.id === host.id)
+      ? [...target.hosts, host]
+      : target.hosts;
+  return (
+    <div hidden={!active} className="grid gap-4">
+      <div className="w-full sm:w-60">
+        <Select
+          aria-label="Host"
+          value={host?.id ?? "local"}
+          options={[
+            { value: "local", label: "Local" },
+            ...choices.map((item) => ({ value: item.id, label: item.name })),
+          ]}
+          onChange={(id) => setHost(choices.find((item) => item.id === id) ?? null)}
+        />
+      </div>
+      {!!target.error && <span className="text-xs text-danger">Host registry unavailable</span>}
+      <ResourceScope key={host ? `${host.id}:${host.endpoint}` : "local"} host={host}>
+        <ConnectionsPanel active={active} host={host} />
+      </ResourceScope>
+    </div>
+  );
+}
+
+export function ConnectionsPanel({ active, host }: { active: boolean; host?: Host | null }) {
   const api = useApi();
-  const { host } = useTarget();
-  const target = host?.id ?? "local";
+  const selected = useTarget();
+  const target = (host === undefined ? selected.host : host)?.id ?? "local";
   const [filters, setFilters] = useState<ConnectionFilters>({ search: "" });
   const [sort, setSort] = useState<ConnectionSort>({
     field: "created_at",

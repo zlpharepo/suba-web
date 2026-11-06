@@ -24,7 +24,7 @@ export function EdgeConnection({
   return (
     <div className="grid gap-2 text-xs text-fg-muted">
       <div className="flex flex-wrap items-center gap-2">
-        <Badge tone={label === "Online" ? "success" : "neutral"}>WSS · {label}</Badge>
+        <Badge tone={label === "Online" ? "success" : "neutral"}>{label}</Badge>
         {!compact && status?.last_seen != null && (
           <span>Last Seen: {new Date(status.last_seen).toLocaleString()}</span>
         )}

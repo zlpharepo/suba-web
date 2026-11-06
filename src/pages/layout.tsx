@@ -10,19 +10,17 @@ import {
   MenuIcon,
   MoonIcon,
   RssIcon,
-  ServerIcon,
   SunIcon,
   UsersIcon,
   XIcon,
 } from "lucide-react";
 
 import { api as localApi, session } from "@/lib/api";
-import { TargetContext, useApi, useTarget } from "@/lib/target";
+import { TargetContext, useTarget } from "@/lib/target";
 import { ResourceScope } from "@/lib/target-scope";
-import type { Host } from "@/lib/hosts";
+import { pageHost, type Host } from "@/lib/hosts";
 import { EDGE_POLL_INTERVAL } from "@/lib/edge";
 import { EdgeConnection } from "@/components/edge-connection";
-import { Select } from "@/ui/select";
 import { cx } from "@/lib/cx";
 import {
   DraftProtection,
@@ -41,15 +39,17 @@ interface NavItem {
 }
 
 function useNav(): NavItem[] {
-  const api = useApi();
+  const { localClient } = useTarget();
   // The route group is absent (404) when this build cannot run a core.
-  const core = useQuery({
-    queryKey: ["singbox"],
-    queryFn: api.singbox.get,
-    retry: false,
-  });
+  const core = useQuery(
+    {
+      queryKey: ["singbox"],
+      queryFn: localApi.singbox.get,
+      retry: false,
+    },
+    localClient,
+  );
   return [
-    { to: "/hosts", label: "Hosts", icon: <ServerIcon /> },
     { to: "/", label: "Overview", icon: <GaugeIcon /> },
     { to: "/providers", label: "Providers", icon: <RssIcon /> },
     { to: "/collections", label: "Collections", icon: <BoxesIcon /> },
@@ -66,7 +66,9 @@ function useNav(): NavItem[] {
 
 export function AppLayout() {
   const localClient = useQueryClient();
-  const [host, select] = useState<Host | null>(null);
+  const [selected, select] = useState<Host | null>(null);
+  const path = useLocation({ select: (location) => location.pathname });
+  const host = pageHost(selected, path);
   const hosts = useQuery({
     queryKey: ["hosts"],
     queryFn: localApi.hosts.list,
@@ -123,7 +125,6 @@ function ApplicationShell() {
 
         <header className="sticky top-0 z-30 flex h-12 items-center justify-between border-b border-border bg-bg-subtle/85 px-3 backdrop-blur lg:hidden">
           <Brand />
-          <TargetSelect compact />
           <BaseDialog.Root open={drawer} onOpenChange={setDrawer}>
             <BaseDialog.Trigger aria-label="Menu" className={buttonClass("ghost", "md", true)}>
               <MenuIcon />
@@ -156,9 +157,16 @@ function ApplicationShell() {
 }
 
 function Brand() {
+  const { select } = useTarget();
+  const confirmDiscard = useConfirmDiscard();
   return (
     <Link
       to="/"
+      ignoreBlocker
+      onClick={(event) => {
+        if (!confirmDiscard()) event.preventDefault();
+        else select(null);
+      }}
       className="flex items-center gap-2 px-1 text-[15px] font-semibold tracking-tight text-fg"
     >
       <span className="grid size-6 place-items-center rounded-md bg-fg text-[11px] font-bold text-bg">
@@ -170,17 +178,19 @@ function Brand() {
 }
 
 function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
-  const api = useApi();
-  const { localClient } = useTarget();
+  const { localClient, select } = useTarget();
   const nav = useNav();
   const navigate = useNavigate();
   const confirmDiscard = useConfirmDiscard();
   const queryClient = useQueryClient();
   const { dark, toggle } = useTheme();
-  const info = useQuery({
-    queryKey: ["system", "info"],
-    queryFn: api.system.info,
-  });
+  const info = useQuery(
+    {
+      queryKey: ["system", "info"],
+      queryFn: localApi.system.info,
+    },
+    localClient,
+  );
 
   const logout = useMutation({
     mutationFn: localApi.auth.logout,
@@ -198,16 +208,21 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
       <div className="flex h-9 items-center px-1">
         <Brand />
       </div>
-      <div className="mt-4">
-        <TargetSelect />
-      </div>
       <nav className="mt-5 grid gap-0.5">
         {nav.map((item) => (
           <Link
             key={item.to}
             to={item.to}
+            ignoreBlocker
             activeOptions={{ exact: item.to === "/" }}
-            onClick={onNavigate}
+            onClick={(event) => {
+              if (!confirmDiscard()) {
+                event.preventDefault();
+                return;
+              }
+              select(null);
+              onNavigate?.();
+            }}
             className="flex h-8 items-center gap-2.5 rounded-md px-2 text-[13px] font-medium text-fg-muted transition-colors hover:bg-bg-muted hover:text-fg [&_svg]:size-4 [&_svg]:opacity-80"
             activeProps={{ className: "bg-bg-emphasis/60 !text-fg" }}
           >
@@ -240,56 +255,46 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
-function TargetSelect({ compact = false }: { compact?: boolean }) {
-  const { host, hosts, error, select } = useTarget();
-  const confirmDiscard = useConfirmDiscard();
-  const choices = host && !hosts.some((item) => item.id === host.id) ? [...hosts, host] : hosts;
-  return (
-    <div className={compact ? "min-w-0 max-w-48" : "grid gap-1"}>
-      {!compact && <span className="px-1 text-xs text-fg-subtle">Operation Target</span>}
-      <Select
-        aria-label="Operation Target"
-        value={host?.id ?? "local"}
-        options={[
-          { value: "local", label: "Local" },
-          ...choices.map((item) => ({
-            value: item.id,
-            label: `${item.name} · ${item.mode === "edge" ? "Edge" : "Direct"}`,
-          })),
-        ]}
-        onChange={(id) => {
-          if (id === (host?.id ?? "local") || !confirmDiscard()) return;
-          const next = id === "local" ? null : choices.find((item) => item.id === id);
-          if (next !== undefined) select(next);
-        }}
-      />
-      {error && !compact ? (
-        <span className="text-xs text-danger">Host registry unavailable</span>
-      ) : null}
-    </div>
-  );
-}
-
 function TargetLabel() {
   const { host, hosts, error, updatedAt } = useTarget();
   const latest = hosts.find((item) => item.id === host?.id);
-  const local = useLocation({ select: (location) => location.pathname === "/hosts" });
+  if (!host) return null;
   return (
-    <div className="mb-4 grid gap-2 break-all text-xs text-fg-muted" role="status">
-      <span>
-        {local
-          ? "Hosts and trust · Local instance"
-          : host
-            ? `Operating: ${host.name} · ${host.mode === "edge" ? "Edge" : "Direct"}${host.endpoint ? ` · ${host.endpoint}` : ""}`
-            : "Operating: Local"}
-      </span>
-      {!local && host?.mode === "edge" && (
-        <EdgeConnection
-          status={latest?.connection}
-          failed={!!error}
-          updatedAt={updatedAt}
-          compact
-        />
+    <div className="mb-5 grid gap-3">
+      <div className="flex min-w-0 flex-wrap items-center gap-2 text-[13px]">
+        <Link to="/hosts" className="text-fg-muted hover:text-fg">
+          Hosts
+        </Link>
+        <span className="text-fg-subtle">/</span>
+        <span className="truncate font-medium">{host.name}</span>
+        {host.mode === "edge" && (
+          <EdgeConnection
+            status={latest?.connection}
+            failed={!!error}
+            updatedAt={updatedAt}
+            compact
+          />
+        )}
+      </div>
+      {host.mode === "direct" && (
+        <nav aria-label="Host resources" className="flex flex-wrap gap-4 text-xs text-fg-muted">
+          {[
+            { to: "/", label: "Overview" },
+            { to: "/providers", label: "Providers" },
+            { to: "/collections", label: "Collections" },
+            { to: "/inbounds", label: "Inbounds" },
+            { to: "/sing-box", label: "sing-box" },
+          ].map((item) => (
+            <Link
+              key={item.to}
+              to={item.to}
+              activeOptions={{ exact: true }}
+              activeProps={{ className: "text-fg" }}
+            >
+              {item.label}
+            </Link>
+          ))}
+        </nav>
       )}
     </div>
   );

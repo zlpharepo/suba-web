@@ -45,6 +45,21 @@ export interface TrustedPeer {
   fingerprint: string;
 }
 
+export function pageHost(host: Host | null, path: string): Host | null {
+  if (path === "/hosts") return null;
+  return host?.mode === "edge" && path !== "/sing-box" ? null : host;
+}
+
+export function agentCommand(invitation: Invitation): string {
+  requireInvitationMode(invitation, "edge");
+  const endpoint = managerEndpoint(invitation.endpoint);
+  const id = hostId(invitation.id);
+  if (!/^[a-f\d]{64}$/i.test(invitation.secret))
+    throw new Error("invitation.secret: expected a pairing token");
+  const quote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`;
+  return `suba --edge-agent --manager-api-url ${quote(`${endpoint}/api`)} --agent-token ${quote(`${id}.${invitation.secret}`)}`;
+}
+
 const UUID = /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i;
 
 export function hostId(value: string): string {

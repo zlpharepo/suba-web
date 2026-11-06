@@ -37,7 +37,7 @@ import { Badge, Card, Dot, Empty, ErrorNote, Skeleton } from "@/ui/misc";
 import { toast } from "@/ui/notify";
 import { EndpointsPanel } from "./endpoints";
 import { UserDialog } from "./user-dialog";
-import { ConnectionsPanel } from "./connections";
+import { ConnectionsView } from "./connections";
 
 type Tab = "users" | "endpoints" | "connections";
 
@@ -160,15 +160,11 @@ export function UsersPage() {
         </>
       ) : tab === "endpoints" ? (
         <>
-          <p className="mb-4 text-[13px] text-fg-muted">
-            The address clients dial for each inbound, shared by every user of it. One without an
-            address of its own inherits the instance public-host.
-          </p>
           {endpoints.isPending && <Skeleton className="h-32" />}
           {endpoints.data && <EndpointsPanel endpoints={endpoints.data} />}
         </>
       ) : null}
-      <ConnectionsPanel active={tab === "connections"} />
+      <ConnectionsView active={tab === "connections"} />
 
       {editingUser !== null && (
         <UserDialog
@@ -228,7 +224,11 @@ function Notice({ users, exports }: { users: UserView[]; exports?: ConfigExports
   const api = useApi();
   const queryClient = useQueryClient();
   const changes = restartChanges(users, exports);
-  const unset = publicHostUnset(exports);
+  const unset =
+    publicHostUnset(exports) &&
+    users.some((user) =>
+      user.grants.some((grant) => !grant.host && grant.reason?.startsWith("public-host:")),
+    );
 
   const restart = useMutation({
     mutationFn: () => api.singbox.act("restart"),
@@ -246,7 +246,7 @@ function Notice({ users, exports }: { users: UserView[]; exports?: ConfigExports
       {changes > 0 && (
         <span className="flex flex-wrap items-center gap-2">
           <Dot tone="warning" />
-          {changes} {changes === 1 ? "change waits" : "changes wait"} for sing-box to restart.
+          {changes} {changes === 1 ? "change waits" : "changes wait"} for this core to restart.
           <Button
             size="sm"
             className="ml-auto"
@@ -356,7 +356,12 @@ function Grants({ grants, inUse }: { grants: GrantView[]; inUse?: string }) {
           >
             <span className="flex min-w-0 items-baseline gap-2">
               <span className="truncate font-mono text-[13px] text-fg">{grant.inbound}</span>
-              {grant.config !== inUse && (
+              {grant.host && (
+                <span className="truncate text-xs text-fg-muted">
+                  {grant.host_name ?? grant.host}
+                </span>
+              )}
+              {(grant.host || grant.config !== inUse) && (
                 <span className="truncate font-mono text-xs text-fg-subtle">in {grant.config}</span>
               )}
             </span>

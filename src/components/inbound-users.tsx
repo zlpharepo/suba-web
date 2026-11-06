@@ -72,6 +72,10 @@ export function InboundUsersPanel({
             <span className="min-w-0 truncate text-xs text-fg-subtle">
               Public host <span className="font-mono text-fg-muted">{exports.public_host}</span>
             </span>
+          ) : exports.host ? (
+            <Link to="/inbounds" className="text-xs text-warning underline underline-offset-2">
+              Set the public address in Endpoints
+            </Link>
           ) : (
             <span className="text-xs text-warning">
               Set a valid public-host in the server configuration.
