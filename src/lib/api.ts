@@ -36,6 +36,7 @@ import type { JsonObject, JsonSchema } from "./schema.ts";
 import { observationQuery } from "./observation.ts";
 import {
   directEndpoint,
+  managerEndpoint,
   hostId,
   requireInvitationMode,
   subscriptionUrl,
@@ -178,12 +179,14 @@ function transport(prefix: string) {
 }
 
 /** Each mounted target owns an immutable transport, including async follow-up writes. */
-export function createApi(host?: Pick<Host, "id" | "endpoint">) {
+export function createApi(host?: Pick<Host, "id" | "endpoint"> & Partial<Pick<Host, "mode">>) {
   const prefix = host ? `/api/hosts/${hostId(host.id)}` : "/api";
   const endpoint = host
     ? host.endpoint === null
       ? null
-      : directEndpoint(host.endpoint)
+      : host.mode === "edge"
+        ? managerEndpoint(host.endpoint)
+        : directEndpoint(host.endpoint)
     : undefined;
   const { json, none, send, tagged, guarded, artifact } = transport(prefix);
   return {

@@ -68,6 +68,14 @@ export function hostId(value: string): string {
 }
 
 export function directEndpoint(value: string): string {
+  return endpoint(value, "direct");
+}
+
+export function managerEndpoint(value: string): string {
+  return endpoint(value, "edge");
+}
+
+function endpoint(value: string, mode: HostMode): string {
   let url: URL;
   try {
     url = new URL(value);
@@ -79,8 +87,15 @@ export function directEndpoint(value: string): string {
     authority !== undefined &&
     (/^127(?:\.(?:0|[1-9]\d{0,2})){3}(?::\d+)?$/.test(authority) ||
       /^\[::1\](?::\d+)?$/.test(authority));
-  if (url.protocol !== "https:" && !(url.protocol === "http:" && literalLoopback)) {
-    throw new Error("endpoint: HTTPS is required except for literal loopback addresses");
+  if (
+    url.protocol !== "https:" &&
+    !(url.protocol === "http:" && (mode === "edge" || literalLoopback))
+  ) {
+    throw new Error(
+      mode === "edge"
+        ? "endpoint: expected HTTP or HTTPS"
+        : "endpoint: HTTPS is required except for literal loopback addresses",
+    );
   }
   if (
     !authority ||
@@ -97,12 +112,6 @@ export function directEndpoint(value: string): string {
     throw new Error("endpoint: credentials, query parameters and fragments are not allowed");
   }
   return url.href.replace(/\/+$/, "");
-}
-
-export function managerEndpoint(value: string): string {
-  const endpoint = directEndpoint(value);
-  if (!endpoint.startsWith("https://")) throw new Error("endpoint: HTTPS is required for Edge");
-  return endpoint;
 }
 
 export function requireInvitationMode(invitation: Invitation, mode: HostMode): Invitation {
