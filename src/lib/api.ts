@@ -37,16 +37,16 @@ import { observationQuery } from "./observation.ts";
 import {
   directEndpoint,
   managerEndpoint,
-  hostId,
+  environmentId,
   requireInvitationMode,
   subscriptionUrl,
   type EdgeView,
-  type HostMode,
-  type Host,
+  type EnvironmentMode,
+  type Environment,
   type Identity,
   type Invitation,
   type TrustedPeer,
-} from "./hosts.ts";
+} from "./environments.ts";
 
 const TOKEN_KEY = "suba.token";
 
@@ -179,8 +179,10 @@ function transport(prefix: string) {
 }
 
 /** Each mounted target owns an immutable transport, including async follow-up writes. */
-export function createApi(host?: Pick<Host, "id" | "endpoint"> & Partial<Pick<Host, "mode">>) {
-  const prefix = host ? `/api/hosts/${hostId(host.id)}` : "/api";
+export function createApi(
+  host?: Pick<Environment, "id" | "endpoint"> & Partial<Pick<Environment, "mode">>,
+) {
+  const prefix = host ? `/api/environments/${environmentId(host.id)}` : "/api";
   const endpoint = host
     ? host.endpoint === null
       ? null
@@ -349,21 +351,21 @@ export const api = {
     logout: () => none("DELETE", "/auth/session"),
   },
 
-  hosts: {
-    list: () => json<Host[]>("GET", "/hosts"),
+  environments: {
+    list: () => json<Environment[]>("GET", "/environments"),
     add: (name: string, invitation: Invitation) =>
-      json<Host>("POST", "/hosts", {
+      json<Environment>("POST", "/environments", {
         name,
         invitation: requireInvitationMode(invitation, "direct"),
       }),
     update: (id: string, name: string, endpoint: string | null) =>
-      json<Host>("PUT", `/hosts/${hostId(id)}`, { name, endpoint }),
-    remove: (id: string) => none("DELETE", `/hosts/${hostId(id)}`),
+      json<Environment>("PUT", `/environments/${environmentId(id)}`, { name, endpoint }),
+    remove: (id: string) => none("DELETE", `/environments/${environmentId(id)}`),
   },
   peers: {
     identity: () => json<Identity>("GET", "/peers/identity"),
     list: () => json<TrustedPeer[]>("GET", "/peers"),
-    invite: (name: string, endpoint: string, mode?: HostMode) =>
+    invite: (name: string, endpoint: string, mode?: EnvironmentMode) =>
       json<Invitation>("POST", "/peers/invitations", { name, endpoint, ...(mode ? { mode } : {}) }),
     edge: {
       get: () => edgeRequest(() => json<EdgeView>("GET", "/peers/edge")),
@@ -375,8 +377,8 @@ export const api = {
         edgeRequest(() => json<EdgeView>("PUT", "/peers/edge", settings)),
       disconnect: () => edgeRequest(() => none("DELETE", "/peers/edge")),
     },
-    revokeInvitation: (id: string) => none("DELETE", `/peers/invitations/${hostId(id)}`),
-    revoke: (id: string) => none("DELETE", `/peers/${hostId(id)}`),
+    revokeInvitation: (id: string) => none("DELETE", `/peers/invitations/${environmentId(id)}`),
+    revoke: (id: string) => none("DELETE", `/peers/${environmentId(id)}`),
   },
 };
 

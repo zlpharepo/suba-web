@@ -1,16 +1,18 @@
 import { createContext, useContext } from "react";
 import { type QueryClient } from "@tanstack/react-query";
 import type { createApi } from "./api";
-import type { Host } from "./hosts";
+import type { Environment } from "./environments";
 
 export const ApiContext = createContext<ReturnType<typeof createApi> | null>(null);
 export const TargetContext = createContext<{
-  host: Host | null;
-  hosts: Host[];
+  host: Environment | null;
+  selected: Environment | null;
+  selectedId: string;
+  environments: Environment[];
   error: unknown;
   updatedAt: number;
   localClient: QueryClient;
-  select: (host: Host | null) => void;
+  select: (host: Environment | null) => void;
 } | null>(null);
 
 export function useApi() {

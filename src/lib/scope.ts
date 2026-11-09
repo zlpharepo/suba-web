@@ -1,6 +1,6 @@
 import { QueryClient } from "@tanstack/react-query";
 import { ApiError, createApi } from "./api.ts";
-import type { Host } from "./hosts.ts";
+import type { Environment } from "./environments.ts";
 
 export function createQueryClient() {
   return new QueryClient({
@@ -15,6 +15,6 @@ export function createQueryClient() {
 }
 
 /** Never reuse a previous target's cache, even when returning to that target. */
-export function createScope(host?: Host) {
+export function createScope(host?: Environment) {
   return { api: createApi(host), client: createQueryClient() };
 }

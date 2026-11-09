@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { edgeFailure, edgeStatusLabel, EDGE_POLL_INTERVAL } from "@/lib/edge";
-import type { EdgeStatus } from "@/lib/hosts";
+import type { EdgeStatus } from "@/lib/environments";
 import { Badge } from "@/ui/misc";
 
 export function EdgeConnection({

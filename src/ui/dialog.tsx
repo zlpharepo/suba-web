@@ -30,6 +30,7 @@ export function Dialog({
   description,
   footer,
   width = "md",
+  drawer = false,
   children,
 }: {
   open: boolean;
@@ -38,13 +39,20 @@ export function Dialog({
   description?: ReactNode;
   footer?: ReactNode;
   width?: keyof typeof widths;
+  drawer?: boolean;
   children: ReactNode;
 }) {
   return (
     <BaseDialog.Root open={open} onOpenChange={onOpenChange}>
       <BaseDialog.Portal>
         <BaseDialog.Backdrop className={backdrop} />
-        <BaseDialog.Popup className={cx(popup, widths[width])}>
+        <BaseDialog.Popup
+          className={
+            drawer
+              ? "fixed inset-y-0 right-0 z-50 flex w-full max-w-lg flex-col border-l border-border bg-bg shadow-dialog outline-none transition-transform duration-200 data-ending-style:translate-x-full data-starting-style:translate-x-full"
+              : cx(popup, widths[width])
+          }
+        >
           <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
             <div className="grid gap-0.5">
               <BaseDialog.Title className="text-[15px] font-semibold text-fg">

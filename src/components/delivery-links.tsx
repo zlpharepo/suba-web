@@ -126,7 +126,8 @@ function TokenRow({
       </span>
       {url === null ? (
         <span className="min-w-0 flex-1 text-xs text-fg-muted">
-          Subscription URL unavailable. Set this Edge host's Public Endpoint in Hosts.
+          Subscription URL unavailable. Edit this Edge environment's Public Endpoint on the home
+          page.
         </span>
       ) : (
         <code className="min-w-0 flex-1 truncate font-mono text-xs text-fg-muted">{url}</code>

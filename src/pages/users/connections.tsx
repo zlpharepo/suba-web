@@ -7,7 +7,7 @@ import { bytes } from "@/lib/format";
 import { OBSERVATION_INTERVAL, observationStatus } from "@/lib/observation";
 import { useApi, useTarget } from "@/lib/target";
 import { ResourceScope } from "@/lib/target-scope";
-import type { Host } from "@/lib/hosts";
+import type { Environment } from "@/lib/environments";
 import { useObservationClock } from "@/lib/use-observation";
 import { Button } from "@/ui/button";
 import { Input } from "@/ui/input";
@@ -35,17 +35,22 @@ const parseChoice = (value: string): string | undefined =>
   value ? (JSON.parse(value) as string) : undefined;
 
 export function ConnectionsView({ active }: { active: boolean }) {
+  const { selectedId } = useTarget();
+  return <EnvironmentConnections key={selectedId} active={active} />;
+}
+
+function EnvironmentConnections({ active }: { active: boolean }) {
   const target = useTarget();
-  const [host, setHost] = useState<Host | null>(target.host);
+  const [host, setHost] = useState<Environment | null>(target.selected);
   const choices =
-    host && !target.hosts.some((item) => item.id === host.id)
-      ? [...target.hosts, host]
-      : target.hosts;
+    host && !target.environments.some((item) => item.id === host.id)
+      ? [...target.environments, host]
+      : target.environments;
   return (
     <div hidden={!active} className="grid gap-4">
       <div className="w-full sm:w-60">
         <Select
-          aria-label="Host"
+          aria-label="Environment"
           value={host?.id ?? "local"}
           options={[
             { value: "local", label: "Local" },
@@ -54,7 +59,9 @@ export function ConnectionsView({ active }: { active: boolean }) {
           onChange={(id) => setHost(choices.find((item) => item.id === id) ?? null)}
         />
       </div>
-      {!!target.error && <span className="text-xs text-danger">Host registry unavailable</span>}
+      {!!target.error && (
+        <span className="text-xs text-danger">Environment registry unavailable</span>
+      )}
       <ResourceScope key={host ? `${host.id}:${host.endpoint}` : "local"} host={host}>
         <ConnectionsPanel active={active} host={host} />
       </ResourceScope>
@@ -62,7 +69,7 @@ export function ConnectionsView({ active }: { active: boolean }) {
   );
 }
 
-export function ConnectionsPanel({ active, host }: { active: boolean; host?: Host | null }) {
+export function ConnectionsPanel({ active, host }: { active: boolean; host?: Environment | null }) {
   const api = useApi();
   const selected = useTarget();
   const target = (host === undefined ? selected.host : host)?.id ?? "local";

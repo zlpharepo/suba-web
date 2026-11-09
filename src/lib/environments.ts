@@ -4,7 +4,7 @@ export interface Identity {
   fingerprint: string;
 }
 
-export type HostMode = "direct" | "edge";
+export type EnvironmentMode = "direct" | "edge";
 
 export interface EdgeStatus {
   state: "disabled" | "connecting" | "online" | "offline" | "unauthorized";
@@ -20,7 +20,7 @@ export interface EdgeView extends EdgeStatus {
 }
 
 export interface Invitation {
-  mode?: HostMode;
+  mode?: EnvironmentMode;
   version: 1;
   id: string;
   endpoint: string;
@@ -29,7 +29,7 @@ export interface Invitation {
   expires_at: number;
 }
 
-export type Host = {
+export type Environment = {
   id: string;
   name: string;
   identity: Identity;
@@ -45,15 +45,15 @@ export interface TrustedPeer {
   fingerprint: string;
 }
 
-export function pageHost(host: Host | null, path: string): Host | null {
-  if (path === "/hosts") return null;
+export function pageEnvironment(host: Environment | null, path: string): Environment | null {
+  if (path === "/") return null;
   return host?.mode === "edge" && path !== "/sing-box" ? null : host;
 }
 
 export function agentCommand(invitation: Invitation): string {
   requireInvitationMode(invitation, "edge");
   const endpoint = managerEndpoint(invitation.endpoint);
-  const id = hostId(invitation.id);
+  const id = environmentId(invitation.id);
   if (!/^[a-f\d]{64}$/i.test(invitation.secret))
     throw new Error("invitation.secret: expected a pairing token");
   const quote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`;
@@ -62,8 +62,8 @@ export function agentCommand(invitation: Invitation): string {
 
 const UUID = /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i;
 
-export function hostId(value: string): string {
-  if (!UUID.test(value)) throw new Error("host.id: expected a UUID");
+export function environmentId(value: string): string {
+  if (!UUID.test(value)) throw new Error("environment.id: expected a UUID");
   return value;
 }
 
@@ -75,7 +75,7 @@ export function managerEndpoint(value: string): string {
   return endpoint(value, "edge");
 }
 
-function endpoint(value: string, mode: HostMode): string {
+function endpoint(value: string, mode: EnvironmentMode): string {
   let url: URL;
   try {
     url = new URL(value);
@@ -114,7 +114,7 @@ function endpoint(value: string, mode: HostMode): string {
   return url.href.replace(/\/+$/, "");
 }
 
-export function requireInvitationMode(invitation: Invitation, mode: HostMode): Invitation {
+export function requireInvitationMode(invitation: Invitation, mode: EnvironmentMode): Invitation {
   if ((invitation.mode ?? "direct") !== mode)
     throw new Error(
       `invitation.mode: expected ${mode === "edge" ? "an Edge" : "a Direct"} invitation`,
@@ -185,4 +185,23 @@ export function parseInvitation(text: string, now = Date.now() / 1000): Invitati
     secret: invitation.secret,
     expires_at: invitation.expires_at!,
   };
+}
+
+const SELECTION_KEY = "suba.environment";
+
+export function readEnvironment(): string {
+  try {
+    const id = localStorage.getItem(SELECTION_KEY);
+    return id && UUID.test(id) ? id : "local";
+  } catch {
+    return "local";
+  }
+}
+
+export function rememberEnvironment(environment: Environment | null): void {
+  try {
+    localStorage.setItem(SELECTION_KEY, environment?.id ?? "local");
+  } catch {
+    // Storage can be unavailable in private browsing. The current selection remains usable.
+  }
 }

@@ -1,4 +1,4 @@
-import type { EdgeStatus } from "./hosts.ts";
+import type { EdgeStatus } from "./environments.ts";
 
 export const EDGE_POLL_INTERVAL = 5000;
 export type ProxyAction = "keep" | "replace" | "remove";

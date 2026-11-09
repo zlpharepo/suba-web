@@ -1,5 +1,5 @@
 import { useCallback, useState, type ReactNode } from "react";
-import { Link, Outlet, useBlocker, useNavigate, useLocation } from "@tanstack/react-router";
+import { Link, Outlet, useBlocker, useNavigate } from "@tanstack/react-router";
 import { useIsMutating, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Dialog as BaseDialog } from "@base-ui/react/dialog";
 import {
@@ -15,12 +15,11 @@ import {
   XIcon,
 } from "lucide-react";
 
-import { api as localApi, session } from "@/lib/api";
+import { ApiError, api as localApi, createApi, session } from "@/lib/api";
 import { TargetContext, useTarget } from "@/lib/target";
-import { ResourceScope } from "@/lib/target-scope";
-import { pageHost, type Host } from "@/lib/hosts";
+import { readEnvironment, rememberEnvironment, type Environment } from "@/lib/environments";
 import { EDGE_POLL_INTERVAL } from "@/lib/edge";
-import { EdgeConnection } from "@/components/edge-connection";
+import { EnvironmentSwitcher } from "@/components/environment-switcher";
 import { cx } from "@/lib/cx";
 import {
   DraftProtection,
@@ -39,21 +38,25 @@ interface NavItem {
 }
 
 function useNav(): NavItem[] {
-  const { localClient } = useTarget();
+  const { localClient, selected } = useTarget();
+  const remote = selected?.mode === "direct" ? selected : null;
   // The route group is absent (404) when this build cannot run a core.
   const core = useQuery(
     {
-      queryKey: ["singbox"],
-      queryFn: localApi.singbox.get,
+      queryKey: ["navigation", remote?.id ?? "local", remote?.endpoint, "singbox"],
+      queryFn: createApi(remote ?? undefined).singbox.get,
       retry: false,
     },
     localClient,
   );
+  const hasCore =
+    core.isSuccess ||
+    (remote !== null && !(core.error instanceof ApiError && core.error.status === 404));
   return [
     { to: "/", label: "Overview", icon: <GaugeIcon /> },
     { to: "/providers", label: "Providers", icon: <RssIcon /> },
     { to: "/collections", label: "Collections", icon: <BoxesIcon /> },
-    ...(core.isSuccess
+    ...(hasCore
       ? [
           // The inbounds and their users are part of the sing-box module, so
           // their routes go with it.
@@ -66,29 +69,32 @@ function useNav(): NavItem[] {
 
 export function AppLayout() {
   const localClient = useQueryClient();
-  const [selected, select] = useState<Host | null>(null);
-  const path = useLocation({ select: (location) => location.pathname });
-  const host = pageHost(selected, path);
-  const hosts = useQuery({
-    queryKey: ["hosts"],
-    queryFn: localApi.hosts.list,
+  const [selectedId, setSelectedId] = useState(readEnvironment);
+  const select = (environment: Environment | null) => {
+    rememberEnvironment(environment);
+    setSelectedId(environment?.id ?? "local");
+  };
+  const environments = useQuery({
+    queryKey: ["environments"],
+    queryFn: localApi.environments.list,
     refetchInterval: EDGE_POLL_INTERVAL,
     retry: false,
   });
+  const selected = environments.data?.find((item) => item.id === selectedId) ?? null;
   return (
     <TargetContext.Provider
       value={{
-        host,
+        host: null,
+        selected,
+        selectedId,
         select,
-        hosts: hosts.data ?? [],
-        error: hosts.error,
-        updatedAt: hosts.dataUpdatedAt,
+        environments: environments.data ?? [],
+        error: environments.error,
+        updatedAt: environments.dataUpdatedAt,
         localClient,
       }}
     >
-      <ResourceScope key={host ? `${host.id}:${host.endpoint}:${host.name}` : "local"} host={host}>
-        <ApplicationShell />
-      </ResourceScope>
+      <ApplicationShell />
     </TargetContext.Provider>
   );
 }
@@ -147,7 +153,6 @@ function ApplicationShell() {
 
         <main className="min-w-0 flex-1 lg:bg-bg">
           <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
-            <TargetLabel />
             <Outlet />
           </div>
         </main>
@@ -157,16 +162,9 @@ function ApplicationShell() {
 }
 
 function Brand() {
-  const { select } = useTarget();
-  const confirmDiscard = useConfirmDiscard();
   return (
     <Link
       to="/"
-      ignoreBlocker
-      onClick={(event) => {
-        if (!confirmDiscard()) event.preventDefault();
-        else select(null);
-      }}
       className="flex items-center gap-2 px-1 text-[15px] font-semibold tracking-tight text-fg"
     >
       <span className="grid size-6 place-items-center rounded-md bg-fg text-[11px] font-bold text-bg">
@@ -178,7 +176,7 @@ function Brand() {
 }
 
 function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
-  const { localClient, select } = useTarget();
+  const { localClient } = useTarget();
   const nav = useNav();
   const navigate = useNavigate();
   const confirmDiscard = useConfirmDiscard();
@@ -208,7 +206,10 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
       <div className="flex h-9 items-center px-1">
         <Brand />
       </div>
-      <nav className="mt-5 grid gap-0.5">
+      <div className="mt-4">
+        <EnvironmentSwitcher onSelect={onNavigate} />
+      </div>
+      <nav className="mt-4 grid gap-0.5">
         {nav.map((item) => (
           <Link
             key={item.to}
@@ -220,7 +221,6 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
                 event.preventDefault();
                 return;
               }
-              select(null);
               onNavigate?.();
             }}
             className="flex h-8 items-center gap-2.5 rounded-md px-2 text-[13px] font-medium text-fg-muted transition-colors hover:bg-bg-muted hover:text-fg [&_svg]:size-4 [&_svg]:opacity-80"
@@ -251,51 +251,6 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           </IconButton>
         </div>
       </div>
-    </div>
-  );
-}
-
-function TargetLabel() {
-  const { host, hosts, error, updatedAt } = useTarget();
-  const latest = hosts.find((item) => item.id === host?.id);
-  if (!host) return null;
-  return (
-    <div className="mb-5 grid gap-3">
-      <div className="flex min-w-0 flex-wrap items-center gap-2 text-[13px]">
-        <Link to="/hosts" className="text-fg-muted hover:text-fg">
-          Hosts
-        </Link>
-        <span className="text-fg-subtle">/</span>
-        <span className="truncate font-medium">{host.name}</span>
-        {host.mode === "edge" && (
-          <EdgeConnection
-            status={latest?.connection}
-            failed={!!error}
-            updatedAt={updatedAt}
-            compact
-          />
-        )}
-      </div>
-      {host.mode === "direct" && (
-        <nav aria-label="Host resources" className="flex flex-wrap gap-4 text-xs text-fg-muted">
-          {[
-            { to: "/", label: "Overview" },
-            { to: "/providers", label: "Providers" },
-            { to: "/collections", label: "Collections" },
-            { to: "/inbounds", label: "Inbounds" },
-            { to: "/sing-box", label: "sing-box" },
-          ].map((item) => (
-            <Link
-              key={item.to}
-              to={item.to}
-              activeOptions={{ exact: true }}
-              activeProps={{ className: "text-fg" }}
-            >
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-      )}
     </div>
   );
 }
