@@ -53,7 +53,7 @@ function useNav(): NavItem[] {
     core.isSuccess ||
     (remote !== null && !(core.error instanceof ApiError && core.error.status === 404));
   return [
-    { to: "/", label: "Overview", icon: <GaugeIcon /> },
+    { to: "/", label: "Dashboard", icon: <GaugeIcon /> },
     { to: "/providers", label: "Providers", icon: <RssIcon /> },
     { to: "/collections", label: "Collections", icon: <BoxesIcon /> },
     ...(hasCore

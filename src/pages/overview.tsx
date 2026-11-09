@@ -50,9 +50,9 @@ function EnvironmentsOverview() {
   });
   return (
     <>
-      <PageHeader title="Environments" actions={<EnvironmentActions />} />
+      <PageHeader title="Dashboard" actions={<EnvironmentActions />} />
       {!!target.error && <ErrorNote error={target.error} />}
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className={cx("grid gap-4", target.environments.length > 0 && "xl:grid-cols-2")}>
         {[null, ...target.environments].map((environment) => (
           <EnvironmentCard
             key={environment?.id ?? "local"}
