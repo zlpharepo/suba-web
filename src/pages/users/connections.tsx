@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowDownIcon, ArrowUpIcon, ArrowUpDownIcon, SearchIcon } from "lucide-react";
 
-import { ObservationState } from "@/components/observation";
 import { selectConnections, type ConnectionFilters, type ConnectionSort } from "@/lib/connections";
 import { bytes } from "@/lib/format";
 import { OBSERVATION_INTERVAL, observationStatus } from "@/lib/observation";
@@ -93,14 +92,19 @@ export function ConnectionsPanel({ active, host }: { active: boolean; host?: Hos
   return (
     <section hidden={!active} aria-label="Connections">
       <div className="grid min-w-0 gap-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <ObservationState data={query.data} failed={query.isError} now={now} />
-          {query.isError && (
-            <Button size="sm" disabled={query.isFetching} onClick={() => void query.refetch()}>
-              Retry
-            </Button>
-          )}
-        </div>
+        {!query.isPending && !state.live && (
+          <div
+            role="status"
+            className="flex flex-wrap items-center justify-between gap-2 text-xs text-fg-muted"
+          >
+            <span>{state.label}</span>
+            {query.isError && (
+              <Button size="sm" disabled={query.isFetching} onClick={() => void query.refetch()}>
+                Retry
+              </Button>
+            )}
+          </div>
+        )}
         <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
           <div className="relative col-span-2 min-w-0 sm:flex-1">
             <SearchIcon className="pointer-events-none absolute top-2 left-2.5 size-4 text-fg-subtle" />

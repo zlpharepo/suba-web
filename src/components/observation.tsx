@@ -1,12 +1,10 @@
-import { InfoIcon } from "lucide-react";
-
 import { bytes, rate } from "@/lib/format";
 import { observationStatus, observedCounters } from "@/lib/observation";
 import type { ObservationFilter, ObservationMetadata } from "@/lib/types";
 import { useObservationMetrics, type MetricsSnapshot } from "@/lib/use-observation";
 import { cx } from "@/lib/cx";
-import { IconButton } from "@/ui/button";
-import { Badge } from "@/ui/misc";
+import { Button } from "@/ui/button";
+import { Badge, Dot } from "@/ui/misc";
 import { Popover } from "@/ui/popover";
 
 export function ObservationState({
@@ -22,44 +20,48 @@ export function ObservationState({
 }) {
   const state = observationStatus(data, failed, now, config);
   return (
-    <div
-      className="flex min-w-0 flex-wrap items-center gap-2 text-xs text-fg-muted"
-      aria-live="polite"
-    >
-      <span className="font-medium">Observation</span>
-      <Badge tone={state.live ? "success" : "neutral"}>{state.label}</Badge>
-      {state.matches && data && (
-        <Popover
-          trigger={
-            <IconButton
-              size="sm"
-              label="Observation Details"
-              className={data.gap ? "text-warning" : undefined}
-            >
-              <InfoIcon />
-            </IconButton>
-          }
-          className="w-80"
+    <Popover
+      openOnHover
+      label="Observation Details"
+      trigger={
+        <Button
+          size="sm"
+          aria-label="Observation Status"
+          aria-description={state.label}
+          className="w-6 rounded-l-none border-l-0 px-0"
         >
-          <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 text-xs [&_dt]:text-fg-subtle [&_dd]:wrap-break-word">
-            {data.config && (
-              <>
-                <dt>Running Config</dt>
-                <dd className="font-mono">{data.config}</dd>
-              </>
-            )}
-            {data.window_started_at !== undefined && (
-              <>
-                <dt>Window Started</dt>
-                <dd>{new Date(data.window_started_at).toLocaleString()}</dd>
-              </>
-            )}
-          </dl>
-          {data.reason && <p className="mt-2 text-xs text-danger">{data.reason}</p>}
-          {data.gap && <p className="mt-2 text-xs text-warning">Observation interrupted</p>}
-        </Popover>
-      )}
-    </div>
+          <Dot
+            tone={
+              failed || data?.gap || (data?.state === "live" && !state.live)
+                ? "warning"
+                : state.live
+                  ? "success"
+                  : "neutral"
+            }
+          />
+        </Button>
+      }
+      className="w-80"
+    >
+      <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 text-xs [&_dt]:text-fg-subtle [&_dd]:wrap-break-word">
+        <dt>Status</dt>
+        <dd aria-live="polite">{state.label}</dd>
+        {data?.config && (
+          <>
+            <dt>Running Config</dt>
+            <dd className="font-mono">{data.config}</dd>
+          </>
+        )}
+        {data?.window_started_at !== undefined && (
+          <>
+            <dt>Window Started</dt>
+            <dd>{new Date(data.window_started_at).toLocaleString()}</dd>
+          </>
+        )}
+      </dl>
+      {data?.reason && <p className="mt-2 text-xs text-danger">{data.reason}</p>}
+      {data?.gap && <p className="mt-2 text-xs text-warning">Observation interrupted</p>}
+    </Popover>
   );
 }
 

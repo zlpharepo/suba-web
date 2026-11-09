@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ActivityIcon, ChevronDownIcon } from "lucide-react";
+import { ActivityIcon } from "lucide-react";
 
 import type { SectionDraftStatus } from "@/components/config-editor";
+import { ObservationState } from "@/components/observation";
 import { ApiError } from "@/lib/api";
 import { useApi } from "@/lib/target";
 import { configKey } from "@/lib/config-json";
@@ -16,6 +17,7 @@ import {
 import { isObject, type JsonObject, type JsonSchema } from "@/lib/schema";
 import type { Versioned } from "@/lib/types";
 import { exportsKey } from "@/lib/users";
+import { useObservationMetrics } from "@/lib/use-observation";
 import { Button } from "@/ui/button";
 import { Dialog } from "@/ui/dialog";
 import { Input } from "@/ui/input";
@@ -33,6 +35,7 @@ export function EnableObservation({
   onResetSection: () => void;
 }) {
   const api = useApi();
+  const observation = useObservationMetrics();
   const document = useQuery({
     queryKey: configKey(name),
     queryFn: () => api.singbox.config(name),
@@ -51,20 +54,23 @@ export function EnableObservation({
   const [saved, setSaved] = useState<string | null>(null);
   return (
     <>
-      <Button
-        size="sm"
-        disabled={section.saving}
-        onClick={() => {
-          if (!confirmDiscardChanges(section)) return;
-          onResetSection();
-          setOpen(true);
-        }}
-      >
-        <ActivityIcon className="text-fg-subtle" />
-        <span className="text-fg-subtle">Observation</span>
-        {configuration ? (configuration.enabled ? "On" : "Off") : "Unknown"}
-        <ChevronDownIcon className="!size-3.5 text-fg-subtle" />
-      </Button>
+      <div role="group" aria-label="Observation" className="inline-flex">
+        <Button
+          size="sm"
+          className="rounded-r-none border-r-0 pr-1.5"
+          disabled={section.saving}
+          onClick={() => {
+            if (!confirmDiscardChanges(section)) return;
+            onResetSection();
+            setOpen(true);
+          }}
+        >
+          <ActivityIcon className="text-fg-subtle" />
+          <span className="text-fg-subtle">Observation</span>
+          {configuration ? (configuration.enabled ? "On" : "Off") : "Unknown"}
+        </Button>
+        <ObservationState {...observation} />
+      </div>
       {saved && <span className="text-xs text-fg-muted">{saved}</span>}
       {open && (
         <LoadSetup

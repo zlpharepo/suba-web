@@ -14,7 +14,7 @@ import {
 import { DeliveryLinks } from "@/components/delivery-links";
 import { ExportActions } from "@/components/export-actions";
 import { CopyButton } from "@/components/shared";
-import { ObservationState, ObservationSummary } from "@/components/observation";
+import { ObservationSummary } from "@/components/observation";
 import { useObservationMetrics, type MetricsSnapshot } from "@/lib/use-observation";
 import { errorMessage } from "@/lib/api";
 import { useApi } from "@/lib/target";
@@ -124,9 +124,6 @@ export function UsersPage() {
 
       {tab === "users" ? (
         <>
-          <div className="mb-4">
-            <ObservationState {...observation} />
-          </div>
           {users.isPending && (
             <div className="grid gap-3">
               <Skeleton className="h-40" />
