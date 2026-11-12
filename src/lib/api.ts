@@ -160,8 +160,8 @@ function transport(prefix: string) {
   }
 
   /** A rendered subscription, with the counts the server reports beside it. */
-  async function artifact(path: string, format?: string): Promise<Artifact> {
-    const query = format ? `?format=${segment(format)}` : "";
+  async function artifact(path: string, target?: string): Promise<Artifact> {
+    const query = target ? `?target=${segment(target)}` : "";
     const response = await send("GET", `${path}${query}`);
     const count = (header: string) => {
       const value = response.headers.get(header);
@@ -169,7 +169,7 @@ function transport(prefix: string) {
     };
     return {
       body: await response.text(),
-      format: response.headers.get("x-suba-format"),
+      target: response.headers.get("x-suba-target"),
       nodes: count("x-suba-nodes"),
       skipped: count("x-suba-skipped"),
     };
@@ -219,8 +219,8 @@ export function createApi(
         json<Collection>("PUT", `/collections/${segment(name)}`, collection),
       remove: (name: string) => none("DELETE", `/collections/${segment(name)}`),
       nodes: (name: string) => json<CollectionNodes>("GET", `/collections/${segment(name)}/nodes`),
-      content: (name: string, format?: string) =>
-        artifact(`/collections/${segment(name)}/content`, format),
+      content: (name: string, target?: string) =>
+        artifact(`/collections/${segment(name)}/content`, target),
       tokens: (name: string) =>
         json<DeliveryToken[]>("GET", `/collections/${segment(name)}/tokens`),
       mintToken: (name: string, label: string) =>
@@ -310,7 +310,7 @@ export function createApi(
           none("PUT", user(name), body),
         remove: (name: string) => none("DELETE", user(name)),
         renewCredentials: (name: string) => none("DELETE", `${user(name)}/credentials`),
-        content: (name: string, format?: string) => artifact(`${user(name)}/content`, format),
+        content: (name: string, target?: string) => artifact(`${user(name)}/content`, target),
         mintToken: (name: string, label: string) =>
           json<DeliveryToken>("PUT", `${user(name)}/tokens/${segment(label)}`),
         revokeToken: (name: string, label: string) =>

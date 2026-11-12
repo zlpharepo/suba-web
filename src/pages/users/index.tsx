@@ -373,7 +373,7 @@ function Grants({ grants, inUse }: { grants: GrantView[]; inUse?: string }) {
   );
 }
 
-const FORMAT_LABELS: Record<string, string> = {
+const TARGET_LABELS: Record<string, string> = {
   links: "Links",
   base64: "Base64",
   "sing-box": "sing-box",
@@ -384,14 +384,14 @@ const FORMAT_LABELS: Record<string, string> = {
 function SubscriptionDialog({ user, onClose }: { user: UserView | null; onClose: () => void }) {
   const api = useApi();
   const info = useQuery({ queryKey: ["system", "info"], queryFn: api.system.info });
-  const [format, setFormat] = useState("links");
+  const [target, setTarget] = useState("links");
   const name = user?.name ?? "";
   const content = useQuery({
-    queryKey: [...usersKey, name, "content", format],
-    queryFn: () => api.inbounds.users.content(name, format),
+    queryKey: [...usersKey, name, "content", target],
+    queryFn: () => api.inbounds.users.content(name, target),
     enabled: user !== null,
   });
-  const formats = info.data?.formats.map((held) => held.name) ?? ["links"];
+  const targets = info.data?.targets.map((held) => held.name) ?? ["links"];
 
   return (
     <Dialog
@@ -403,9 +403,9 @@ function SubscriptionDialog({ user, onClose }: { user: UserView | null; onClose:
       <div className="grid gap-4">
         <div className="flex flex-wrap items-center gap-2">
           <Tabs
-            value={format}
-            onChange={setFormat}
-            options={formats.map((held) => ({ value: held, label: FORMAT_LABELS[held] ?? held }))}
+            value={target}
+            onChange={setTarget}
+            options={targets.map((held) => ({ value: held, label: TARGET_LABELS[held] ?? held }))}
           />
           {content.data && (
             <span className="text-xs text-fg-subtle tabular-nums">

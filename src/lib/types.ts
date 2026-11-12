@@ -124,7 +124,7 @@ export interface DeliveryToken {
 
 export interface Artifact {
   body: string;
-  format: string | null;
+  target: string | null;
   nodes: number | null;
   skipped: number | null;
 }
@@ -134,14 +134,14 @@ export interface SystemStatus {
   administrator_configured: boolean;
 }
 
-export interface FormatView {
+export interface TargetView {
   name: string;
   intents: string[];
   protocols: { support: "everything" } | { support: "only"; kinds: string[] };
 }
 
 export interface SystemInfo extends SystemStatus {
-  formats: FormatView[];
+  targets: TargetView[];
 }
 
 export interface Core {

@@ -327,7 +327,7 @@ function CollectionForm({
   );
 }
 
-const DEFAULT_FORMAT = "base64";
+const DEFAULT_TARGET = "base64";
 
 // Fetched only when opened: the artifact carries every node's credentials.
 function PreviewDialog({ name, onClose }: { name: string | null; onClose: () => void }) {
@@ -336,10 +336,10 @@ function PreviewDialog({ name, onClose }: { name: string | null; onClose: () => 
     queryKey: ["system", "info"],
     queryFn: api.system.info,
   });
-  const [format, setFormat] = useState(DEFAULT_FORMAT);
+  const [target, setTarget] = useState(DEFAULT_TARGET);
   const content = useQuery({
-    queryKey: ["collections", name, "content", format],
-    queryFn: () => api.collections.content(name ?? "", format),
+    queryKey: ["collections", name, "content", target],
+    queryFn: () => api.collections.content(name ?? "", target),
     enabled: name !== null,
   });
   const nodes = useQuery({
@@ -359,12 +359,12 @@ function PreviewDialog({ name, onClose }: { name: string | null; onClose: () => 
         <div className="flex flex-wrap items-center gap-2">
           <div className="w-40">
             <Select
-              aria-label="Format"
-              value={format}
-              onChange={setFormat}
-              options={(info.data?.formats ?? [{ name: DEFAULT_FORMAT }]).map(({ name }) => ({
+              aria-label="Target"
+              value={target}
+              onChange={setTarget}
+              options={(info.data?.targets ?? [{ name: DEFAULT_TARGET }]).map(({ name }) => ({
                 value: name,
-                label: name === DEFAULT_FORMAT ? `${name} (default)` : name,
+                label: name === DEFAULT_TARGET ? `${name} (default)` : name,
               }))}
             />
           </div>

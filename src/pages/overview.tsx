@@ -239,7 +239,7 @@ function EnvironmentCard({
             </span>
             {!environment && (
               <div className="ml-auto">
-                <Formats />
+                <Targets />
               </div>
             )}
           </div>
@@ -338,7 +338,7 @@ function NetworkRate({ down, up }: { down: number | null; up: number | null }) {
   );
 }
 
-function Formats() {
+function Targets() {
   const api = useApi();
   const info = useQuery({
     queryKey: ["system", "info"],
@@ -352,22 +352,22 @@ function Formats() {
       trigger={
         <Button size="sm">
           <Layers3Icon />
-          Formats
+          Targets
           {info.data && (
-            <span className="text-fg-subtle tabular-nums">{info.data.formats.length}</span>
+            <span className="text-fg-subtle tabular-nums">{info.data.targets.length}</span>
           )}
         </Button>
       }
     >
       <div className="grid gap-3">
-        {info.data?.formats.map((format) => (
-          <div key={format.name} className="grid gap-1.5">
-            <span className="font-mono text-[13px] font-medium text-fg">{format.name}</span>
+        {info.data?.targets.map((target) => (
+          <div key={target.name} className="grid gap-1.5">
+            <span className="font-mono text-[13px] font-medium text-fg">{target.name}</span>
             <div className="flex flex-wrap gap-1">
-              {format.protocols.support === "everything" ? (
+              {target.protocols.support === "everything" ? (
                 <Badge>every protocol</Badge>
               ) : (
-                format.protocols.kinds.map((kind) => (
+                target.protocols.kinds.map((kind) => (
                   <Badge key={kind} mono>
                     {kind}
                   </Badge>
