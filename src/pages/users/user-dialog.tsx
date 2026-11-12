@@ -7,7 +7,14 @@ import { useApi } from "@/lib/target";
 import { cx } from "@/lib/cx";
 import { confirmDiscardChanges, useDraftProtection } from "@/lib/draft-protection";
 import type { EndpointsView, InboundEntry, UserView } from "@/lib/types";
-import { chosen, endpointGroups, entryKey, serverChanges, USER_NAME, usersKey } from "@/lib/users";
+import {
+  chosen,
+  entryKey,
+  grantableEndpointGroups,
+  serverChanges,
+  USER_NAME,
+  usersKey,
+} from "@/lib/users";
 import { Button } from "@/ui/button";
 import { Confirm, Dialog } from "@/ui/dialog";
 import { Field, Input } from "@/ui/input";
@@ -96,10 +103,10 @@ export function UserDialog({
     ...known,
     ...chosenCollections.filter((collection) => !known.includes(collection)),
   ];
-  const groups = endpointGroups(endpoints);
-  // A chosen entry the list does not show: a configuration or tag since gone.
+  const groups = grantableEndpointGroups(endpoints);
+  // A saved entry may have disappeared or stopped accepting managed users.
   const listed = (entry: InboundEntry) =>
-    (endpoints?.entries ?? []).some((held) => entryKey(held) === entryKey(entry));
+    groups.some((group) => group.entries.some((held) => entryKey(held) === entryKey(entry)));
   const elsewhere = chosenInbounds.filter((entry) => !listed(entry));
 
   const { servers, removed } = serverChanges(user?.inbounds ?? [], chosenInbounds);
@@ -185,7 +192,7 @@ export function UserDialog({
           {endpoints === undefined ? (
             <Skeleton className="h-20" />
           ) : groups.length === 0 ? (
-            <p className="text-[13px] text-fg-subtle">No configuration has an inbound yet.</p>
+            <p className="text-[13px] text-fg-subtle">No inbound accepts users.</p>
           ) : (
             <div className="grid gap-3 rounded-md border border-border p-3">
               {groups.map((group) => (
@@ -205,34 +212,14 @@ export function UserDialog({
                         inbound: entry.inbound,
                       };
                       const on = chosen(chosenInbounds, held);
-                      // An inbound the server cannot export is not offered;
-                      // one already chosen stays visible so it can be removed.
-                      const refused = entry.reason !== undefined && !on;
                       return (
                         <span key={entryKey(entry)} className="grid min-w-0 gap-0.5">
                           <Checkbox
                             className="min-w-0"
-                            disabled={refused}
                             checked={on}
                             onChange={(next) => pick(held, next)}
-                            label={
-                              <span
-                                className={cx("truncate font-mono", refused && "text-fg-subtle")}
-                              >
-                                {entry.inbound}
-                              </span>
-                            }
+                            label={<span className="truncate font-mono">{entry.inbound}</span>}
                           />
-                          {entry.reason !== undefined && (on || refused) && (
-                            <span
-                              className={cx(
-                                "pl-6 text-xs wrap-break-word",
-                                on ? "text-danger" : "text-fg-subtle",
-                              )}
-                            >
-                              {on ? `Cannot be exported: ${entry.reason}` : entry.reason}
-                            </span>
-                          )}
                         </span>
                       );
                     })}
@@ -249,7 +236,8 @@ export function UserDialog({
               <span className="min-w-0 flex-1 truncate font-mono">
                 {entry.config} › {entry.inbound}
               </span>
-              No such inbound.
+              {(endpoints?.entries ?? []).find((held) => entryKey(held) === entryKey(entry))
+                ?.reason ?? "No such inbound."}
               <Button size="sm" variant="ghost" onClick={() => pick(entry, false)}>
                 Remove
               </Button>

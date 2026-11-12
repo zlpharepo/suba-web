@@ -16,7 +16,7 @@ import type { EndpointView, EndpointsView } from "@/lib/types";
 import {
   addressError,
   effectiveAddress,
-  endpointGroups,
+  grantableEndpointGroups,
   entryKey,
   listenPort,
   parsePort,
@@ -32,7 +32,7 @@ import { toast } from "@/ui/notify";
 
 export function EndpointsPanel({ endpoints }: { endpoints: EndpointsView | undefined }) {
   const [editing, setEditing] = useState<EndpointView | null>(null);
-  const groups = endpointGroups(endpoints);
+  const groups = grantableEndpointGroups(endpoints);
 
   if (!endpoints) return <Skeleton className="h-32" />;
 
@@ -40,7 +40,7 @@ export function EndpointsPanel({ endpoints }: { endpoints: EndpointsView | undef
     <>
       {groups.length === 0 && (
         <Card className="px-4 py-6 text-center text-[13px] text-fg-subtle">
-          No configuration has an inbound yet.
+          No inbound accepts users.
         </Card>
       )}
       <div className="grid grid-cols-[minmax(0,1fr)] gap-3">

@@ -157,6 +157,14 @@ export function endpointGroups(endpoints?: EndpointsView): EndpointGroup[] {
   return groups;
 }
 
+/** Only inbounds that accept managed users need a user choice or public endpoint. */
+export function grantableEndpointGroups(endpoints?: EndpointsView): EndpointGroup[] {
+  return endpointGroups(endpoints).flatMap((group) => {
+    const entries = group.entries.filter((entry) => entry.reason === undefined);
+    return entries.length > 0 ? [{ ...group, entries }] : [];
+  });
+}
+
 export interface EffectiveAddress {
   /** The host and port a client would dial, or null when nothing gives one. */
   host: string | null;

@@ -62,6 +62,15 @@ export function InboundUsersPanel({
       : "";
   };
 
+  // A non-user inbound still has observation, but no user management UI.
+  if (inbound?.refused && inbound.users.length === 0 && !inbound.departing?.length) {
+    return (
+      <div className="border-t border-border pt-4">
+        {!unsaved && inbound.tag && <InboundObservation config={config} inbound={inbound.tag} />}
+      </div>
+    );
+  }
+
   return (
     <div className="grid gap-4 border-t border-border pt-4">
       {!unsaved && inbound?.tag && <InboundObservation config={config} inbound={inbound.tag} />}
@@ -85,52 +94,46 @@ export function InboundUsersPanel({
       {error ? <ErrorNote error={error} /> : !exports && <Skeleton className="h-16" />}
       {exports && !inbound && <p className="text-xs text-fg-subtle">{UNSAVED}</p>}
 
-      {inbound &&
-        (inbound.refused ? (
-          <div className="grid gap-2">
-            <SectionTitle>Managed Users</SectionTitle>
-            <p className="text-xs text-danger">SubA cannot add users to it: {inbound.refused}</p>
+      {inbound && !inbound.refused && (
+        <div className="grid gap-2">
+          <SectionTitle>Managed Users</SectionTitle>
+          <p className="flex items-start gap-1.5 text-xs text-fg-muted">
+            <LockIcon className="mt-px size-3.5 shrink-0" />
+            <span>
+              Added to every inbound the user chose, and written when sing-box starts. Edit them on
+              the{" "}
+              <Link to="/inbounds" className="text-fg underline underline-offset-2">
+                Inbounds page
+              </Link>
+              .
+            </span>
+          </p>
+          <div className="divide-y divide-border rounded-md border border-border">
+            {inbound.managed.map((user) => {
+              const state = stateBadge(user.state);
+              return (
+                <div
+                  key={user.user}
+                  className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-1.5"
+                >
+                  <span className="min-w-0 truncate font-mono text-[13px] text-fg">
+                    {user.user}
+                  </span>
+                  <Badge tone={state.tone}>{state.label}</Badge>
+                  <span className="ml-auto flex min-w-0 items-center">
+                    <ExportActions item={user} unsaved={disabled} />
+                  </span>
+                </div>
+              );
+            })}
+            {inbound.managed.length === 0 && (
+              <p className="px-3 py-3 text-center text-[13px] text-fg-subtle">
+                No user chose this inbound.
+              </p>
+            )}
           </div>
-        ) : (
-          <div className="grid gap-2">
-            <SectionTitle>Managed Users</SectionTitle>
-            <p className="flex items-start gap-1.5 text-xs text-fg-muted">
-              <LockIcon className="mt-px size-3.5 shrink-0" />
-              <span>
-                Added to every inbound the user chose, and written when sing-box starts. Edit them
-                on the{" "}
-                <Link to="/inbounds" className="text-fg underline underline-offset-2">
-                  Inbounds page
-                </Link>
-                .
-              </span>
-            </p>
-            <div className="divide-y divide-border rounded-md border border-border">
-              {inbound.managed.map((user) => {
-                const state = stateBadge(user.state);
-                return (
-                  <div
-                    key={user.user}
-                    className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-1.5"
-                  >
-                    <span className="min-w-0 truncate font-mono text-[13px] text-fg">
-                      {user.user}
-                    </span>
-                    <Badge tone={state.tone}>{state.label}</Badge>
-                    <span className="ml-auto flex min-w-0 items-center">
-                      <ExportActions item={user} unsaved={disabled} />
-                    </span>
-                  </div>
-                );
-              })}
-              {inbound.managed.length === 0 && (
-                <p className="px-3 py-3 text-center text-[13px] text-fg-subtle">
-                  No user chose this inbound.
-                </p>
-              )}
-            </div>
-          </div>
-        ))}
+        </div>
+      )}
 
       {inbound && inbound.users.length > 0 && (
         <div className="grid gap-2">
