@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useIsMutating, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ChevronDownIcon,
   CopyIcon,
   DownloadIcon,
   FileTextIcon,
+  LoaderCircleIcon,
   MoreHorizontalIcon,
   PencilIcon,
   PlayIcon,
@@ -18,12 +19,13 @@ import { ConfigEditor, type SectionDraftStatus } from "@/components/config-edito
 import { FullConfigJson } from "@/components/full-config-json";
 import { EnableObservation } from "@/components/enable-observation";
 import { Generator } from "@/components/generator";
-import { ApiError, errorMessage } from "@/lib/api";
+import { errorMessage } from "@/lib/api";
 import { useApi } from "@/lib/target";
 import { cx } from "@/lib/cx";
 import { useConfirmDiscard, useDraftProtection } from "@/lib/draft-protection";
-import { ago, stripAnsi } from "@/lib/format";
-import type { ConfigView, Core, CoreAction, Privilege, Running, VersionView } from "@/lib/types";
+import { coreActionFailure, useCoreAction } from "@/lib/use-core-action";
+import { ago, bytes, stripAnsi } from "@/lib/format";
+import type { ConfigView, Core, Privilege, Running, VersionView } from "@/lib/types";
 import { Button, IconButton } from "@/ui/button";
 import { buttonClass } from "@/ui/styles";
 import { Confirm, Dialog } from "@/ui/dialog";
@@ -38,12 +40,13 @@ import { toast } from "@/ui/notify";
 export function SingboxPage() {
   const api = useApi();
   const core = useQuery({ queryKey: ["singbox"], queryFn: api.singbox.get });
+  const acting = useIsMutating({ mutationKey: ["singbox", "action"] }) > 0;
   // Polled so a core that dies a moment after it was started is a thing this
   // page can say, rather than a start that looks like it worked.
   const status = useQuery({
     queryKey: ["singbox", "status"],
     queryFn: () => api.singbox.status(),
-    refetchInterval: 3000,
+    refetchInterval: acting ? false : 3000,
   });
   const dead = status.data && !status.data.running ? died(status.data) : null;
 
@@ -64,6 +67,7 @@ export function SingboxPage() {
         }
       />
       {core.error && <ErrorNote error={core.error} />}
+      {status.error && <ErrorNote error={status.error} />}
       {core.data && <ConfigurationWorkspace core={core.data} failure={dead ?? null} />}
       {core.isPending && <Skeleton className="h-96" />}
     </>
@@ -153,66 +157,79 @@ function NoVersion() {
 /* ---------------------------------------------------------------- process */
 
 function Controls({ running, hasVersion }: { running: boolean; hasVersion: boolean }) {
-  const api = useApi();
-  const queryClient = useQueryClient();
   const [log, setLog] = useState(false);
-
-  const act = useMutation({
-    mutationFn: (action: CoreAction) => api.singbox.act(action),
-    onSuccess: (status) => {
-      queryClient.setQueryData(["singbox", "status"], status);
-      void queryClient.invalidateQueries({ queryKey: ["singbox"] });
-    },
-    onError: (error) => {
-      toast.error(errorMessage(error));
-      // The log is where a core's own reason is. A refusal never reached the
-      // core, so it has nothing to put there.
-      if (!(error instanceof ApiError && error.status === 409)) setLog(true);
-    },
-  });
+  const act = useCoreAction();
+  const busy = useIsMutating({ mutationKey: ["singbox", "action"] }) > 0;
+  const pending = act.isPending;
+  const action = act.variables ?? "start";
 
   return (
-    <div className="flex items-center gap-1.5">
-      <span className="mr-1.5 flex items-center gap-2 text-[13px] text-fg-muted">
-        <Dot tone={running ? "success" : "neutral"} live={running} />
-        {running ? "Running" : "Stopped"}
-      </span>
-      {running ? (
-        <>
+    <div className="grid justify-items-end gap-2">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span role="status" className="mr-1.5 flex items-center gap-2 text-[13px] text-fg-muted">
+          <Dot tone={running ? "success" : "neutral"} live={running && !pending} />
+          {pending
+            ? { start: "Starting…", restart: "Restarting…", stop: "Stopping…" }[action]
+            : running
+              ? "Running"
+              : "Stopped"}
+        </span>
+        {running ? (
+          <>
+            <IconButton
+              label={pending && action === "restart" ? "Restarting…" : "Restart"}
+              variant="secondary"
+              aria-busy={pending && action === "restart"}
+              disabled={busy}
+              onClick={() => act.mutate("restart")}
+            >
+              {pending && action === "restart" ? (
+                <LoaderCircleIcon className="animate-spin motion-reduce:animate-none" />
+              ) : (
+                <RotateCwIcon />
+              )}
+            </IconButton>
+            <IconButton
+              label={pending && action === "stop" ? "Stopping…" : "Stop"}
+              variant="secondary"
+              aria-busy={pending && action === "stop"}
+              disabled={busy}
+              onClick={() => act.mutate("stop")}
+            >
+              {pending && action === "stop" ? (
+                <LoaderCircleIcon className="animate-spin motion-reduce:animate-none" />
+              ) : (
+                <SquareIcon />
+              )}
+            </IconButton>
+          </>
+        ) : (
           <IconButton
-            label="Restart"
-            variant="secondary"
-            disabled={act.isPending}
-            onClick={() => act.mutate("restart")}
+            label={pending ? "Starting…" : "Start"}
+            variant="primary"
+            aria-busy={pending}
+            disabled={busy || !hasVersion}
+            onClick={() => act.mutate("start")}
           >
-            <RotateCwIcon
-              className={act.isPending && act.variables === "restart" ? "animate-spin" : undefined}
-            />
+            {pending ? (
+              <LoaderCircleIcon className="animate-spin motion-reduce:animate-none" />
+            ) : (
+              <PlayIcon />
+            )}
           </IconButton>
-          <IconButton
-            label="Stop"
-            variant="secondary"
-            disabled={act.isPending}
-            onClick={() => act.mutate("stop")}
-          >
-            <SquareIcon />
-          </IconButton>
-        </>
-      ) : (
-        <IconButton
-          label="Start"
-          variant="primary"
-          disabled={act.isPending || !hasVersion}
-          onClick={() => act.mutate("start")}
-        >
-          <PlayIcon />
+        )}
+        <IconButton label="Log" variant="secondary" onClick={() => setLog(true)}>
+          <FileTextIcon />
         </IconButton>
+        <Generator iconOnly />
+        <LogDialog open={log} onOpenChange={setLog} />
+      </div>
+      {act.error && (
+        <div role="alert" className="max-w-lg text-right text-xs text-danger">
+          <span className="font-medium">{coreActionFailure(action, act.error)}</span>
+          <span className="ml-1.5">{errorMessage(act.error)}</span>
+        </div>
       )}
-      <IconButton label="Log" variant="secondary" onClick={() => setLog(true)}>
-        <FileTextIcon />
-      </IconButton>
-      <Generator iconOnly />
-      <LogDialog open={log} onOpenChange={setLog} />
     </div>
   );
 }
@@ -323,8 +340,55 @@ function VersionsDialog({
     staleTime: 5 * 60 * 1000,
   });
   const [release, setRelease] = useState<string | null>(null);
+  const [watching, setWatching] = useState<string | null>(null);
+  const observedInstall = useRef<string | null>(null);
   const picked = release ?? releases.data?.stable ?? null;
   const core = useQuery({ queryKey: ["singbox"], queryFn: api.singbox.get });
+  const install = useMutation({
+    mutationFn: (version: string) => api.singbox.install(version),
+    onMutate: async (version) => {
+      observedInstall.current = null;
+      setWatching(null);
+      await queryClient.cancelQueries({ queryKey: ["singbox", "version", version] });
+    },
+    onSuccess: (view) => {
+      observedInstall.current = view.version;
+      queryClient.setQueryData(["singbox", "version", view.version], view);
+      setWatching(view.version);
+    },
+    onError: (error) => toast.error(errorMessage(error)),
+  });
+  const watchedVersion = watching ?? picked;
+  const watched = useQuery({
+    queryKey: ["singbox", "version", watchedVersion],
+    queryFn: () => api.singbox.version(watchedVersion ?? ""),
+    enabled: (query) =>
+      watchedVersion !== null &&
+      !install.isPending &&
+      (open || watching !== null || query.state.data?.installation.status === "downloading"),
+    refetchInterval: (query) =>
+      query.state.data?.installation.status === "downloading" ? 500 : false,
+    retry: false,
+  });
+  const installationState = watched.data?.installation.status;
+  const installationError =
+    watched.data?.installation.status === "failed" ? watched.data.installation.error : null;
+  useEffect(() => {
+    if (!watchedVersion) return;
+    if (installationState === "downloading") {
+      observedInstall.current = watchedVersion;
+      return;
+    }
+    const completed = observedInstall.current === watchedVersion;
+    if (installationState === "installed") {
+      if (completed) toast.success(`Installed sing-box ${watchedVersion}`);
+      void queryClient.invalidateQueries({ queryKey: ["singbox"], exact: true });
+      void queryClient.invalidateQueries({ queryKey: ["singbox", "versions"], exact: true });
+    } else if (installationState === "failed" && completed) {
+      toast.error(`Install Failed · ${installationError}`);
+    }
+    if (completed) observedInstall.current = null;
+  }, [watching, watchedVersion, installationState, installationError, queryClient]);
 
   const invalidate = () => void queryClient.invalidateQueries({ queryKey: ["singbox"] });
 
@@ -339,14 +403,12 @@ function VersionsDialog({
     onSuccess: invalidate,
     onError: (error) => toast.error(errorMessage(error)),
   });
-  const install = useMutation({
-    mutationFn: (version: string) => api.singbox.install(version),
-    onSuccess: invalidate,
-    onError: (error) => toast.error(errorMessage(error)),
-  });
   const uninstall = useMutation({
     mutationFn: (version: string) => api.singbox.uninstall(version),
-    onSuccess: invalidate,
+    onSuccess: (_, version) => {
+      if (version === watching) setWatching(null);
+      invalidate();
+    },
     onError: (error) => toast.error(errorMessage(error)),
   });
 
@@ -355,7 +417,19 @@ function VersionsDialog({
     saving: choose.isPending || install.isPending || uninstall.isPending,
   });
 
-  const installed = new Set(versions.data?.map((item) => item.version));
+  const heldVersions = versions.data ?? [];
+  const rows =
+    watched.data &&
+    installationState !== "not-installed" &&
+    !heldVersions.some((item) => item.version === watched.data.version)
+      ? [...heldVersions, watched.data]
+      : heldVersions;
+  const installed = new Set(
+    heldVersions
+      .filter((item) => item.installation.status === "installed")
+      .map((item) => item.version),
+  );
+  const installing = install.isPending || installationState === "downloading";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange} title="Versions" width="md">
@@ -363,10 +437,10 @@ function VersionsDialog({
         <div className="grid gap-1.5">
           {versions.isPending && <Skeleton className="h-16" />}
           {versions.error && <ErrorNote error={versions.error} />}
-          {versions.data?.length === 0 && (
+          {versions.isSuccess && rows.length === 0 && (
             <p className="text-[13px] text-fg-subtle">Nothing installed yet.</p>
           )}
-          {versions.data?.map((item) => (
+          {rows.map((item) => (
             <VersionRow
               key={item.version}
               item={item}
@@ -379,6 +453,12 @@ function VersionsDialog({
 
         <div className="grid gap-2 border-t border-border pt-4">
           <span className="text-[13px] font-medium text-fg">Install</span>
+          {install.error && (
+            <div role="alert">
+              <ErrorNote error={install.error} />
+            </div>
+          )}
+          {watched.error && <ErrorNote error={watched.error} />}
           {releases.error ? (
             <ErrorNote error={releases.error} />
           ) : (
@@ -388,8 +468,11 @@ function VersionsDialog({
                 aria-label="Release"
                 value={picked}
                 placeholder={releases.isPending ? "Loading…" : "Choose a release"}
-                disabled={!releases.data}
-                onChange={setRelease}
+                disabled={!releases.data || installing}
+                onChange={(version) => {
+                  setRelease(version);
+                  setWatching(null);
+                }}
                 options={(releases.data?.versions ?? []).map((item) => ({
                   value: item.version,
                   label: (
@@ -405,13 +488,16 @@ function VersionsDialog({
               />
               <Button
                 variant="primary"
-                disabled={
-                  !picked || install.isPending || (picked !== null && installed.has(picked))
-                }
+                aria-busy={installing}
+                disabled={!picked || installing || (picked !== null && installed.has(picked))}
                 onClick={() => picked && install.mutate(picked)}
               >
-                <DownloadIcon />
-                Install
+                {installing ? (
+                  <LoaderCircleIcon className="animate-spin motion-reduce:animate-none" />
+                ) : (
+                  <DownloadIcon />
+                )}
+                {installing ? "Installing…" : "Install"}
               </Button>
             </div>
           )}
@@ -437,47 +523,79 @@ function VersionRow({
 
   return (
     <div
+      role="group"
+      aria-label={`sing-box ${item.version}`}
       className={cx(
-        "flex items-center gap-3 rounded-md border px-3 py-2",
+        "grid gap-2 rounded-md border px-3 py-2",
         current ? "border-fg/20 bg-bg-subtle" : "border-border",
       )}
     >
-      <span className="font-mono text-[13px] font-medium text-fg">{item.version}</span>
-      {current && <Badge tone="accent">in use</Badge>}
-      {item.runtime.status === "running" && <Badge tone="success">running</Badge>}
-      <span className="min-w-0 flex-1 truncate text-xs text-fg-subtle">
-        {state.status === "downloading"
-          ? `Downloading${state.progress.percentage === null ? "…" : ` ${state.progress.percentage}%`}`
-          : state.status === "failed"
-            ? state.error
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="font-mono text-[13px] font-medium text-fg">{item.version}</span>
+        {current && <Badge tone="accent">in use</Badge>}
+        {item.runtime.status === "running" && <Badge tone="success">running</Badge>}
+        <span className="min-w-0 flex-1 text-xs text-fg-subtle">
+          {state.status === "downloading"
+            ? "Downloading…"
             : state.status === "installed"
               ? `installed ${ago(state.installed_at)}`
               : ""}
-      </span>
-      {ready && !current && (
-        <Button size="sm" onClick={onUse}>
-          Use
-        </Button>
-      )}
-      {ready && !current && (
-        <Confirm
-          trigger={
-            <IconButton label="Remove" size="sm">
-              <Trash2Icon />
-            </IconButton>
-          }
-          title={`Remove ${item.version}?`}
-          description="Its binary and schema are deleted."
-          confirmLabel="Remove"
-          onConfirm={onRemove}
-        />
+        </span>
+        {ready && !current && (
+          <Button size="sm" onClick={onUse}>
+            Use
+          </Button>
+        )}
+        {ready && !current && (
+          <Confirm
+            trigger={
+              <IconButton label="Remove" size="sm">
+                <Trash2Icon />
+              </IconButton>
+            }
+            title={`Remove ${item.version}?`}
+            description="Its binary and schema are deleted."
+            confirmLabel="Remove"
+            onConfirm={onRemove}
+          />
+        )}
+      </div>
+      {state.status === "failed" && (
+        <p role="alert" className="text-xs text-danger">
+          <span className="font-medium">Install Failed</span> · {state.error}
+        </p>
       )}
       {state.status === "downloading" && (
-        <div className="h-1 w-16 overflow-hidden rounded-full bg-bg-muted">
+        <div className="grid gap-1.5">
+          <div className="flex items-center justify-between gap-3 text-xs text-fg-muted tabular-nums">
+            <span>
+              {bytes(state.progress.downloaded)}
+              {state.progress.total !== null && ` / ${bytes(state.progress.total)}`}
+            </span>
+            {state.progress.percentage !== null && <span>{state.progress.percentage}%</span>}
+          </div>
           <div
-            className="h-full bg-fg transition-[width]"
-            style={{ width: `${state.progress.percentage ?? 30}%` }}
-          />
+            role="progressbar"
+            aria-label={`Download ${item.version}`}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={state.progress.percentage ?? undefined}
+            aria-valuetext={`${bytes(state.progress.downloaded)} downloaded`}
+            className="relative h-1.5 overflow-hidden rounded-full bg-bg-muted"
+          >
+            <div
+              className={cx(
+                "h-full rounded-full bg-fg transition-[width]",
+                state.progress.percentage === null &&
+                  "w-1/3 animate-pulse motion-reduce:animate-none",
+              )}
+              style={
+                state.progress.percentage === null
+                  ? undefined
+                  : { width: `${Math.max(0, Math.min(100, state.progress.percentage))}%` }
+              }
+            />
+          </div>
         </div>
       )}
     </div>

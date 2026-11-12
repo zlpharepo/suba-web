@@ -255,6 +255,8 @@ export function createApi(
           `/cores/sing-box/connections${observationQuery(filter)}`,
         ),
       versions: () => json<VersionView[]>("GET", "/cores/sing-box/versions"),
+      version: (version: string) =>
+        json<VersionView>("GET", `/cores/sing-box/versions/${segment(version)}`),
       install: (version: string) =>
         json<VersionView>("POST", `/cores/sing-box/versions/${segment(version)}`),
       schema: () => json<JsonSchema>("GET", "/cores/sing-box/schema"),

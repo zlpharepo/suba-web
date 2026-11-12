@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   BoxesIcon,
   ActivityIcon,
@@ -16,6 +16,7 @@ import { ExportActions } from "@/components/export-actions";
 import { CopyButton } from "@/components/shared";
 import { ObservationSummary } from "@/components/observation";
 import { useObservationMetrics, type MetricsSnapshot } from "@/lib/use-observation";
+import { coreActionFailure, useCoreAction } from "@/lib/use-core-action";
 import { errorMessage } from "@/lib/api";
 import { useApi } from "@/lib/target";
 import { cx } from "@/lib/cx";
@@ -34,7 +35,6 @@ import { Button, IconButton } from "@/ui/button";
 import { Dialog } from "@/ui/dialog";
 import { PageHeader } from "@/ui/layout";
 import { Badge, Card, Dot, Empty, ErrorNote, Skeleton } from "@/ui/misc";
-import { toast } from "@/ui/notify";
 import { EndpointsPanel } from "./endpoints";
 import { UserDialog } from "./user-dialog";
 import { ConnectionsView } from "./connections";
@@ -218,8 +218,6 @@ function Tabs<T extends string>({
 }
 
 function Notice({ users, exports }: { users: UserView[]; exports?: ConfigExports }) {
-  const api = useApi();
-  const queryClient = useQueryClient();
   const changes = restartChanges(users, exports);
   const unset =
     publicHostUnset(exports) &&
@@ -227,15 +225,7 @@ function Notice({ users, exports }: { users: UserView[]; exports?: ConfigExports
       user.grants.some((grant) => !grant.host && grant.reason?.startsWith("public-host:")),
     );
 
-  const restart = useMutation({
-    mutationFn: () => api.singbox.act("restart"),
-    onSuccess: (status) => {
-      queryClient.setQueryData(["singbox", "status"], status);
-      void queryClient.invalidateQueries({ queryKey: ["singbox"] });
-      toast.success("Restarted sing-box");
-    },
-    onError: (error) => toast.error(errorMessage(error)),
-  });
+  const restart = useCoreAction();
 
   if (changes === 0 && !unset) return null;
   return (
@@ -247,13 +237,21 @@ function Notice({ users, exports }: { users: UserView[]; exports?: ConfigExports
           <Button
             size="sm"
             className="ml-auto"
+            aria-busy={restart.isPending}
             disabled={restart.isPending}
-            onClick={() => restart.mutate()}
+            onClick={() => restart.mutate("restart")}
           >
-            <RotateCwIcon className={restart.isPending ? "animate-spin" : undefined} />
-            Restart
+            <RotateCwIcon
+              className={restart.isPending ? "animate-spin motion-reduce:animate-none" : undefined}
+            />
+            {restart.isPending ? "Restarting…" : "Restart"}
           </Button>
         </span>
+      )}
+      {restart.error && (
+        <div role="alert" className="text-danger">
+          {coreActionFailure("restart", restart.error)} · {errorMessage(restart.error)}
+        </div>
       )}
       {unset && (
         <span className="flex items-center gap-2">
