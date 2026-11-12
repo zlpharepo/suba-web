@@ -41,19 +41,22 @@ export function grantSummary(grants: GrantView[]): { tone: Tone; text: string } 
   if (grants.length === 0) return { tone: "neutral", text: "No servers" };
 
   const parts = [`${grants.length} ${grants.length === 1 ? "server" : "servers"}`];
-  // A grant without a state reaches no inbound that can take users.
+  // A grant without a state cannot use its selected access mode.
   const unavailable = grants.filter((grant) => grant.state === undefined).length;
   const waiting = grants.filter(
     (grant) => grant.state !== undefined && grant.state !== "applied" && grant.state !== "unknown",
   ).length;
   if (unavailable > 0) parts.push(`${unavailable} unavailable`);
   const unknown = grants.filter((grant) => grant.state === "unknown").length;
+  const shared = grants.filter((grant) => grant.mode === "shared").length;
   if (unknown > 0) parts.push(`${unknown} unverified`);
   if (waiting > 0) parts.push(`${waiting} not applied yet`);
+  if (shared > 0) parts.push(`${shared} shared`);
   if (parts.length === 1) parts.push("All applied");
 
   return {
-    tone: unavailable > 0 ? "danger" : waiting > 0 || unknown > 0 ? "warning" : "success",
+    tone:
+      unavailable > 0 ? "danger" : waiting > 0 || unknown > 0 || shared > 0 ? "warning" : "success",
     text: parts.join(" · "),
   };
 }
@@ -88,6 +91,9 @@ export const entryKey = (entry: InboundEntry) =>
     : `${entry.config}/${entry.inbound}`;
 
 const sameEntry = (a: InboundEntry, b: InboundEntry) => entryKey(a) === entryKey(b);
+export const entryMode = (entry: InboundEntry) => entry.mode ?? "managed";
+const sameBinding = (a: InboundEntry, b: InboundEntry) =>
+  sameEntry(a, b) && entryMode(a) === entryMode(b);
 
 export interface Server extends InboundEntry {
   added: boolean;
@@ -109,9 +115,9 @@ export function serverChanges(
   return {
     servers: unique.map((entry) => ({
       ...entry,
-      added: !before.some((held) => sameEntry(held, entry)),
+      added: !before.some((held) => sameBinding(held, entry)),
     })),
-    removed: before.filter((entry) => !after.some((held) => sameEntry(held, entry))),
+    removed: before.filter((entry) => !after.some((held) => sameBinding(held, entry))),
   };
 }
 
@@ -157,10 +163,12 @@ export function endpointGroups(endpoints?: EndpointsView): EndpointGroup[] {
   return groups;
 }
 
-/** Only inbounds that accept managed users need a user choice or public endpoint. */
+/** Inbounds that accept either native users or shared distribution. */
 export function grantableEndpointGroups(endpoints?: EndpointsView): EndpointGroup[] {
   return endpointGroups(endpoints).flatMap((group) => {
-    const entries = group.entries.filter((entry) => entry.reason === undefined);
+    const entries = group.entries.filter((entry) =>
+      entry.modes ? entry.modes.length > 0 : entry.reason === undefined,
+    );
     return entries.length > 0 ? [{ ...group, entries }] : [];
   });
 }

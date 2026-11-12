@@ -331,7 +331,7 @@ function UserCard({
   );
 }
 
-/** The inbounds of a user, each with the node a client reaches it by. */
+/** A user's inbound bindings and the export status of each. */
 function Grants({ grants, inUse }: { grants: GrantView[]; inUse?: string }) {
   if (grants.length === 0) {
     return (
@@ -361,6 +361,7 @@ function Grants({ grants, inUse }: { grants: GrantView[]; inUse?: string }) {
               )}
             </span>
             {state && <Badge tone={state.tone}>{state.label}</Badge>}
+            {grant.mode === "shared" && <Badge tone="warning">Shared access</Badge>}
             <span className="ml-auto flex min-w-0 items-center">
               <ExportActions item={grant} />
             </span>

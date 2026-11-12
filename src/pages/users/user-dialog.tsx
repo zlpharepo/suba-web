@@ -8,8 +8,8 @@ import { cx } from "@/lib/cx";
 import { confirmDiscardChanges, useDraftProtection } from "@/lib/draft-protection";
 import type { EndpointsView, InboundEntry, UserView } from "@/lib/types";
 import {
-  chosen,
   entryKey,
+  entryMode,
   grantableEndpointGroups,
   serverChanges,
   USER_NAME,
@@ -18,6 +18,7 @@ import {
 import { Button } from "@/ui/button";
 import { Confirm, Dialog } from "@/ui/dialog";
 import { Field, Input } from "@/ui/input";
+import { Select } from "@/ui/select";
 import { SectionTitle } from "@/ui/layout";
 import { Badge, ErrorNote, Skeleton } from "@/ui/misc";
 import { toast } from "@/ui/notify";
@@ -28,7 +29,10 @@ const toggle = (list: string[], item: string, on: boolean) =>
 
 const same = (a: string[], b: string[]) => JSON.stringify(a) === JSON.stringify(b);
 const sameEntries = (a: InboundEntry[], b: InboundEntry[]) =>
-  a.length === b.length && a.every((entry, at) => entryKey(entry) === entryKey(b[at]));
+  a.length === b.length &&
+  a.every(
+    (entry, at) => entryKey(entry) === entryKey(b[at]) && entryMode(entry) === entryMode(b[at]),
+  );
 
 export function UserDialog({
   user,
@@ -104,16 +108,32 @@ export function UserDialog({
     ...chosenCollections.filter((collection) => !known.includes(collection)),
   ];
   const groups = grantableEndpointGroups(endpoints);
-  // A saved entry may have disappeared or stopped accepting managed users.
+  const hasShared = chosenInbounds.some((entry) => entryMode(entry) === "shared");
+  const userHasShared = user?.inbounds.some((entry) => entryMode(entry) === "shared") ?? false;
+  // A saved entry may have disappeared or stopped accepting its selected mode.
   const listed = (entry: InboundEntry) =>
-    groups.some((group) => group.entries.some((held) => entryKey(held) === entryKey(entry)));
+    groups.some((group) =>
+      group.entries.some(
+        (held) =>
+          entryKey(held) === entryKey(entry) &&
+          (held.modes ?? ["managed"]).includes(entryMode(entry)),
+      ),
+    );
   const elsewhere = chosenInbounds.filter((entry) => !listed(entry));
 
   const { servers, removed } = serverChanges(user?.inbounds ?? [], chosenInbounds);
 
   const pick = (entry: InboundEntry, on: boolean) =>
     setChosenInbounds((held) =>
-      on ? [...held, entry] : held.filter((present) => entryKey(present) !== entryKey(entry)),
+      on
+        ? [...held.filter((present) => entryKey(present) !== entryKey(entry)), entry]
+        : held.filter((present) => entryKey(present) !== entryKey(entry)),
+    );
+  const setMode = (entry: InboundEntry, mode: "managed" | "shared") =>
+    setChosenInbounds((held) =>
+      held.map((present) =>
+        entryKey(present) === entryKey(entry) ? { ...present, mode } : present,
+      ),
     );
 
   return (
@@ -122,7 +142,7 @@ export function UserDialog({
       onOpenChange={(open) => !open && close()}
       width="lg"
       title={user ? `Edit ${user.name}` : "New User"}
-      description="Start or restart each affected host to apply saved access changes."
+      description="Managed access changes take effect after restart. Shared bindings do not change sing-box authentication."
       footer={
         <>
           {user && (
@@ -135,7 +155,11 @@ export function UserDialog({
                   </Button>
                 }
                 title={`Delete ${user.name}?`}
-                description="Their subscription links stop working at once, and their credentials leave every inbound when sing-box restarts."
+                description={
+                  userHasShared
+                    ? "Their subscription links stop working. Managed credentials leave after restart; shared inbound credentials remain valid for clients that already have them."
+                    : "Their subscription links stop working at once, and their credentials leave every inbound when sing-box restarts."
+                }
                 confirmLabel="Delete"
                 onConfirm={() => remove.mutate(user.name)}
               />
@@ -147,7 +171,11 @@ export function UserDialog({
                   </Button>
                 }
                 title={`New credentials for ${user.name}?`}
-                description="Every inbound gets a new credential for them. Their subscription links stay the same, but each client must refresh after sing-box restarts."
+                description={
+                  userHasShared
+                    ? "Managed credentials change after restart. Shared inbound credentials do not change, so existing clients can keep connecting with them. Subscription links stay the same."
+                    : "Every inbound gets a new credential for them. Their subscription links stay the same, but each client must refresh after sing-box restarts."
+                }
                 confirmLabel="Replace"
                 onConfirm={() => renew.mutate(user.name)}
               />
@@ -174,7 +202,7 @@ export function UserDialog({
               ? "Already taken."
               : malformed
                 ? "1 to 32 letters, digits, '.', '_' or '-'."
-                : "Every server logs it as the native user name, and auth_user route rules match it."
+                : "Managed servers log this name; shared bindings do not identify a client."
           }
         >
           <Input
@@ -192,7 +220,7 @@ export function UserDialog({
           {endpoints === undefined ? (
             <Skeleton className="h-20" />
           ) : groups.length === 0 ? (
-            <p className="text-[13px] text-fg-subtle">No inbound accepts users.</p>
+            <p className="text-[13px] text-fg-subtle">No inbound accepts a binding.</p>
           ) : (
             <div className="grid gap-3 rounded-md border border-border p-3">
               {groups.map((group) => (
@@ -206,20 +234,66 @@ export function UserDialog({
                   </span>
                   <div className="grid grid-cols-[minmax(0,1fr)] gap-1.5 sm:grid-cols-2">
                     {group.entries.map((entry) => {
+                      const existing = chosenInbounds.find(
+                        (held) => entryKey(held) === entryKey(entry),
+                      );
+                      const other = users
+                        .filter((held) => held.name !== user?.name)
+                        .flatMap((held) => held.inbounds)
+                        .find((held) => entryKey(held) === entryKey(entry));
+                      const modes = other
+                        ? (entry.modes ?? ["managed"]).filter((mode) => mode === entryMode(other))
+                        : (entry.modes ?? ["managed"]);
+                      const mode =
+                        existing && modes.includes(entryMode(existing))
+                          ? entryMode(existing)
+                          : (modes[0] ?? "managed");
                       const held = {
                         ...(entry.host ? { host: entry.host } : {}),
                         config: entry.config,
                         inbound: entry.inbound,
+                        mode,
                       };
-                      const on = chosen(chosenInbounds, held);
+                      const on = existing !== undefined && modes.includes(entryMode(existing));
                       return (
                         <span key={entryKey(entry)} className="grid min-w-0 gap-0.5">
                           <Checkbox
                             className="min-w-0"
+                            disabled={modes.length === 0}
                             checked={on}
                             onChange={(next) => pick(held, next)}
                             label={<span className="truncate font-mono">{entry.inbound}</span>}
                           />
+                          {modes.length === 0 && (
+                            <span className="pl-6 text-xs text-warning">
+                              Existing bindings use a different mode.
+                            </span>
+                          )}
+                          {on && modes.length > 1 && (
+                            <Select
+                              aria-label={`${entry.inbound} access mode`}
+                              size="sm"
+                              value={mode}
+                              options={[
+                                { value: "managed", label: "Managed users" },
+                                { value: "shared", label: "Shared access" },
+                              ]}
+                              onChange={(next) => setMode(held, next)}
+                            />
+                          )}
+                          {on && mode === "shared" && modes.length === 1 && (
+                            <span className="pl-6 text-xs text-warning">Shared access</span>
+                          )}
+                          {on && mode === "shared" && entry.shared_warning && (
+                            <span className="pl-6 text-xs text-warning">
+                              {entry.shared_warning}
+                            </span>
+                          )}
+                          {on && mode === "managed" && entry.managed_warning && (
+                            <span className="pl-6 text-xs text-warning">
+                              {entry.managed_warning}
+                            </span>
+                          )}
                         </span>
                       );
                     })}
@@ -227,6 +301,12 @@ export function UserDialog({
                 </div>
               ))}
             </div>
+          )}
+          {hasShared && (
+            <p className="text-xs text-warning">
+              Shared bindings do not add native users. Removing a binding or replacing this user's
+              credentials does not revoke clients that already have the inbound's credentials.
+            </p>
           )}
           {elsewhere.map((entry) => (
             <span
@@ -292,7 +372,7 @@ export function UserDialog({
                 </span>
                 {server.added && (
                   <Badge tone="success" className="ml-auto">
-                    Gets a Credential
+                    {entryMode(server) === "shared" ? "Shares Inbound" : "Gets a Credential"}
                   </Badge>
                 )}
               </span>
@@ -308,7 +388,7 @@ export function UserDialog({
                   {server.config} › {server.inbound}
                 </span>
                 <Badge tone="danger" className="ml-auto">
-                  Loses Access
+                  {entryMode(server) === "shared" ? "Stops Distribution" : "Loses Access"}
                 </Badge>
               </span>
             ))}

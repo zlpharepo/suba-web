@@ -19,8 +19,9 @@ const UNSAVED = "Save to export";
 export function InboundBadges({ inbound }: { inbound?: InboundUsers }) {
   if (!inbound) return null;
   const managed = inbound.managed.length;
+  const shared = inbound.shared?.length ?? 0;
   const conflict = inbound.users.some((user) => user.conflict);
-  if (managed === 0 && !conflict) return null;
+  if (managed === 0 && shared === 0 && !conflict) return null;
 
   return (
     <span className="flex flex-wrap gap-1">
@@ -30,6 +31,7 @@ export function InboundBadges({ inbound }: { inbound?: InboundUsers }) {
           {managed} managed
         </Badge>
       )}
+      {shared > 0 && <Badge tone="warning">{shared} shared</Badge>}
       {conflict && <Badge tone="danger">Name Conflict</Badge>}
     </span>
   );
@@ -62,8 +64,13 @@ export function InboundUsersPanel({
       : "";
   };
 
-  // A non-user inbound still has observation, but no user management UI.
-  if (inbound?.refused && inbound.users.length === 0 && !inbound.departing?.length) {
+  // An inbound with no native or shared users still has observation.
+  if (
+    inbound?.refused &&
+    inbound.users.length === 0 &&
+    !inbound.departing?.length &&
+    !inbound.shared?.length
+  ) {
     return (
       <div className="border-t border-border pt-4">
         {!unsaved && inbound.tag && <InboundObservation config={config} inbound={inbound.tag} />}
@@ -94,7 +101,7 @@ export function InboundUsersPanel({
       {error ? <ErrorNote error={error} /> : !exports && <Skeleton className="h-16" />}
       {exports && !inbound && <p className="text-xs text-fg-subtle">{UNSAVED}</p>}
 
-      {inbound && !inbound.refused && (
+      {inbound && !inbound.refused && (inbound.managed.length > 0 || !inbound.shared?.length) && (
         <div className="grid gap-2">
           <SectionTitle>Managed Users</SectionTitle>
           <p className="flex items-start gap-1.5 text-xs text-fg-muted">
@@ -131,6 +138,31 @@ export function InboundUsersPanel({
                 No user chose this inbound.
               </p>
             )}
+          </div>
+        </div>
+      )}
+
+      {inbound && (inbound.shared?.length ?? 0) > 0 && (
+        <div className="grid gap-2">
+          <SectionTitle>Shared Access</SectionTitle>
+          <p className="text-xs text-warning">
+            Changing the inbound credential affects every client after restart. New Credentials does
+            not change it; removing a binding cannot revoke a saved copy.
+            {entry.type === "shadowtls" && (!entry.version || entry.version === 1) && (
+              <> ShadowTLS v1 has no outer authentication.</>
+            )}
+            {entry.type === "snell" && entry.version === 6 && entry.mode === "unsafe-raw" && (
+              <> Snell v6 unsafe-raw does not authenticate the PSK.</>
+            )}
+          </p>
+          <div className="divide-y divide-border rounded-md border border-border">
+            {inbound.shared?.map((user) => (
+              <div key={user.user} className="flex flex-wrap items-center gap-2 px-3 py-1.5">
+                <span className="min-w-0 truncate font-mono text-[13px] text-fg">{user.user}</span>
+                <Badge tone={stateBadge(user.state).tone}>{stateBadge(user.state).label}</Badge>
+                <span className="ml-auto text-xs text-warning">Subscription export pending</span>
+              </div>
+            ))}
           </div>
         </div>
       )}

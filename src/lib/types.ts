@@ -331,6 +331,8 @@ export interface InboundEntry {
   host?: string;
   config: string;
   inbound: string;
+  /** Omitted in older saved entries, which use managed users. */
+  mode?: "managed" | "shared";
 }
 
 export interface GrantView extends Export {
@@ -338,6 +340,7 @@ export interface GrantView extends Export {
   host_name?: string;
   config: string;
   inbound: string;
+  mode?: "managed" | "shared";
   /** Absent when the entry reaches no inbound that can take users. */
   state?: GrantState;
 }
@@ -362,6 +365,9 @@ export interface EndpointView extends InboundEntry {
   port?: number;
   /** Why this inbound cannot be exported at all, when it cannot. */
   reason?: string;
+  modes?: ("managed" | "shared")[];
+  shared_warning?: string;
+  managed_warning?: string;
 }
 
 /** Every address override, and the instance default they fall back to. */
@@ -374,11 +380,11 @@ export interface EndpointsView {
 /** A user written into the configuration by hand, by its array index. */
 export interface HandWrittenUser extends Export {
   index: number;
-  /** Why the core refuses to start with it beside the pool users. */
+  /** Why the core refuses to start with it beside managed users. */
   conflict?: string;
 }
 
-export interface ManagedUser extends Export {
+export interface BoundUser extends Export {
   user: string;
   state: GrantState;
 }
@@ -387,11 +393,14 @@ export interface InboundUsers {
   /** The inbound's position in the saved document. */
   index: number;
   tag: string | null;
-  /** Why SubA cannot add users to this inbound. */
+  /** Why SubA cannot add managed users to this inbound. */
   refused?: string;
   flow?: string;
   users: HandWrittenUser[];
-  managed: ManagedUser[];
+  managed: BoundUser[];
+  shared?: BoundUser[];
+  /** Why this inbound cannot use shared access. */
+  shared_refused?: string;
   /** Names the running core still serves here that the configuration no longer has. */
   departing?: string[];
 }
