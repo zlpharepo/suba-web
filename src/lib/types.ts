@@ -367,6 +367,7 @@ export interface EndpointView extends InboundEntry {
   reason?: string;
   modes?: ("managed" | "shared")[];
   shared_warning?: string;
+  shared_refused?: string;
   managed_warning?: string;
 }
 

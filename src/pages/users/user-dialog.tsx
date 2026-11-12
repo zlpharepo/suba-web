@@ -255,34 +255,56 @@ export function UserDialog({
                         mode,
                       };
                       const on = existing !== undefined && modes.includes(entryMode(existing));
+                      const hasModeChoice = (entry.modes?.length ?? 0) > 1;
                       return (
                         <span key={entryKey(entry)} className="grid min-w-0 gap-0.5">
-                          <Checkbox
-                            className="min-w-0"
-                            disabled={modes.length === 0}
-                            checked={on}
-                            onChange={(next) => pick(held, next)}
-                            label={<span className="truncate font-mono">{entry.inbound}</span>}
-                          />
-                          {modes.length === 0 && (
+                          {hasModeChoice ? (
+                            <span className="truncate font-mono text-[13px]">{entry.inbound}</span>
+                          ) : (
+                            <Checkbox
+                              className="min-w-0"
+                              disabled={modes.length === 0}
+                              checked={on}
+                              onChange={(next) => pick(held, next)}
+                              label={<span className="truncate font-mono">{entry.inbound}</span>}
+                            />
+                          )}
+                          {hasModeChoice && (
+                            <Select
+                              aria-label={`${entry.inbound} access mode`}
+                              size="sm"
+                              value={on ? mode : "none"}
+                              options={[
+                                { value: "none", label: "No access" },
+                                ...modes.map((value) => ({
+                                  value,
+                                  label: value === "shared" ? "Shared access" : "Managed users",
+                                })),
+                              ]}
+                              onChange={(next) => {
+                                if (next === "none") pick(held, false);
+                                else if (existing) setMode(held, next);
+                                else pick({ ...held, mode: next }, true);
+                              }}
+                            />
+                          )}
+                          {hasModeChoice && modes.length < (entry.modes?.length ?? 0) && (
+                            <span className="text-xs text-fg-muted">
+                              Mode set by other users of this inbound.
+                            </span>
+                          )}
+                          {!hasModeChoice && modes.length === 0 && (
                             <span className="pl-6 text-xs text-warning">
                               Existing bindings use a different mode.
                             </span>
                           )}
-                          {on && modes.length > 1 && (
-                            <Select
-                              aria-label={`${entry.inbound} access mode`}
-                              size="sm"
-                              value={mode}
-                              options={[
-                                { value: "managed", label: "Managed users" },
-                                { value: "shared", label: "Shared access" },
-                              ]}
-                              onChange={(next) => setMode(held, next)}
-                            />
-                          )}
-                          {on && mode === "shared" && modes.length === 1 && (
+                          {!hasModeChoice && modes[0] === "shared" && (
                             <span className="pl-6 text-xs text-warning">Shared access</span>
+                          )}
+                          {entry.shared_refused && (
+                            <span className="pl-6 text-xs text-warning">
+                              Shared access unavailable: {entry.shared_refused}
+                            </span>
                           )}
                           {on && mode === "shared" && entry.shared_warning && (
                             <span className="pl-6 text-xs text-warning">
