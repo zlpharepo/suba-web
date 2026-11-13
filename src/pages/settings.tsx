@@ -57,8 +57,74 @@ export function SettingsPage() {
             )}
           </Card>
         </section>
+        <UpdatesPanel />
       </div>
     </div>
+  );
+}
+
+function UpdatesPanel() {
+  const { localClient } = useTarget();
+  const web = useQuery(
+    { queryKey: ["system", "web"], queryFn: api.web.status, retry: false },
+    localClient,
+  );
+  const system = useQuery(
+    { queryKey: ["system", "info"], queryFn: api.system.info, retry: false },
+    localClient,
+  );
+  const update = useMutation({
+    mutationFn: api.web.install,
+    onSuccess: () => window.location.reload(),
+  });
+  const latest = web.data?.latest_version;
+  const current = web.data?.installed_version;
+  const available =
+    latest && (!current || current.localeCompare(latest, undefined, { numeric: true }) < 0);
+
+  return (
+    <section className="grid gap-3">
+      <h2 className="text-sm font-semibold text-fg">Updates</h2>
+      <Card className="grid gap-5 p-5">
+        <div className="grid gap-2">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-sm font-medium text-fg">Web</span>
+            <span className="font-mono text-xs text-fg-muted">{current ?? "Unknown"}</span>
+          </div>
+          {web.error ? (
+            <ErrorNote error={web.error} />
+          ) : web.isPending ? (
+            <Skeleton className="h-6" />
+          ) : (
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-xs text-fg-muted">
+                {latest ? `Latest ${latest}` : "Release unavailable"}
+              </span>
+              <Button
+                size="sm"
+                onClick={() => update.mutate()}
+                disabled={!available || update.isPending}
+              >
+                {update.isPending ? "Updating…" : "Update Web"}
+              </Button>
+            </div>
+          )}
+          {update.error && <ErrorNote error={update.error} />}
+        </div>
+        <div className="grid gap-2 border-t border-border pt-5">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-sm font-medium text-fg">Server</span>
+            <span className="font-mono text-xs text-fg-muted">
+              {system.data?.version ?? "Unknown"}
+            </span>
+          </div>
+          {system.error && <ErrorNote error={system.error} />}
+          <p className="text-xs text-fg-muted">
+            Pull the new image and recreate the container with the same data volumes.
+          </p>
+        </div>
+      </Card>
+    </section>
   );
 }
 

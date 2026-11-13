@@ -357,6 +357,15 @@ export const api = {
         subscription_prefix,
       }),
   },
+  web: {
+    status: () =>
+      json<{ installed_version: string | null; latest_version: string | null }>(
+        "GET",
+        "/system/web",
+      ),
+    install: () =>
+      json<{ installed_version: string; latest_version: string }>("POST", "/system/web"),
+  },
   auth: {
     login: (username: string, password: string) =>
       json<{ access_token: string }>("POST", "/auth/password", {
