@@ -1,10 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import {
-  useIsMutating,
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useIsMutating, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ChevronDownIcon,
   CopyIcon,
@@ -20,10 +15,7 @@ import {
   Trash2Icon,
 } from "lucide-react";
 
-import {
-  ConfigEditor,
-  type SectionDraftStatus,
-} from "@/components/config-editor";
+import { ConfigEditor, type SectionDraftStatus } from "@/components/config-editor";
 import { FullConfigJson } from "@/components/full-config-json";
 import { EnableObservation } from "@/components/enable-observation";
 import { Generator } from "@/components/generator";
@@ -33,13 +25,7 @@ import { cx } from "@/lib/cx";
 import { useConfirmDiscard, useDraftProtection } from "@/lib/draft-protection";
 import { coreActionFailure, useCoreAction } from "@/lib/use-core-action";
 import { ago, bytes, stripAnsi } from "@/lib/format";
-import type {
-  ConfigView,
-  Core,
-  Privilege,
-  Running,
-  VersionView,
-} from "@/lib/types";
+import type { ConfigView, Core, Privilege, Running, VersionView } from "@/lib/types";
 import { Button, IconButton } from "@/ui/button";
 import { buttonClass } from "@/ui/styles";
 import { Confirm, Dialog } from "@/ui/dialog";
@@ -139,9 +125,7 @@ function ConfigurationWorkspace({ core }: { core: Core }) {
             name={editing}
             version={core.version}
             section={sectionDraft}
-            onResetSection={() =>
-              setSectionRevision((revision) => revision + 1)
-            }
+            onResetSection={() => setSectionRevision((revision) => revision + 1)}
           />
         )}
       </div>
@@ -171,11 +155,8 @@ function died(status: Running): string | null {
   const exit = status.exits.at(-1);
   if (!exit || (exit.code === 0 && exit.signal === null)) return null;
 
-  const how =
-    exit.signal !== null ? `signal ${exit.signal}` : `status ${exit.code}`;
-  const said = [...status.log]
-    .reverse()
-    .find((line) => !line.startsWith("[suba]"));
+  const how = exit.signal !== null ? `signal ${exit.signal}` : `status ${exit.code}`;
+  const said = [...status.log].reverse().find((line) => !line.startsWith("[suba]"));
 
   return `The core exited with ${how}${said ? `: ${stripAnsi(said)}` : ""}`;
 }
@@ -202,18 +183,10 @@ function Controls({
 
   return (
     <div className="flex flex-wrap items-center gap-1.5">
-      <span
-        role="status"
-        className="mr-1.5 flex items-center gap-2 text-[13px] text-fg-muted"
-      >
-        <Dot
-          tone={running ? "success" : "neutral"}
-          live={running && !pending}
-        />
+      <span role="status" className="mr-1.5 flex items-center gap-2 text-[13px] text-fg-muted">
+        <Dot tone={running ? "success" : "neutral"} live={running && !pending} />
         {pending
-          ? { start: "Starting…", restart: "Restarting…", stop: "Stopping…" }[
-              action
-            ]
+          ? { start: "Starting…", restart: "Restarting…", stop: "Stopping…" }[action]
           : running
             ? "Running"
             : "Stopped"}
@@ -368,11 +341,7 @@ function VersionsDialog({
     queryFn: api.singbox.versions,
     enabled: open,
     refetchInterval: (query) =>
-      query.state.data?.some(
-        (item) => item.installation.status === "downloading",
-      )
-        ? 1000
-        : false,
+      query.state.data?.some((item) => item.installation.status === "downloading") ? 1000 : false,
   });
   const releases = useQuery({
     queryKey: ["singbox", "releases"],
@@ -408,18 +377,14 @@ function VersionsDialog({
     enabled: (query) =>
       watchedVersion !== null &&
       !install.isPending &&
-      (open ||
-        watching !== null ||
-        query.state.data?.installation.status === "downloading"),
+      (open || watching !== null || query.state.data?.installation.status === "downloading"),
     refetchInterval: (query) =>
       query.state.data?.installation.status === "downloading" ? 500 : false,
     retry: false,
   });
   const installationState = watched.data?.installation.status;
   const installationError =
-    watched.data?.installation.status === "failed"
-      ? watched.data.installation.error
-      : null;
+    watched.data?.installation.status === "failed" ? watched.data.installation.error : null;
   useEffect(() => {
     if (!watchedVersion) return;
     if (installationState === "downloading") {
@@ -441,16 +406,9 @@ function VersionsDialog({
       toast.error(`Install Failed · ${installationError}`);
     }
     if (completed) observedInstall.current = null;
-  }, [
-    watching,
-    watchedVersion,
-    installationState,
-    installationError,
-    queryClient,
-  ]);
+  }, [watching, watchedVersion, installationState, installationError, queryClient]);
 
-  const invalidate = () =>
-    void queryClient.invalidateQueries({ queryKey: ["singbox"] });
+  const invalidate = () => void queryClient.invalidateQueries({ queryKey: ["singbox"] });
 
   const choose = useMutation({
     mutationFn: (version: string) =>
@@ -527,9 +485,7 @@ function VersionsDialog({
                 className="flex-1 font-mono"
                 aria-label="Release"
                 value={picked}
-                placeholder={
-                  releases.isPending ? "Loading…" : "Choose a release"
-                }
+                placeholder={releases.isPending ? "Loading…" : "Choose a release"}
                 disabled={!releases.data || installing}
                 onChange={(version) => {
                   setRelease(version);
@@ -551,11 +507,7 @@ function VersionsDialog({
               <Button
                 variant="primary"
                 aria-busy={installing}
-                disabled={
-                  !picked ||
-                  installing ||
-                  (picked !== null && installed.has(picked))
-                }
+                disabled={!picked || installing || (picked !== null && installed.has(picked))}
                 onClick={() => picked && install.mutate(picked)}
               >
                 {installing ? (
@@ -597,13 +549,9 @@ function VersionRow({
       )}
     >
       <div className="flex flex-wrap items-center gap-3">
-        <span className="font-mono text-[13px] font-medium text-fg">
-          {item.version}
-        </span>
+        <span className="font-mono text-[13px] font-medium text-fg">{item.version}</span>
         {current && <Badge tone="accent">in use</Badge>}
-        {item.runtime.status === "running" && (
-          <Badge tone="success">running</Badge>
-        )}
+        {item.runtime.status === "running" && <Badge tone="success">running</Badge>}
         <span className="min-w-0 flex-1 text-xs text-fg-subtle">
           {state.status === "downloading"
             ? "Downloading…"
@@ -640,12 +588,9 @@ function VersionRow({
           <div className="flex items-center justify-between gap-3 text-xs text-fg-muted tabular-nums">
             <span>
               {bytes(state.progress.downloaded)}
-              {state.progress.total !== null &&
-                ` / ${bytes(state.progress.total)}`}
+              {state.progress.total !== null && ` / ${bytes(state.progress.total)}`}
             </span>
-            {state.progress.percentage !== null && (
-              <span>{state.progress.percentage}%</span>
-            )}
+            {state.progress.percentage !== null && <span>{state.progress.percentage}%</span>}
           </div>
           <div
             role="progressbar"
@@ -696,11 +641,7 @@ function ConfigChip({
 
   return (
     <>
-      <div
-        role="group"
-        aria-label="Configuration"
-        className="inline-flex items-center"
-      >
+      <div role="group" aria-label="Configuration" className="inline-flex items-center">
         <button
           type="button"
           onClick={() => setOpen(true)}
@@ -729,9 +670,7 @@ function ConfigChip({
 }
 
 /** What the name field is being used for. */
-type ConfigAction =
-  | { mode: "new" }
-  | { mode: "rename" | "duplicate"; from: string };
+type ConfigAction = { mode: "new" } | { mode: "rename" | "duplicate"; from: string };
 
 function ConfigsDialog({
   open,
@@ -791,10 +730,7 @@ function ConfigsDialog({
   // before the old name goes, because the one in use cannot be removed.
   const submit = useMutation({
     mutationFn: async (target: ConfigAction & { name: string }) => {
-      await api.singbox.createConfig(
-        target.name,
-        target.mode === "new" ? undefined : target.from,
-      );
+      await api.singbox.createConfig(target.name, target.mode === "new" ? undefined : target.from);
       if (target.mode === "rename") {
         if (target.from === core.config) {
           const updated = await api.singbox.choose({
@@ -809,8 +745,7 @@ function ConfigsDialog({
       }
     },
     onSuccess: (_, target) => {
-      if (target.mode === "rename" && target.from === editing)
-        onSelect(target.name);
+      if (target.mode === "rename" && target.from === editing) onSelect(target.name);
       setName("");
       setAction({ mode: "new" });
       refresh();
@@ -829,11 +764,7 @@ function ConfigsDialog({
   const held = configs.data ?? [];
   const taken = held.some((config) => config.name === name);
   const label =
-    action.mode === "new"
-      ? "Create"
-      : action.mode === "rename"
-        ? "Rename"
-        : "Duplicate";
+    action.mode === "new" ? "Create" : action.mode === "rename" ? "Rename" : "Duplicate";
 
   return (
     <Dialog
@@ -841,15 +772,14 @@ function ConfigsDialog({
       onOpenChange={onOpenChange}
       width="md"
       title="Configurations"
-      description="Select a name to edit. Use selects the configuration for the next Start or Restart."
+      description="Click a name to edit, or click 'Use' to apply it on the next start/restart."
     >
       <div className="grid gap-4">
         {configs.error && <ErrorNote error={configs.error} />}
         {configs.isPending && <Skeleton className="h-24" />}
         {configs.data && held.length === 0 && (
           <p className="text-[13px] text-fg-subtle">
-            No configuration has been written yet. Saving any section of this
-            one makes it.
+            No configuration has been written yet. Saving any section of this one makes it.
           </p>
         )}
         <div className="grid gap-1.5">
@@ -865,12 +795,10 @@ function ConfigsDialog({
                 onOpenChange(false);
               }}
               onUse={() => {
-                if (config.name === editing || confirmDiscard())
-                  use.mutate(config.name);
+                if (config.name === editing || confirmDiscard()) use.mutate(config.name);
               }}
               onRemove={() => {
-                if (config.name !== editing || confirmDiscard())
-                  remove.mutate(config.name);
+                if (config.name !== editing || confirmDiscard()) remove.mutate(config.name);
               }}
               onRename={() => {
                 setAction({ mode: "rename", from: config.name });
@@ -901,15 +829,9 @@ function ConfigsDialog({
             />
             <Button
               variant="primary"
-              disabled={
-                !name || submit.isPending || (action.mode !== "rename" && taken)
-              }
+              disabled={!name || submit.isPending || (action.mode !== "rename" && taken)}
               onClick={() => {
-                if (
-                  action.mode !== "rename" ||
-                  action.from !== editing ||
-                  confirmDiscard()
-                ) {
+                if (action.mode !== "rename" || action.from !== editing || confirmDiscard()) {
                   submit.mutate({ ...action, name });
                 }
               }}
@@ -1104,9 +1026,9 @@ function PrivilegesChip({ core }: { core: Core }) {
           label="Run Core as Root"
         />
         <p className="text-xs leading-relaxed text-fg-subtle">
-          Root or administrator privileges are required to enable TUN mode (or
-          TProxy/Redirect on Linux). SubA must be started with the{" "}
-          <code>--run-as-root</code> flag; otherwise, startup will be rejected.
+          Root or administrator privileges are required to enable TUN mode (or TProxy/Redirect on
+          Linux). SubA must be started with the <code>--run-as-root</code> flag; otherwise, startup
+          will be rejected.
         </p>
       </div>
     </Popover>
