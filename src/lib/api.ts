@@ -373,6 +373,7 @@ export const api = {
         password,
       }),
     logout: () => none("DELETE", "/auth/session"),
+    logoutOthers: () => none("DELETE", "/auth/sessions/others"),
   },
 
   environments: {

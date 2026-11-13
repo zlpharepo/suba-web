@@ -1,12 +1,11 @@
 import { useCallback, useState, type ReactNode } from "react";
 import { Link, Outlet, useBlocker, useNavigate } from "@tanstack/react-router";
-import { useIsMutating, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useIsMutating, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Dialog as BaseDialog } from "@base-ui/react/dialog";
 import {
   CpuIcon,
   Layers3Icon,
   LayoutDashboardIcon,
-  LogOutIcon,
   MenuIcon,
   MoonIcon,
   NetworkIcon,
@@ -16,7 +15,7 @@ import {
   XIcon,
 } from "lucide-react";
 
-import { ApiError, api as localApi, createApi, session } from "@/lib/api";
+import { ApiError, api as localApi, createApi } from "@/lib/api";
 import { TargetContext, useTarget } from "@/lib/target";
 import { readEnvironment, rememberEnvironment, type Environment } from "@/lib/environments";
 import { EDGE_POLL_INTERVAL } from "@/lib/edge";
@@ -181,7 +180,6 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const nav = useNav();
   const navigate = useNavigate();
   const confirmDiscard = useConfirmDiscard();
-  const queryClient = useQueryClient();
   const { dark, toggle } = useTheme();
   const info = useQuery(
     {
@@ -190,17 +188,6 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
     },
     localClient,
   );
-
-  const logout = useMutation({
-    mutationFn: localApi.auth.logout,
-    onSettled: () => {
-      session.clear();
-      queryClient.clear();
-      localClient.clear();
-      // Discard was confirmed before the session and query data were cleared.
-      void navigate({ to: "/login", ignoreBlocker: true });
-    },
-  });
 
   return (
     <div className="flex h-full flex-col p-3">
@@ -251,16 +238,6 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
             }}
           >
             <SettingsIcon />
-          </IconButton>
-          <IconButton
-            label="Sign Out"
-            size="sm"
-            onClick={() => {
-              if (confirmDiscard()) logout.mutate();
-            }}
-            disabled={logout.isPending}
-          >
-            <LogOutIcon />
           </IconButton>
         </div>
       </div>

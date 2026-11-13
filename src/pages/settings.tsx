@@ -3,7 +3,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api, session } from "@/lib/api";
-import { useDraftProtection } from "@/lib/draft-protection";
+import { useConfirmDiscard, useDraftProtection } from "@/lib/draft-protection";
 import { useTarget } from "@/lib/target";
 import { Button } from "@/ui/button";
 import { Field, Input } from "@/ui/input";
@@ -58,8 +58,62 @@ export function SettingsPage() {
           </Card>
         </section>
         <UpdatesPanel />
+        <SessionActions />
       </div>
     </div>
+  );
+}
+
+function SessionActions() {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { localClient } = useTarget();
+  const confirmDiscard = useConfirmDiscard();
+  const [othersSignedOut, setOthersSignedOut] = useState(false);
+  const others = useMutation({
+    mutationFn: api.auth.logoutOthers,
+    onSuccess: () => setOthersSignedOut(true),
+  });
+  const logout = useMutation({
+    mutationFn: api.auth.logout,
+    onSettled: () => {
+      session.clear();
+      queryClient.clear();
+      localClient.clear();
+      void navigate({ to: "/login", ignoreBlocker: true });
+    },
+  });
+
+  return (
+    <section className="grid gap-3">
+      <h2 className="text-sm font-semibold text-fg">Sessions</h2>
+      <Card className="grid gap-3 p-5">
+        <div className="flex flex-wrap gap-2">
+          <Button
+            onClick={() => {
+              setOthersSignedOut(false);
+              others.mutate();
+            }}
+            disabled={others.isPending || logout.isPending}
+          >
+            {others.isPending
+              ? "Signing Out…"
+              : othersSignedOut
+                ? "Other Sessions Signed Out"
+                : "Sign Out Other Sessions"}
+          </Button>
+          <Button
+            onClick={() => {
+              if (confirmDiscard()) logout.mutate();
+            }}
+            disabled={others.isPending || logout.isPending}
+          >
+            {logout.isPending ? "Signing Out…" : "Sign Out"}
+          </Button>
+        </div>
+        {others.error && <ErrorNote error={others.error} />}
+      </Card>
+    </section>
   );
 }
 
