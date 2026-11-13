@@ -16,6 +16,7 @@ import {
   type JsonSchema,
   type SchemaTree,
 } from "./schema";
+import type { TFunction } from "i18next";
 
 /** A group of fields a form keeps behind one button. */
 export type Hide = "dial" | "listen" | "all";
@@ -140,14 +141,18 @@ function isObjectType(tree: SchemaTree, item: JsonSchema | undefined): boolean {
 }
 
 /** One line that says where an entry listens, dials or points. */
-export function summarize(entry: JsonObject): string {
+export function summarize(entry: JsonObject, t: TFunction): string {
   if (typeof entry.listen_port === "number")
     return `${valueText(entry.listen ?? "::")}:${entry.listen_port}`;
   if (typeof entry.server === "string")
     return entry.server_port ? `${entry.server}:${valueText(entry.server_port)}` : entry.server;
   if (typeof entry.url === "string") return entry.url;
   if (typeof entry.path === "string") return entry.path;
-  if (Array.isArray(entry.outbounds)) return `${entry.outbounds.length} outbounds`;
-  if (Array.isArray(entry.rules)) return `${entry.rules.length} rules`;
+  if (Array.isArray(entry.outbounds)) {
+    return t("configEntry.outboundCount", { count: entry.outbounds.length });
+  }
+  if (Array.isArray(entry.rules)) {
+    return t("configEntry.ruleCount", { count: entry.rules.length });
+  }
   return "";
 }

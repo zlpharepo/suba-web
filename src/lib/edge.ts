@@ -8,7 +8,7 @@ export function explicitProxy(value: string): string {
   try {
     url = new URL(value);
   } catch {
-    throw new Error("proxy: expected an absolute HTTP or HTTPS URL");
+    throw new Error("errors.proxyUrl");
   }
   if (
     !/^https?:\/\/[^/]+\/?$/.test(value) ||
@@ -19,7 +19,7 @@ export function explicitProxy(value: string): string {
       (character) => character.charCodeAt(0) <= 32 || character.charCodeAt(0) === 127,
     )
   ) {
-    throw new Error("proxy: expected HTTP or HTTPS without a path, query or fragment");
+    throw new Error("errors.proxyShape");
   }
   return value;
 }
@@ -42,34 +42,42 @@ export function proxyDisplay(value?: string): string | undefined {
   }
 }
 
-export function edgeStatusLabel(
+export type EdgeStatusKey =
+  | "environments.statusUnavailable"
+  | "environments.statusStale"
+  | "environments.disabled"
+  | "environments.connecting"
+  | "environments.online"
+  | "environments.offline"
+  | "environments.unauthorized";
+
+export function edgeStatusKey(
   status: EdgeStatus | undefined,
   failed: boolean,
   updatedAt: number,
   now = Date.now(),
-): string {
-  if (failed || !status) return "Status Unavailable";
-  if (now - updatedAt > 15000) return "Status Stale";
+): EdgeStatusKey {
+  if (failed || !status) return "environments.statusUnavailable";
+  if (now - updatedAt > 15000) return "environments.statusStale";
   if (
     status.state === "online" &&
     (!status.last_seen || now - status.last_seen > 45000 || status.last_seen > now + 1000)
   )
-    return "Status Stale";
-  return (
-    {
-      disabled: "Disabled",
-      connecting: "Connecting",
-      online: "Online",
-      offline: "Offline",
-      unauthorized: "Unauthorized",
-    }[status.state] ?? "Status Unavailable"
-  );
+    return "environments.statusStale";
+  const keys: Record<EdgeStatus["state"], EdgeStatusKey> = {
+    disabled: "environments.disabled",
+    connecting: "environments.connecting",
+    online: "environments.online",
+    offline: "environments.offline",
+    unauthorized: "environments.unauthorized",
+  };
+  return keys[status.state];
 }
 
-export function edgeFailure(state: EdgeStatus["state"]): string | undefined {
-  if (state === "unauthorized")
-    return "Manager authorization failed. Check the pinned identity and incoming access on the manager.";
-  if (state === "offline")
-    return "Connection unavailable. Check the manager endpoint, explicit proxy and network.";
+export function edgeFailure(
+  state: EdgeStatus["state"],
+): "environments.authorizationFailed" | "environments.connectionUnavailable" | undefined {
+  if (state === "unauthorized") return "environments.authorizationFailed";
+  if (state === "offline") return "environments.connectionUnavailable";
   return undefined;
 }

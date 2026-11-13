@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { useTranslation } from "react-i18next";
 import { useMutation } from "@tanstack/react-query";
 import {
   DownloadIcon,
@@ -34,6 +35,7 @@ export function DeliveryLinks({
   revoke: (label: string) => Promise<unknown>;
   onChange: () => void;
 }) {
+  const { t } = useTranslation();
   const [adding, setAdding] = useState(false);
   const [label, setLabel] = useState("");
 
@@ -66,7 +68,7 @@ export function DeliveryLinks({
   return (
     <section className="border-t border-border">
       <h3 className="px-4 pt-3 pb-1 text-2xs font-semibold tracking-wide text-fg-subtle uppercase">
-        Links
+        {t("delivery.links")}
       </h3>
       {links.map((link) => (
         <TokenRow
@@ -80,19 +82,19 @@ export function DeliveryLinks({
         <form className="flex items-center gap-2 px-4 py-2.5" onSubmit={submit}>
           <Input
             autoFocus
-            placeholder="Name, e.g. phone"
+            placeholder={t("delivery.nameExample")}
             value={label}
             onChange={(event) => setLabel(event.target.value)}
             pattern="[A-Za-z0-9._\-]{1,64}"
-            title="1-64 letters, digits, dot, underscore or dash"
+            title={t("delivery.nameRules")}
             required
             className="h-7 max-w-56"
           />
           <Button size="sm" variant="primary" type="submit" disabled={minting.isPending}>
-            Add
+            {t("providers.add")}
           </Button>
           <Button size="sm" variant="ghost" onClick={() => setAdding(false)}>
-            Cancel
+            {t("common.cancel")}
           </Button>
         </form>
       ) : (
@@ -102,7 +104,7 @@ export function DeliveryLinks({
           className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-[13px] text-fg-muted transition-colors hover:bg-bg-subtle hover:text-fg"
         >
           <KeyRoundIcon className="size-3.5" />
-          {links.length === 0 ? "Add Link" : "Add Another Link"}
+          {links.length === 0 ? t("delivery.addLink") : t("delivery.addAnother")}
         </button>
       )}
     </section>
@@ -118,6 +120,7 @@ function TokenRow({
   onRotate: () => void;
   onRevoke: () => void;
 }) {
+  const { t } = useTranslation();
   const api = useApi();
   const url = api.subscriptionUrl(link.path, window.location.origin);
   const [confirm, setConfirm] = useState<"rotate" | "revoke" | null>(null);
@@ -128,23 +131,20 @@ function TokenRow({
         {link.name}
       </span>
       {url === null ? (
-        <span className="min-w-0 flex-1 text-xs text-fg-muted">
-          Subscription URL unavailable. Edit this Edge environment's Public Endpoint on the home
-          page.
-        </span>
+        <span className="min-w-0 flex-1 text-xs text-fg-muted">{t("delivery.urlUnavailable")}</span>
       ) : (
         <code className="min-w-0 flex-1 truncate font-mono text-xs text-fg-muted">{url}</code>
       )}
       <div className="flex shrink-0 items-center">
         {url !== null && (
           <>
-            <CopyButton text={url} label="Copy Link" />
+            <CopyButton text={url} label={t("delivery.copyLink")} />
             <a
               href={url}
               target="_blank"
               rel="noopener noreferrer"
-              aria-label="Open"
-              title="Open"
+              aria-label={t("delivery.open")}
+              title={t("delivery.open")}
               className={buttonClass("ghost", "sm", true)}
             >
               <ExternalLinkIcon />
@@ -153,13 +153,17 @@ function TokenRow({
         )}
         <Menu
           trigger={
-            <button type="button" aria-label="More" className={buttonClass("ghost", "sm", true)}>
+            <button
+              type="button"
+              aria-label={t("delivery.more")}
+              className={buttonClass("ghost", "sm", true)}
+            >
               <MoreHorizontalIcon />
             </button>
           }
           items={[
             {
-              label: "Download",
+              label: t("delivery.download"),
               icon: <DownloadIcon />,
               disabled: url === null,
               onSelect: () => {
@@ -167,13 +171,13 @@ function TokenRow({
               },
             },
             {
-              label: "Rotate",
+              label: t("delivery.rotate"),
               icon: <RotateCwIcon />,
               onSelect: () => setConfirm("rotate"),
             },
             "separator",
             {
-              label: "Revoke",
+              label: t("delivery.revoke"),
               icon: <Trash2Icon />,
               danger: true,
               onSelect: () => setConfirm("revoke"),
@@ -185,10 +189,14 @@ function TokenRow({
         open={confirm !== null}
         onOpenChange={(open) => !open && setConfirm(null)}
         width="sm"
-        title={confirm === "rotate" ? `Rotate ${link.name}?` : `Revoke ${link.name}?`}
+        title={
+          confirm === "rotate"
+            ? t("delivery.rotateLink", { name: link.name })
+            : t("delivery.revokeLink", { name: link.name })
+        }
         footer={
           <>
-            <Button onClick={() => setConfirm(null)}>Cancel</Button>
+            <Button onClick={() => setConfirm(null)}>{t("common.cancel")}</Button>
             <Button
               variant="danger"
               onClick={() => {
@@ -197,15 +205,13 @@ function TokenRow({
                 setConfirm(null);
               }}
             >
-              {confirm === "rotate" ? "Rotate" : "Revoke"}
+              {confirm === "rotate" ? t("delivery.rotate") : t("delivery.revoke")}
             </Button>
           </>
         }
       >
         <p className="text-[13px] text-fg-muted">
-          {confirm === "rotate"
-            ? "This link stops working and a new one replaces it."
-            : "This link stops working."}
+          {confirm === "rotate" ? t("delivery.rotateImpact") : t("delivery.revokeImpact")}
         </p>
       </Dialog>
     </div>

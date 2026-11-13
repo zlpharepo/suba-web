@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowDownIcon,
@@ -16,7 +17,7 @@ import { LocalRegistry } from "@/lib/target-scope";
 import { useApi, useTarget } from "@/lib/target";
 import { useConfirmDiscard } from "@/lib/draft-protection";
 import { cx } from "@/lib/cx";
-import { bytes, rate } from "@/lib/format";
+import { bytes, dateTime, rate } from "@/lib/format";
 import { EnvironmentActions, EnvironmentDialog } from "@/components/environment-actions";
 import { EdgeConnection } from "@/components/edge-connection";
 import { Button, IconButton } from "@/ui/button";
@@ -34,6 +35,7 @@ export function OverviewPage() {
 }
 
 function EnvironmentsOverview() {
+  const { t } = useTranslation();
   const target = useTarget();
   const client = useQueryClient();
   const [editing, setEditing] = useState<Environment | null>(null);
@@ -50,7 +52,7 @@ function EnvironmentsOverview() {
   });
   return (
     <>
-      <PageHeader title="Dashboard" actions={<EnvironmentActions />} />
+      <PageHeader title={t("common.dashboard")} actions={<EnvironmentActions />} />
       {!!target.error && <ErrorNote error={target.error} />}
       <div className={cx("grid gap-4", target.environments.length > 0 && "xl:grid-cols-2")}>
         {[null, ...target.environments].map((environment) => (
@@ -70,26 +72,26 @@ function EnvironmentsOverview() {
       {deleting && (
         <Dialog
           open
-          title={`Delete ${deleting.name}?`}
+          title={t("overview.deleteEnvironment", { name: deleting.name })}
           onOpenChange={(open) => !open && !remove.isPending && setDeleting(null)}
         >
           <div className="grid gap-4">
             <p className="text-[13px] text-fg-muted">
               {deleting.mode === "edge"
-                ? "Closes the Agent connection and revokes its trust on this Manager. Its running core and last successful runtime copy remain on the Agent."
-                : "Removes this connection. Revoke this instance in the remote environment's Direct Access settings to withdraw its access."}
+                ? t("overview.deleteEdgeImpact")
+                : t("overview.deleteDirectImpact")}
             </p>
             {remove.error && <ErrorNote error={remove.error} />}
             <div className="flex justify-end gap-2">
               <Button disabled={remove.isPending} onClick={() => setDeleting(null)}>
-                Cancel
+                {t("common.cancel")}
               </Button>
               <Button
                 variant="danger"
                 disabled={remove.isPending}
                 onClick={() => remove.mutate(deleting.id)}
               >
-                {remove.isPending ? "Deleting…" : "Delete"}
+                {remove.isPending ? t("overview.deleting") : t("overview.delete")}
               </Button>
             </div>
           </div>
@@ -108,6 +110,7 @@ function EnvironmentCard({
   onEdit: (environment: Environment) => void;
   onDelete: (environment: Environment) => void;
 }) {
+  const { t } = useTranslation();
   const target = useTarget();
   const confirmDiscard = useConfirmDiscard();
   const api = createApi(environment ?? undefined);
@@ -150,7 +153,7 @@ function EnvironmentCard({
   const address = environment ? environment.endpoint : window.location.origin;
   return (
     <article
-      aria-label={environment?.name ?? "Local"}
+      aria-label={environment?.name ?? t("overview.local")}
       aria-current={current ? "true" : undefined}
       className={cx(
         "min-w-0 overflow-hidden rounded-lg border",
@@ -161,10 +164,16 @@ function EnvironmentCard({
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 flex-wrap items-center gap-1.5">
             <h2 className="max-w-full truncate text-sm font-semibold">
-              {environment?.name ?? "Local"}
+              {environment?.name ?? t("overview.local")}
             </h2>
             <span className="flex shrink-0 items-center gap-1.5">
-              <Badge>{edge ? "Edge" : environment ? "Direct" : "Manager"}</Badge>
+              <Badge>
+                {edge
+                  ? t("overview.edge")
+                  : environment
+                    ? t("overview.direct")
+                    : t("overview.manager")}
+              </Badge>
               {info.data && <Badge mono>v{info.data.version}</Badge>}
             </span>
           </div>
@@ -176,20 +185,27 @@ function EnvironmentCard({
                 if (confirmDiscard()) target.select(environment);
               }}
             >
-              {current ? "Current" : "Use Environment"}
+              {current ? t("overview.current") : t("overview.useEnvironment")}
             </Button>
             {environment && (
               <Menu
                 trigger={
-                  <IconButton label={`More ${environment.name}`} size="sm">
+                  <IconButton
+                    label={t("overview.moreEnvironment", { name: environment.name })}
+                    size="sm"
+                  >
                     <MoreHorizontalIcon />
                   </IconButton>
                 }
                 items={[
-                  { label: "Edit", icon: <PencilIcon />, onSelect: () => onEdit(environment) },
+                  {
+                    label: t("overview.edit"),
+                    icon: <PencilIcon />,
+                    onSelect: () => onEdit(environment),
+                  },
                   "separator",
                   {
-                    label: "Delete",
+                    label: t("overview.delete"),
                     icon: <Trash2Icon />,
                     danger: true,
                     onSelect: () => onDelete(environment),
@@ -207,7 +223,7 @@ function EnvironmentCard({
           <span
             className="max-w-full truncate font-mono"
             title={address ?? undefined}
-            aria-label="Address"
+            aria-label={t("overview.address")}
           >
             {address ?? "—"}
           </span>
@@ -220,8 +236,8 @@ function EnvironmentCard({
             />
           )}
           <span className="basis-full whitespace-nowrap">
-            {edge ? "Last Heartbeat" : "Last Online"} ·{" "}
-            {lastSeen ? new Date(lastSeen).toLocaleString() : "—"}
+            {edge ? t("overview.lastHeartbeat") : t("overview.lastOnline")} ·{" "}
+            {lastSeen ? dateTime(lastSeen) : "—"}
           </span>
         </div>
         {metrics.error && <ErrorNote error={metrics.error} />}
@@ -231,13 +247,13 @@ function EnvironmentCard({
               <span className="mr-1.5 font-medium text-fg">
                 {providers.data ? Object.keys(providers.data).length : "—"}
               </span>{" "}
-              Providers
+              {t("common.providers")}
             </span>
             <span>
               <span className="mr-1.5 font-medium text-fg">
                 {collections.data ? Object.keys(collections.data).length : "—"}
               </span>{" "}
-              Collections
+              {t("common.collections")}
             </span>
             {!environment && (
               <div className="ml-auto">
@@ -252,16 +268,16 @@ function EnvironmentCard({
           label="CPU"
           value={data?.cpu.usage == null ? "—" : `${data.cpu.usage.toFixed(0)}%`}
           meter={data?.cpu.usage ?? undefined}
-          detail={data && `${data.cpu.cores} cores`}
+          detail={data && t("overview.cores", { count: data.cpu.cores })}
         />
         <Stat
-          label="Memory"
+          label={t("overview.memory")}
           value={memory === undefined ? "—" : `${memory.toFixed(0)}%`}
           meter={memory}
           detail={data && `${bytes(data.memory.used)} / ${bytes(data.memory.total)}`}
         />
         <Stat
-          label="Disk"
+          label={t("overview.disk")}
           value={disk === undefined ? "—" : `${disk.toFixed(0)}%`}
           meter={disk}
           detail={
@@ -272,7 +288,7 @@ function EnvironmentCard({
         <Stat
           label={
             <span className="inline-flex items-center gap-1">
-              Network
+              {t("overview.network")}
               <NetworkUsage
                 received={data?.network.received}
                 transmitted={data?.network.transmitted}
@@ -370,14 +386,15 @@ function NetworkRate({ down, up }: { down: number | null; up: number | null }) {
 }
 
 function NetworkUsage({ received, transmitted }: { received?: number; transmitted?: number }) {
+  const { t } = useTranslation();
   return (
     <Popover
       openOnHover
-      label="Network Data Usage"
+      label={t("overview.networkUsage")}
       trigger={
         <button
           type="button"
-          aria-label="Network Data Usage"
+          aria-label={t("overview.networkUsage")}
           className="inline-flex size-4 items-center justify-center rounded text-fg-subtle hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
         >
           <InfoIcon className="size-3.5" />
@@ -385,11 +402,11 @@ function NetworkUsage({ received, transmitted }: { received?: number; transmitte
       }
     >
       <div className="grid gap-2 text-xs">
-        <span className="font-medium text-fg">Data Usage</span>
+        <span className="font-medium text-fg">{t("overview.dataUsage")}</span>
         <dl className="grid grid-cols-[auto_auto] gap-x-4 gap-y-1.5 tabular-nums">
-          <dt className="text-fg-muted">Received</dt>
+          <dt className="text-fg-muted">{t("overview.received")}</dt>
           <dd className="text-right font-mono">{received == null ? "—" : bytes(received)}</dd>
-          <dt className="text-fg-muted">Transmitted</dt>
+          <dt className="text-fg-muted">{t("overview.transmitted")}</dt>
           <dd className="text-right font-mono">{transmitted == null ? "—" : bytes(transmitted)}</dd>
         </dl>
       </div>
@@ -398,6 +415,7 @@ function NetworkUsage({ received, transmitted }: { received?: number; transmitte
 }
 
 function Targets() {
+  const { t } = useTranslation();
   const api = useApi();
   const info = useQuery({
     queryKey: ["system", "info"],
@@ -411,7 +429,7 @@ function Targets() {
       trigger={
         <Button size="sm">
           <Layers3Icon />
-          Targets
+          {t("overview.targets")}
           {info.data && (
             <span className="text-fg-subtle tabular-nums">{info.data.targets.length}</span>
           )}
@@ -424,7 +442,7 @@ function Targets() {
             <span className="font-mono text-[13px] font-medium text-fg">{target.name}</span>
             <div className="flex flex-wrap gap-1">
               {target.protocols.support === "everything" ? (
-                <Badge>every protocol</Badge>
+                <Badge>{t("overview.everyProtocol")}</Badge>
               ) : (
                 target.protocols.kinds.map((kind) => (
                   <Badge key={kind} mono>

@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Toast } from "@base-ui/react/toast";
 import { XIcon } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { cx } from "@/lib/cx";
 import { toastManager, type Tone } from "./notify";
@@ -25,6 +26,7 @@ export function Toaster({ children }: { children: ReactNode }) {
 }
 
 function ToastList() {
+  const { t } = useTranslation();
   const { toasts } = Toast.useToastManager();
 
   return toasts.map((item) => {
@@ -46,7 +48,7 @@ function ToastList() {
           <span className={cx("mt-1.5 size-1.5 shrink-0 rounded-full", dots[tone])} />
           <Toast.Title className="min-w-0 flex-1 text-[13px] leading-5 wrap-break-word text-fg" />
           <Toast.Close
-            aria-label="Dismiss"
+            aria-label={t("common.dismiss")}
             className="-mr-1 rounded-sm p-0.5 text-fg-subtle hover:text-fg"
           >
             <XIcon className="size-3.5" />

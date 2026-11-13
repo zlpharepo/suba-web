@@ -1,4 +1,5 @@
 import { BracesIcon, EyeIcon, InfoIcon, LinkIcon } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { CopyButton } from "@/components/shared";
 import type { Export } from "@/lib/types";
@@ -11,6 +12,7 @@ import { Popover } from "@/ui/popover";
  * node copied beside an unsaved edit would not be what the core serves.
  */
 export function ExportActions({ item, unsaved }: { item: Export; unsaved?: string }) {
+  const { t } = useTranslation();
   if (unsaved) return <Note text={unsaved} />;
   if (item.reason) return <Note text={item.reason} />;
 
@@ -19,16 +21,18 @@ export function ExportActions({ item, unsaved }: { item: Export; unsaved?: strin
 
   return (
     <span className="flex shrink-0 items-center">
-      {item.link && <CopyButton text={item.link} label="Copy Share Link" icon={<LinkIcon />} />}
+      {item.link && (
+        <CopyButton text={item.link} label={t("exports.copyShareLink")} icon={<LinkIcon />} />
+      )}
       {outbound && (
-        <CopyButton text={outbound} label="Copy sing-box Outbound" icon={<BracesIcon />} />
+        <CopyButton text={outbound} label={t("exports.copyOutbound")} icon={<BracesIcon />} />
       )}
       <Popover
         align="end"
-        label="Preview"
+        label={t("exports.preview")}
         className="w-120"
         trigger={
-          <IconButton label="Preview" size="sm">
+          <IconButton label={t("exports.preview")} size="sm">
             <EyeIcon />
           </IconButton>
         }

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ActivityIcon } from "lucide-react";
 
@@ -34,6 +35,7 @@ export function EnableObservation({
   section: SectionDraftStatus;
   onResetSection: () => void;
 }) {
+  const { t } = useTranslation();
   const api = useApi();
   const observation = useObservationMetrics();
   const document = useQuery({
@@ -51,10 +53,10 @@ export function EnableObservation({
       ? observationConfiguration(document.data.value, schema.data)
       : null;
   const [open, setOpen] = useState(false);
-  const [saved, setSaved] = useState<string | null>(null);
+  const [saved, setSaved] = useState<"warnings" | "restart" | null>(null);
   return (
     <>
-      <div role="group" aria-label="Observation" className="inline-flex">
+      <div role="group" aria-label={t("observation.observation")} className="inline-flex">
         <Button
           size="sm"
           className="rounded-r-none border-r-0 pr-1.5"
@@ -66,12 +68,24 @@ export function EnableObservation({
           }}
         >
           <ActivityIcon className="text-fg-subtle" />
-          <span className="text-fg-subtle">Observation</span>
-          {configuration ? (configuration.enabled ? "On" : "Off") : "Unknown"}
+          <span className="text-fg-subtle">{t("observation.observation")}</span>
+          {configuration
+            ? configuration.enabled
+              ? t("singbox.on")
+              : t("singbox.off")
+            : t("common.unknown")}
         </Button>
         <ObservationState {...observation} />
       </div>
-      {saved && <span className="text-xs text-fg-muted">{saved}</span>}
+      {saved && (
+        <span className="text-xs text-fg-muted">
+          {t(
+            saved === "warnings"
+              ? "observation.savedWithWarnings"
+              : "observation.applyAfterRestart",
+          )}
+        </span>
+      )}
       {open && (
         <LoadSetup
           name={name}
@@ -82,11 +96,7 @@ export function EnableObservation({
           }}
           onSaved={(warnings) => {
             onResetSection();
-            setSaved(
-              warnings
-                ? "Saved with validation warnings. Review before starting."
-                : "Start or restart to apply.",
-            );
+            setSaved(warnings ? "warnings" : "restart");
             setOpen(false);
           }}
         />
@@ -106,6 +116,7 @@ function LoadSetup({
   onClose: () => void;
   onSaved: (warnings: boolean) => void;
 }) {
+  const { t } = useTranslation();
   const api = useApi();
   const document = useQuery({
     queryKey: configKey(name),
@@ -140,20 +151,20 @@ function LoadSetup({
     const services = initial.document.value.services as unknown[];
     const service = services.filter(isObject).find((item) => item.type === "api")!;
     return (
-      <Dialog open onOpenChange={(next) => !next && onClose()} title="Observation">
+      <Dialog open onOpenChange={(next) => !next && onClose()} title={t("observation.observation")}>
         <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 text-[13px] [&_dt]:text-fg-subtle [&_dd]:break-all">
-          <dt>Config</dt>
+          <dt>{t("singbox.config")}</dt>
           <dd className="font-mono">{name}</dd>
-          <dt>Status</dt>
-          <dd>On</dd>
-          <dt>Service</dt>
+          <dt>{t("observation.status")}</dt>
+          <dd>{t("singbox.on")}</dd>
+          <dt>{t("observation.service")}</dt>
           <dd className="font-mono">{typeof service.tag === "string" ? service.tag : "api"}</dd>
-          <dt>Listen</dt>
+          <dt>{t("observation.listen")}</dt>
           <dd className="font-mono">{String(service.listen)}</dd>
-          <dt>Port</dt>
+          <dt>{t("observation.port")}</dt>
           <dd className="font-mono">{String(service.listen_port)}</dd>
-          <dt>Authentication</dt>
-          <dd>Configured</dd>
+          <dt>{t("observation.authentication")}</dt>
+          <dd>{t("observation.configured")}</dd>
         </dl>
       </Dialog>
     );
@@ -163,11 +174,11 @@ function LoadSetup({
       <SetupEditor {...initial} name={name} version={version} onClose={onClose} onSaved={onSaved} />
     );
   return (
-    <Dialog open onOpenChange={(next) => !next && onClose()} title="Enable Observation">
+    <Dialog open onOpenChange={(next) => !next && onClose()} title={t("observation.enable")}>
       {document.error || schema.error ? (
         <div className="grid gap-3">
           <p role="alert" className="text-[13px] text-danger">
-            Configuration or version schema could not be loaded.
+            {t("observation.loadFailed")}
           </p>
           <Button
             disabled={document.isFetching || schema.isFetching}
@@ -176,7 +187,7 @@ function LoadSetup({
               void schema.refetch();
             }}
           >
-            Retry
+            {t("connections.retry")}
           </Button>
         </div>
       ) : (
@@ -201,6 +212,7 @@ function SetupEditor({
   onClose: () => void;
   onSaved: (warnings: boolean) => void;
 }) {
+  const { t } = useTranslation();
   const api = useApi();
   const client = useQueryClient();
   const [address, setAddress] = useState("127.0.0.1");
@@ -249,12 +261,16 @@ function SetupEditor({
   useDraftProtection({ dirty, saving: save.isPending });
   const error =
     save.error instanceof ApiError && save.error.status === 412
-      ? "configuration: changed elsewhere; close and reopen before saving"
+      ? t("observation.changedElsewhere")
       : save.error
-        ? "configuration: could not save; check the configuration and core version, then reopen"
+        ? t("observation.saveFailed")
         : !document.etag
-          ? "configuration: missing version; close and reopen"
-          : (issue ?? validation);
+          ? t("observation.missingVersion")
+          : issue
+            ? t(issue)
+            : validation
+              ? t(validation)
+              : null;
   const close = () => {
     if (confirmDiscardChanges({ dirty, saving: save.isPending })) onClose();
   };
@@ -262,11 +278,11 @@ function SetupEditor({
     <Dialog
       open
       onOpenChange={(next) => !next && close()}
-      title="Enable Observation"
+      title={t("observation.enable")}
       footer={
         <>
           <Button disabled={save.isPending} onClick={close}>
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button
             variant="primary"
@@ -284,7 +300,7 @@ function SetupEditor({
               save.mutate();
             }}
           >
-            {save.isPending ? "Saving…" : "Save"}
+            {save.isPending ? t("environments.saving") : t("providers.save")}
           </Button>
         </>
       }
@@ -293,15 +309,15 @@ function SetupEditor({
         {!issue && (
           <>
             <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 rounded-md border border-border p-3 text-xs [&_dt]:text-fg-subtle [&_dd]:break-all">
-              <dt>Config</dt>
+              <dt>{t("singbox.config")}</dt>
               <dd className="font-mono">{name}</dd>
-              <dt>Service</dt>
+              <dt>{t("observation.service")}</dt>
               <dd className="font-mono">api · suba-api</dd>
-              <dt>Secret</dt>
-              <dd>Generated on save</dd>
+              <dt>{t("observation.secret")}</dt>
+              <dd>{t("observation.generatedOnSave")}</dd>
             </dl>
             <label className="grid gap-1.5 text-[13px]">
-              Loopback IP
+              {t("observation.loopbackIp")}
               <Input
                 value={address}
                 disabled={save.isPending}
@@ -310,7 +326,7 @@ function SetupEditor({
               />
             </label>
             <label className="grid gap-1.5 text-[13px]">
-              Port
+              {t("observation.port")}
               <Input
                 value={port}
                 disabled={save.isPending}
@@ -318,7 +334,7 @@ function SetupEditor({
                 inputMode="numeric"
               />
             </label>
-            <p className="text-xs text-fg-muted">Start or restart to apply.</p>
+            <p className="text-xs text-fg-muted">{t("observation.applyAfterRestart")}</p>
           </>
         )}
         {error && (

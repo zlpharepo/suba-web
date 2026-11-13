@@ -6,6 +6,7 @@
 // what will actually be dialed rather than only what was typed.
 
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { NetworkIcon, PencilIcon } from "lucide-react";
 
@@ -33,6 +34,7 @@ import { Badge, Card, ErrorNote, Skeleton } from "@/ui/misc";
 import { toast } from "@/ui/notify";
 
 export function EndpointsPanel({ endpoints }: { endpoints: EndpointsView | undefined }) {
+  const { t } = useTranslation();
   const [editing, setEditing] = useState<EndpointView | null>(null);
   const groups = grantableEndpointGroups(endpoints);
 
@@ -42,7 +44,7 @@ export function EndpointsPanel({ endpoints }: { endpoints: EndpointsView | undef
     <>
       {groups.length === 0 && (
         <Card className="px-4 py-6 text-center text-[13px] text-fg-subtle">
-          No inbound accepts users.
+          {t("endpoints.noEligibleInbounds")}
         </Card>
       )}
       <div className="grid grid-cols-[minmax(0,1fr)] gap-3">
@@ -148,6 +150,7 @@ function EndpointRow({
   listenPort: number | null;
   onEdit: () => void;
 }) {
+  const { t } = useTranslation();
   const effective = effectiveAddress(endpoint, publicHost, listenPort);
   const stored =
     endpoint.address !== undefined ||
@@ -162,34 +165,40 @@ function EndpointRow({
           <Badge tone="accent">
             <span className="truncate">
               {endpoint.address !== undefined || endpoint.port !== undefined
-                ? "Override"
-                : "Linked"}
+                ? t("endpoints.override")
+                : t("endpoints.linked")}
             </span>
           </Badge>
         )}
-        <IconButton label="Edit" size="sm" className="ml-auto" onClick={onEdit}>
+        <IconButton label={t("overview.edit")} size="sm" className="ml-auto" onClick={onEdit}>
           <PencilIcon />
         </IconButton>
       </div>
       {endpoint.inner_inbound && (
-        <span className="font-mono text-xs text-fg-muted">Inner: {endpoint.inner_inbound}</span>
+        <span className="font-mono text-xs text-fg-muted">
+          {t("endpoints.inner", { name: endpoint.inner_inbound })}
+        </span>
       )}
       {endpoint.reason ? (
         <>
           <span className="min-w-0 text-xs wrap-break-word text-danger">
-            Not exportable: {endpoint.reason}
+            {t("endpoints.notExportable", { reason: endpoint.reason })}
           </span>
           {(endpoint.address !== undefined || endpoint.port !== undefined) && (
             <span className="flex min-w-0 flex-wrap gap-x-2 font-mono text-xs text-fg-subtle">
               {endpoint.address !== undefined && (
-                <span className="min-w-0 truncate">Stored {endpoint.address}</span>
+                <span className="min-w-0 truncate">
+                  {t("endpoints.storedAddress", { address: endpoint.address })}
+                </span>
               )}
-              {endpoint.port !== undefined && <span>port {endpoint.port}</span>}
+              {endpoint.port !== undefined && (
+                <span>{t("endpoints.storedPort", { port: endpoint.port })}</span>
+              )}
             </span>
           )}
         </>
       ) : effective.host === null ? (
-        <span className="min-w-0 text-xs wrap-break-word text-warning">{effective.reason}</span>
+        <span className="min-w-0 text-xs wrap-break-word text-warning">{t(effective.reason)}</span>
       ) : (
         <span className="flex min-w-0 flex-wrap items-baseline gap-x-2">
           <span className="min-w-0 truncate font-mono text-xs text-fg-muted">
@@ -197,12 +206,12 @@ function EndpointRow({
             {effective.port !== null && `:${effective.port}`}
           </span>
           <span className="text-xs text-fg-subtle">
-            {effective.overridden ? "Address Override" : "Instance Default"}
-            {effective.port === null && " · no port: the inbound sets no listen_port"}
+            {effective.overridden ? t("endpoints.addressOverride") : t("endpoints.instanceDefault")}
+            {effective.port === null && ` · ${t("endpoints.noPort")}`}
             {effective.port !== null &&
               endpoint.port === undefined &&
-              ` · listen_port ${effective.port}`}
-            {endpoint.port !== undefined && " · port override"}
+              ` · ${t("endpoints.listenPort", { port: effective.port })}`}
+            {endpoint.port !== undefined && ` · ${t("endpoints.portOverride")}`}
           </span>
         </span>
       )}
@@ -222,6 +231,7 @@ function EndpointDialog({
   publicHost?: string;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const local = useApi();
   const api = endpoint.host ? createApi({ id: endpoint.host, endpoint: null }) : local;
   const queryClient = useQueryClient();
@@ -288,7 +298,7 @@ function EndpointDialog({
         ...(shadowTls ? { inner_inbound: innerInbound === "none" ? null : innerInbound } : {}),
       }),
     onSuccess: (entry) => {
-      toast.success(`Saved ${endpoint.inbound}`);
+      toast.success(t("endpoints.saved", { name: endpoint.inbound }));
       saved(entry);
       onClose();
     },
@@ -296,7 +306,7 @@ function EndpointDialog({
   const clear = useMutation({
     mutationFn: () => api.inbounds.endpoints.remove(endpoint.config, endpoint.inbound),
     onSuccess: () => {
-      toast.success(`Cleared ${endpoint.inbound}`);
+      toast.success(t("endpoints.cleared", { name: endpoint.inbound }));
       queryClient.setQueryData<EndpointsView>(["singbox", "endpoints"], (held) =>
         held ? withoutEndpoint(held, endpoint) : held,
       );
@@ -330,11 +340,11 @@ function EndpointDialog({
               disabled={pending}
               onClick={() => clear.mutate()}
             >
-              Clear
+              {t("endpoints.clear")}
             </Button>
           )}
           <Button disabled={pending} onClick={close}>
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button
             variant="primary"
@@ -343,71 +353,64 @@ function EndpointDialog({
             }
             onClick={() => save.mutate()}
           >
-            Save
+            {t("providers.save")}
           </Button>
         </>
       }
     >
       <div className="grid gap-5">
         <p className="text-[13px] text-fg-muted">
-          Every user of{" "}
-          <span className="font-mono text-fg-muted">
-            {endpoint.config} › {endpoint.inbound}
-          </span>{" "}
-          reaches it at this address.
+          {t("endpoints.everyUserReaches", { config: endpoint.config, inbound: endpoint.inbound })}
         </p>
 
         <Field
-          label="Address"
+          label={t("endpoints.address")}
           hint={
-            addressProblem ??
+            (addressProblem ? t(addressProblem) : undefined) ??
             (endpoint.host
-              ? "Public address for this Agent inbound."
+              ? t("endpoints.agentAddress")
               : publicHost
-                ? `Empty inherits ${publicHost} from the instance.`
-                : "Empty inherits the instance public-host, which is not set.")
+                ? t("endpoints.inheritedAddress", { host: publicHost })
+                : t("endpoints.missingPublicHost"))
           }
         >
           <Input
             autoFocus
             className="font-mono"
             aria-invalid={addressProblem !== undefined || undefined}
-            placeholder={publicHost ?? "host or IP address"}
+            placeholder={publicHost ?? t("endpoints.hostPlaceholder")}
             value={address}
             onChange={(event) => setAddress(event.target.value)}
           />
         </Field>
 
         <Field
-          label="Port"
-          hint={parsed.error ?? "Optional. Empty keeps the port the inbound listens on."}
+          label={t("endpoints.port")}
+          hint={parsed.error ? t(parsed.error) : t("endpoints.optionalPort")}
         >
           <Input
             className="font-mono"
             inputMode="numeric"
             aria-invalid={parsed.error !== undefined || undefined}
-            placeholder={inherited === null ? "port" : String(inherited)}
+            placeholder={inherited === null ? t("endpoints.portPlaceholder") : String(inherited)}
             value={port}
             onChange={(event) => setPort(event.target.value)}
           />
         </Field>
 
         {shadowTls && (
-          <Field
-            label="Inner Inbound"
-            hint="Binding this outer inbound also authorizes the user on its inner inbound. The subscription contains only the combined node."
-          >
+          <Field label={t("endpoints.innerInbound")} hint={t("endpoints.innerInboundHint")}>
             <Select
               value={innerInbound}
               onChange={setInnerInbound}
-              options={[{ value: "none", label: "Select an Inbound" }, ...innerOptions]}
+              options={[{ value: "none", label: t("endpoints.selectInbound") }, ...innerOptions]}
             />
           </Field>
         )}
 
         {endpoint.reason && (
           <p className="text-xs wrap-break-word text-danger">
-            This inbound cannot be exported: {endpoint.reason}
+            {t("endpoints.cannotExport", { reason: endpoint.reason })}
           </p>
         )}
         {save.error && <ErrorNote error={save.error} />}

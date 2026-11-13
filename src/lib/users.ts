@@ -24,40 +24,55 @@ export const PORT = /^[0-9]{1,5}$/;
 
 type Tone = "neutral" | "success" | "warning" | "danger";
 
-const STATES: Record<GrantState, { label: string; tone: Tone }> = {
-  unknown: { label: "Unverified", tone: "warning" },
-  applied: { label: "Applied", tone: "neutral" },
-  pending: { label: "Restart to Apply", tone: "warning" },
-  stopped: { label: "Core Stopped", tone: "neutral" },
-  unused: { label: "Config Not In Use", tone: "neutral" },
+type GrantStateKey =
+  | "users.unverified"
+  | "users.applied"
+  | "users.restartToApply"
+  | "users.coreStopped"
+  | "users.configNotInUse";
+
+const STATES: Record<GrantState, { key: GrantStateKey; tone: Tone }> = {
+  unknown: { key: "users.unverified", tone: "warning" },
+  applied: { key: "users.applied", tone: "neutral" },
+  pending: { key: "users.restartToApply", tone: "warning" },
+  stopped: { key: "users.coreStopped", tone: "neutral" },
+  unused: { key: "users.configNotInUse", tone: "neutral" },
 };
 
-export function stateBadge(state: GrantState): { label: string; tone: Tone } {
+export function stateBadge(state: GrantState): { key: GrantStateKey; tone: Tone } {
   return STATES[state];
 }
 
 /** One line for a user card: how many servers, and how far they have got. */
-export function grantSummary(grants: GrantView[]): { tone: Tone; text: string } {
-  if (grants.length === 0) return { tone: "neutral", text: "No servers" };
-
-  const parts = [`${grants.length} ${grants.length === 1 ? "server" : "servers"}`];
+export function grantSummary(grants: GrantView[]): {
+  tone: Tone;
+  total: number;
+  unavailable: number;
+  unverified: number;
+  pending: number;
+  shared: number;
+} {
   // A grant without a state cannot use its selected access mode.
   const unavailable = grants.filter((grant) => grant.state === undefined).length;
-  const waiting = grants.filter(
+  const pending = grants.filter(
     (grant) => grant.state !== undefined && grant.state !== "applied" && grant.state !== "unknown",
   ).length;
-  if (unavailable > 0) parts.push(`${unavailable} unavailable`);
   const unknown = grants.filter((grant) => grant.state === "unknown").length;
   const shared = grants.filter((grant) => grant.mode === "shared").length;
-  if (unknown > 0) parts.push(`${unknown} unverified`);
-  if (waiting > 0) parts.push(`${waiting} not applied yet`);
-  if (shared > 0) parts.push(`${shared} shared`);
-  if (parts.length === 1) parts.push("All applied");
 
   return {
-    tone:
-      unavailable > 0 ? "danger" : waiting > 0 || unknown > 0 || shared > 0 ? "warning" : "success",
-    text: parts.join(" · "),
+    tone: unavailable
+      ? "danger"
+      : pending || unknown || shared
+        ? "warning"
+        : grants.length
+          ? "success"
+          : "neutral",
+    total: grants.length,
+    unavailable,
+    unverified: unknown,
+    pending,
+    shared,
   };
 }
 
@@ -175,19 +190,25 @@ export function grantableEndpointGroups(endpoints?: EndpointsView): EndpointGrou
   });
 }
 
-export interface EffectiveAddress {
-  /** The host and port a client would dial, or null when nothing gives one. */
-  host: string | null;
-  port: number | null;
-  /** Whether the host is the operator's override rather than the instance default. */
-  overridden: boolean;
-  /**
-   * Why no address can be dialed, when that is the case. Only an absent
-   * fallback is reported here; anything wrong with the inbound itself is
-   * `reason` on the entry.
-   */
-  reason?: string;
-}
+export type EffectiveAddress =
+  | {
+      /** The host and port a client would dial. */
+      host: string;
+      port: number | null;
+      /** Whether the host is the operator's override rather than the instance default. */
+      overridden: boolean;
+      reason?: never;
+    }
+  | {
+      host: null;
+      port: null;
+      overridden: false;
+      /**
+       * Why no address can be dialed. Only an absent fallback is reported here;
+       * anything wrong with the inbound itself is `reason` on the entry.
+       */
+      reason: "endpoints.agentAddressMissing" | "endpoints.publicAddressMissing";
+    };
 
 /**
  * What a client dials for one endpoint: the stored override when there is one,
@@ -210,9 +231,7 @@ export function effectiveAddress(
       host: null,
       port: null,
       overridden: false,
-      reason: endpoint.host
-        ? "Set the public address for this Agent inbound."
-        : "No address: set one here, or a public-host on the instance.",
+      reason: endpoint.host ? "endpoints.agentAddressMissing" : "endpoints.publicAddressMissing",
     };
   }
   return {
@@ -281,12 +300,15 @@ export function withoutEndpoint(endpoints: EndpointsView, entry: InboundEntry): 
 }
 
 /** The port an operator typed: its number, or why it cannot be stored. */
-export function parsePort(text: string): { port: number | null; error?: string } {
+export function parsePort(text: string): {
+  port: number | null;
+  error?: "endpoints.portDigits" | "endpoints.portRange";
+} {
   const trimmed = text.trim();
   if (trimmed === "") return { port: null };
-  if (!PORT.test(trimmed)) return { port: null, error: "Use digits only." };
+  if (!PORT.test(trimmed)) return { port: null, error: "endpoints.portDigits" };
   const port = Number(trimmed);
-  if (port < 1 || port > 65535) return { port: null, error: "Use a port from 1 to 65535." };
+  if (port < 1 || port > 65535) return { port: null, error: "endpoints.portRange" };
   return { port };
 }
 
@@ -308,13 +330,15 @@ function unruly(address: string): boolean {
  * server checks the same shape; this only spares a round trip, so it refuses
  * nothing the server accepts.
  */
-export function addressError(address: string): string | undefined {
+export function addressError(
+  address: string,
+): "endpoints.addressRequired" | "endpoints.addressShape" | "endpoints.addressIpv6" | undefined {
   const trimmed = address.trim();
-  if (trimmed === "" || trimmed.length > 253) return "Enter a host name or IP address.";
+  if (trimmed === "" || trimmed.length > 253) return "endpoints.addressRequired";
   if (trimmed !== address || unruly(address) || /[/?#@\\]/.test(address)) {
-    return "Enter a host name or IP address, with no scheme, port or path.";
+    return "endpoints.addressShape";
   }
   if (trimmed.startsWith("[") && trimmed.endsWith("]")) return undefined;
-  if (trimmed.includes(":")) return "Write an IPv6 address in brackets.";
+  if (trimmed.includes(":")) return "endpoints.addressIpv6";
   return undefined;
 }

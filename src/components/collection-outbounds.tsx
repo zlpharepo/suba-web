@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { RefreshCwIcon } from "lucide-react";
 
 import { ConfigEntryCard } from "@/components/config-entry-card";
@@ -31,6 +32,7 @@ export function CollectionOutbounds({
   failed: boolean;
   onRefresh: () => void;
 }) {
+  const { t } = useTranslation();
   const api = useApi();
   const queryClient = useQueryClient();
   const known = useQuery({
@@ -49,7 +51,7 @@ export function CollectionOutbounds({
         collections,
       }),
     onSuccess: (updated) => queryClient.setQueryData(["singbox"], updated),
-    onError: () => toast.error("collections: could not update the association"),
+    onError: () => toast.error(t("collectionOutbounds.updateFailed")),
   });
   const [selected, setSelected] = useState<{ path: string; tag: string } | null>(null);
   // Catalog paths are positional; a refreshed row must not become another node.
@@ -58,16 +60,16 @@ export function CollectionOutbounds({
   );
 
   return (
-    <section className="mb-6" aria-label="Collection Outbounds">
+    <section className="mb-6" aria-label={t("collectionOutbounds.title")}>
       <div className="mb-3.5 flex min-h-8 flex-wrap items-center gap-2">
-        <h2 className="text-[15px] font-semibold text-fg">Collection Outbounds</h2>
-        <Badge>Read Only</Badge>
+        <h2 className="text-[15px] font-semibold text-fg">{t("collectionOutbounds.title")}</h2>
+        <Badge>{t("common.readOnly")}</Badge>
         <span className="text-xs text-fg-subtle tabular-nums">
           {loading || failed ? "—" : entries.length}
         </span>
         <div className="ml-auto">
           <IconButton
-            label="Refresh Collection Outbounds"
+            label={t("collectionOutbounds.refresh")}
             size="sm"
             disabled={refreshing}
             onClick={onRefresh}
@@ -81,15 +83,15 @@ export function CollectionOutbounds({
         {known.isError && (
           <div className="flex flex-wrap items-center gap-2">
             <p role="alert" className="text-xs text-danger">
-              Collections could not be loaded.
+              {t("collectionOutbounds.collectionsLoadFailed")}
             </p>
             <Button size="sm" disabled={known.isFetching} onClick={() => void known.refetch()}>
-              Retry Collections
+              {t("collectionOutbounds.retryCollections")}
             </Button>
           </div>
         )}
         {known.isSuccess && choices.length === 0 && (
-          <p className="text-[13px] text-fg-muted">No collections yet.</p>
+          <p className="text-[13px] text-fg-muted">{t("collectionOutbounds.noCollections")}</p>
         )}
         <div className="flex flex-wrap gap-x-4 gap-y-2">
           {choices.map((name) => (
@@ -117,12 +119,18 @@ export function CollectionOutbounds({
       </div>
       {failed ? (
         <p role="alert" className="text-[13px] text-danger">
-          Collection outbounds could not be loaded. Refresh to try again.
+          {t("collectionOutbounds.loadFailed")}
         </p>
       ) : loading ? (
         <Skeleton className="h-24" />
       ) : entries.length === 0 ? (
-        <Empty title={chosen.length === 0 ? "Select Collections" : "No Collection Outbounds"} />
+        <Empty
+          title={t(
+            chosen.length === 0
+              ? "collectionOutbounds.selectCollections"
+              : "collectionOutbounds.empty",
+          )}
+        />
       ) : (
         <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
           {entries.map((entry, index) => (
@@ -133,7 +141,9 @@ export function CollectionOutbounds({
               onOpen={() => setSelected({ path: entry.path, tag: entry.tag })}
               details={
                 <span className="min-w-0 text-xs break-all text-fg-subtle">
-                  Collections: {entry.collections.join(", ")}
+                  {t("collectionOutbounds.collections", {
+                    names: entry.collections.join(t("common.listSeparator")),
+                  })}
                 </span>
               }
             />
@@ -149,11 +159,16 @@ export function CollectionOutbounds({
         >
           <div className="mb-3 flex flex-wrap items-center gap-2">
             <span className="min-w-0 text-xs break-all text-fg-subtle">
-              Collections: {preview.collections.join(", ")}
+              {t("collectionOutbounds.collections", {
+                names: preview.collections.join(t("common.listSeparator")),
+              })}
             </span>
-            <Badge>Read Only</Badge>
+            <Badge>{t("common.readOnly")}</Badge>
             <div className="ml-auto">
-              <CopyButton text={JSON.stringify(preview.value, null, 2)} label="Copy JSON" />
+              <CopyButton
+                text={JSON.stringify(preview.value, null, 2)}
+                label={t("common.copyJson")}
+              />
             </div>
           </div>
           <pre className="max-h-96 overflow-auto rounded-md bg-bg-muted p-3 font-mono text-xs break-all whitespace-pre-wrap">

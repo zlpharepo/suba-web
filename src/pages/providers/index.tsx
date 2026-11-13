@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   MoreHorizontalIcon,
@@ -35,6 +36,7 @@ import { Switch } from "@/ui/toggle";
 import { toast } from "@/ui/notify";
 
 export function ProvidersPage() {
+  const { t } = useTranslation();
   const api = useApi();
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<string | null>(null);
@@ -51,7 +53,13 @@ export function ProvidersPage() {
   const refresh = useMutation({
     mutationFn: (name: string) => api.providers.refresh(name),
     onSuccess: (result) => {
-      toast.success(`${result.name}: ${result.nodes} nodes, ${result.status}`);
+      toast.success(
+        t("providers.refreshResult", {
+          name: result.name,
+          count: result.nodes,
+          status: result.status,
+        }),
+      );
       void queryClient.invalidateQueries({ queryKey: ["providers"] });
       void queryClient.invalidateQueries({ queryKey: ["collections"] });
     },
@@ -61,7 +69,7 @@ export function ProvidersPage() {
   const remove = useMutation({
     mutationFn: (name: string) => api.providers.remove(name),
     onSuccess: (_, name) => {
-      toast.success(`Deleted ${name}`);
+      toast.success(t("providers.deleted", { name }));
       void queryClient.invalidateQueries({ queryKey: ["providers"] });
       void queryClient.invalidateQueries({ queryKey: ["collections"] });
     },
@@ -71,11 +79,11 @@ export function ProvidersPage() {
   return (
     <>
       <PageHeader
-        title="Providers"
+        title={t("common.providers")}
         actions={
           <Button variant="primary" onClick={() => setCreating(true)}>
             <PlusIcon />
-            New Provider
+            {t("providers.newProvider")}
           </Button>
         }
       />
@@ -85,11 +93,11 @@ export function ProvidersPage() {
       {providers.data && entries.length === 0 && (
         <Empty
           icon={<RssIcon />}
-          title="No Providers"
+          title={t("providers.noProviders")}
           action={
             <Button onClick={() => setCreating(true)}>
               <PlusIcon />
-              New Provider
+              {t("providers.newProvider")}
             </Button>
           }
         />
@@ -112,27 +120,29 @@ export function ProvidersPage() {
                       </button>
                     </h2>
                     <Badge mono>{provider.type}</Badge>
-                    {provider.disabled && <Badge>Disabled</Badge>}
+                    {provider.disabled && <Badge>{t("providers.disabled")}</Badge>}
                   </div>
                   <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 text-xs text-fg-muted">
                     <span className="max-w-full truncate font-mono text-fg-subtle">
-                      {source(provider)}
+                      {source(provider, t)}
                     </span>
                     {provider.type !== "inline" && <span>{formatInterval(provider)}</span>}
                     <span
                       title={
                         provider.updated_at === null
-                          ? "No successful sync yet"
+                          ? t("providers.noSync")
                           : formatTime(provider.updated_at)
                       }
                     >
-                      Updated {provider.updated_at === null ? "—" : ago(provider.updated_at)}
+                      {t("providers.updated", {
+                        time: provider.updated_at === null ? "—" : ago(provider.updated_at),
+                      })}
                     </span>
                   </div>
                 </div>
                 <div className="flex shrink-0 gap-0.5">
                   <IconButton
-                    label="Refresh"
+                    label={t("providers.refresh")}
                     size="sm"
                     disabled={refresh.isPending && refresh.variables === name}
                     onClick={() => refresh.mutate(name)}
@@ -143,14 +153,14 @@ export function ProvidersPage() {
                       }
                     />
                   </IconButton>
-                  <IconButton label="Edit" size="sm" onClick={() => setEditing(name)}>
+                  <IconButton label={t("overview.edit")} size="sm" onClick={() => setEditing(name)}>
                     <PencilIcon />
                   </IconButton>
                   <Menu
                     trigger={
                       <button
                         type="button"
-                        aria-label="More"
+                        aria-label={t("providers.more")}
                         className={buttonClass("ghost", "sm", true)}
                       >
                         <MoreHorizontalIcon />
@@ -158,7 +168,7 @@ export function ProvidersPage() {
                     }
                     items={[
                       {
-                        label: "Delete",
+                        label: t("overview.delete"),
                         icon: <Trash2Icon />,
                         danger: true,
                         onSelect: () => setDeleting(name),
@@ -188,10 +198,10 @@ export function ProvidersPage() {
         open={deleting !== null}
         onOpenChange={(open) => !open && setDeleting(null)}
         width="sm"
-        title={`Delete ${deleting}?`}
+        title={t("providers.deleteProvider", { name: deleting ?? "" })}
         footer={
           <>
-            <Button onClick={() => setDeleting(null)}>Cancel</Button>
+            <Button onClick={() => setDeleting(null)}>{t("common.cancel")}</Button>
             <Button
               variant="danger"
               onClick={() => {
@@ -199,21 +209,19 @@ export function ProvidersPage() {
                 setDeleting(null);
               }}
             >
-              Delete
+              {t("overview.delete")}
             </Button>
           </>
         }
       >
-        <p className="text-[13px] text-fg-muted">
-          Its cached payload goes too. Collections that name it will show it as missing.
-        </p>
+        <p className="text-[13px] text-fg-muted">{t("providers.deleteImpact")}</p>
       </Dialog>
     </>
   );
 }
 
 // Only the host is shown: a subscription URL's path and query often carry its credential.
-function source(provider: Provider): string {
+function source(provider: Provider, t: ReturnType<typeof useTranslation>["t"]): string {
   switch (provider.type) {
     case "remote":
       try {
@@ -225,7 +233,7 @@ function source(provider: Provider): string {
       return provider.path;
     case "inline": {
       const lines = provider.payload.split("\n").filter((line) => line.trim()).length;
-      return `${lines} ${lines === 1 ? "link" : "links"}`;
+      return t("providers.linkCount", { count: lines });
     }
   }
 }
@@ -240,6 +248,7 @@ function ProviderPanel({
   provider?: Provider;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const api = useApi();
   const [tab, setTab] = useState<"nodes" | "payload">("nodes");
   const nodes = useQuery({
@@ -290,7 +299,7 @@ function ProviderPanel({
                 tab === value ? "bg-bg text-fg shadow-sm" : "text-fg-muted hover:text-fg",
               )}
             >
-              {value}
+              {t(value === "nodes" ? "providers.nodes" : "providers.payload")}
             </button>
           ))}
         </div>
@@ -302,17 +311,14 @@ function ProviderPanel({
             {nodes.data && (
               <>
                 <p className="text-xs text-fg-subtle tabular-nums">
-                  {nodes.data.nodes.length} nodes · {nodes.data.passed_over} filtered ·{" "}
-                  <span
-                    title={
-                      nodes.data.updated_at === null
-                        ? "No successful sync yet"
-                        : formatTime(nodes.data.updated_at)
-                    }
-                  >
-                    Updated {nodes.data.updated_at === null ? "—" : ago(nodes.data.updated_at)}
-                  </span>
-                  {nodes.data.unreadable && " · the payload is not a valid clash proxies document"}
+                  {t("providers.nodeSummary", {
+                    count: nodes.data.nodes.length,
+                    filtered: nodes.data.passed_over,
+                    updated: t("providers.updated", {
+                      time: nodes.data.updated_at === null ? "—" : ago(nodes.data.updated_at),
+                    }),
+                  })}
+                  {nodes.data.unreadable && ` · ${t("providers.unreadable")}`}
                 </p>
                 {nodes.data.nodes.length > 0 && (
                   <div className="divide-y divide-border rounded-md border border-border">
@@ -363,6 +369,7 @@ function ProviderDialog({
   name?: string;
   provider?: Provider;
 }) {
+  const { t } = useTranslation();
   const confirmDiscard = useConfirmDiscard();
   return (
     <Dialog
@@ -370,7 +377,7 @@ function ProviderDialog({
       onOpenChange={(next) => {
         if (next || confirmDiscard()) onOpenChange(next);
       }}
-      title={name ? `Edit ${name}` : "New Provider"}
+      title={name ? t("providers.editProvider", { name }) : t("providers.newProvider")}
       width="md"
     >
       {open && (
@@ -391,6 +398,7 @@ function ProviderForm({
   provider?: Provider;
   onDone: () => void;
 }) {
+  const { t } = useTranslation();
   const api = useApi();
   const queryClient = useQueryClient();
   const [name, setName] = useState(initialName ?? "");
@@ -459,7 +467,7 @@ function ProviderForm({
       return api.providers.put(name.trim(), next);
     },
     onSuccess: (result) => {
-      toast.success(`${result.name}: ${result.nodes} nodes`);
+      toast.success(t("providers.saveResult", { name: result.name, count: result.nodes }));
       void queryClient.invalidateQueries({ queryKey: ["providers"] });
       void queryClient.invalidateQueries({ queryKey: ["collections"] });
       onDone();
@@ -476,7 +484,7 @@ function ProviderForm({
   return (
     <form className="grid gap-5" onSubmit={submit}>
       <div className="grid gap-4 sm:grid-cols-[1fr_9rem]">
-        <Field label="Name">
+        <Field label={t("providers.name")}>
           <Input
             value={name}
             onChange={(event) => setName(event.target.value)}
@@ -485,21 +493,21 @@ function ProviderForm({
             autoFocus={!initialName}
           />
         </Field>
-        <Field label="Source">
+        <Field label={t("providers.source")}>
           <Select<ProviderType>
             value={type}
             onChange={setType}
             options={[
               { value: "remote", label: "URL" },
-              { value: "local", label: "File" },
-              { value: "inline", label: "Links" },
+              { value: "local", label: t("providers.file") },
+              { value: "inline", label: t("providers.links") },
             ]}
           />
         </Field>
       </div>
 
       {type === "remote" && (
-        <Field label="Subscription URL">
+        <Field label={t("providers.subscriptionUrl")}>
           <Input
             type="url"
             value={url}
@@ -510,7 +518,7 @@ function ProviderForm({
         </Field>
       )}
       {type === "local" && (
-        <Field label="Path" hint="Relative to the config directory">
+        <Field label={t("providers.path")} hint={t("providers.pathHint")}>
           <Input
             value={path}
             onChange={(event) => setPath(event.target.value)}
@@ -520,7 +528,7 @@ function ProviderForm({
         </Field>
       )}
       {type === "inline" && (
-        <Field label="Share Links" hint="One per line">
+        <Field label={t("providers.shareLinks")} hint={t("providers.onePerLine")}>
           <Textarea
             className="min-h-36 font-mono text-xs"
             value={payload}
@@ -530,7 +538,7 @@ function ProviderForm({
       )}
 
       {type !== "inline" && (
-        <Field label="Refresh Interval" hint="Seconds; 0 refreshes only by hand">
+        <Field label={t("providers.refreshInterval")} hint={t("providers.intervalHint")}>
           <Input
             type="number"
             min={0}
@@ -542,25 +550,32 @@ function ProviderForm({
         </Field>
       )}
 
-      <Switch checked={disabled} onChange={setDisabled} label="Paused" />
+      <Switch checked={disabled} onChange={setDisabled} label={t("providers.paused")} />
 
       <button
         type="button"
         onClick={() => setAdvanced(!advanced)}
         className="-mb-1 w-fit text-[13px] font-medium text-fg-muted hover:text-fg"
       >
-        {advanced ? "Hide" : "Show"} filters
-        {type === "remote" ? " and request options" : ""}
+        {t(
+          type === "remote"
+            ? advanced
+              ? "providers.hideFiltersAndOptions"
+              : "providers.showFiltersAndOptions"
+            : advanced
+              ? "providers.hideFilters"
+              : "providers.showFilters",
+        )}
       </button>
 
       {advanced && (
         <div className="grid gap-5 rounded-md border border-border bg-bg-subtle p-4">
-          <PatternsEditor label="Exclude" value={excludes} onChange={setExcludes} />
-          <PatternsEditor label="Include" value={includes} onChange={setIncludes} />
+          <PatternsEditor label={t("providers.exclude")} value={excludes} onChange={setExcludes} />
+          <PatternsEditor label={t("providers.include")} value={includes} onChange={setIncludes} />
           {type === "remote" && (
             <>
               <HeadersEditor value={headers} onChange={setHeaders} />
-              <Field label="Timeout" hint="Milliseconds; empty uses the default">
+              <Field label={t("providers.timeout")} hint={t("providers.timeoutHint")}>
                 <Input
                   type="number"
                   min={1}
@@ -582,10 +597,10 @@ function ProviderForm({
             if (confirmDiscardChanges({ dirty, saving: save.isPending })) onDone();
           }}
         >
-          Cancel
+          {t("common.cancel")}
         </Button>
         <Button type="submit" variant="primary" disabled={save.isPending}>
-          {save.isPending ? "Fetching…" : "Save"}
+          {save.isPending ? t("providers.fetching") : t("providers.save")}
         </Button>
       </div>
     </form>
@@ -627,20 +642,21 @@ function HeadersEditor({
   value: Header[];
   onChange: (value: Header[]) => void;
 }) {
+  const { t } = useTranslation();
   const replace = (index: number, header: Header) =>
     onChange(value.map((item, at) => (at === index ? header : item)));
 
   return (
     <div className="grid gap-2">
       <div className="flex items-center justify-between">
-        <span className="text-[13px] font-medium text-fg">Request Headers</span>
+        <span className="text-[13px] font-medium text-fg">{t("providers.requestHeaders")}</span>
         <Button
           size="sm"
           variant="ghost"
           onClick={() => onChange([...value, { name: "", value: "" }])}
         >
           <PlusIcon />
-          Add
+          {t("providers.add")}
         </Button>
       </div>
       {value.map((header, index) => (
@@ -648,19 +664,19 @@ function HeadersEditor({
           <div className="w-32 shrink-0 sm:w-40">
             <Input
               className="font-mono"
-              placeholder="Name"
+              placeholder={t("providers.name")}
               value={header.name}
               onChange={(event) => replace(index, { ...header, name: event.target.value })}
             />
           </div>
           <Input
             className="font-mono"
-            placeholder="Value"
+            placeholder={t("providers.value")}
             value={header.value}
             onChange={(event) => replace(index, { ...header, value: event.target.value })}
           />
           <IconButton
-            label="Remove"
+            label={t("providers.remove")}
             onClick={() => onChange(value.filter((_, at) => at !== index))}
           >
             <XIcon />

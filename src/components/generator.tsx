@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { KeyRoundIcon } from "lucide-react";
 
 import { CopyButton } from "@/components/shared";
@@ -24,6 +25,7 @@ const COMMANDS: { command: GenerateCommand; needs?: "name" | "length" }[] = [
 ];
 
 export function Generator({ iconOnly = false }: { iconOnly?: boolean }) {
+  const { t } = useTranslation();
   const api = useApi();
   const [command, setCommand] = useState<GenerateCommand>("uuid");
   const [argument, setArgument] = useState("");
@@ -69,7 +71,7 @@ export function Generator({ iconOnly = false }: { iconOnly?: boolean }) {
       }
       setOutput(result.output);
     } catch {
-      if (mounted.current) toast.error("generate.command: generation failed");
+      if (mounted.current) toast.error(t("generator.generationFailed"));
     } finally {
       inFlight.current = false;
       if (mounted.current) setPending(false);
@@ -83,23 +85,21 @@ export function Generator({ iconOnly = false }: { iconOnly?: boolean }) {
       trigger={
         <button
           type="button"
-          aria-label={iconOnly ? "Generate Keys" : undefined}
-          title={iconOnly ? "Generate Keys" : undefined}
+          aria-label={iconOnly ? t("generator.generateKeys") : undefined}
+          title={iconOnly ? t("generator.generateKeys") : undefined}
           className={buttonClass("secondary", "md", iconOnly)}
         >
           <KeyRoundIcon />
-          {!iconOnly && "Generate"}
+          {!iconOnly && t("generator.generate")}
         </button>
       }
     >
       <div className="grid gap-3">
-        <p className="text-xs text-fg-muted">
-          Copy the result into any field. This tool does not change the draft.
-        </p>
+        <p className="text-xs text-fg-muted">{t("generator.copyHint")}</p>
         <div className="flex gap-2">
           <Select<GenerateCommand>
             className="flex-1 font-mono"
-            aria-label="Command"
+            aria-label={t("generator.command")}
             value={command}
             disabled={pending}
             onChange={(next) => {
@@ -120,14 +120,14 @@ export function Generator({ iconOnly = false }: { iconOnly?: boolean }) {
             className={pending ? "opacity-50" : undefined}
             onClick={() => void generate()}
           >
-            {pending ? "Generating…" : "Generate"}
+            {pending ? t("generator.generating") : t("generator.generate")}
           </Button>
         </div>
         {needs && (
           <Input
             type={needs === "length" ? "number" : "text"}
-            aria-label={needs === "length" ? "Bytes" : "Server Name"}
-            placeholder={needs === "length" ? "Bytes" : "Server Name"}
+            aria-label={needs === "length" ? t("generator.bytes") : t("generator.serverName")}
+            placeholder={needs === "length" ? t("generator.bytes") : t("generator.serverName")}
             min={needs === "length" ? 1 : undefined}
             max={needs === "length" ? 4096 : undefined}
             value={argument}

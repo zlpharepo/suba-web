@@ -87,7 +87,10 @@ export function validGenerationName(name: string): boolean {
 
 export interface GeneratedFields {
   values: Record<string, string>;
-  companion?: { label: string; value: string };
+  companion?: {
+    label: "fieldGenerator.publicKey" | "fieldGenerator.echConfig";
+    value: string;
+  };
 }
 
 export function generatedFields(plan: FieldGeneration, output: string): GeneratedFields {
@@ -131,7 +134,7 @@ export function generatedFields(plan: FieldGeneration, output: string): Generate
       if (!match) throw invalid();
       return {
         ...single(match[1]),
-        companion: { label: "Public Key", value: match[2] },
+        companion: { label: "fieldGenerator.publicKey", value: match[2] },
       };
     }
     case "tls":
@@ -141,7 +144,7 @@ export function generatedFields(plan: FieldGeneration, output: string): Generate
     case "ech":
       return {
         values: { key: pem("ECH KEYS") },
-        companion: { label: "ECH Config", value: pem("ECH CONFIGS") },
+        companion: { label: "fieldGenerator.echConfig", value: pem("ECH CONFIGS") },
       };
   }
 }

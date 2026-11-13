@@ -17,39 +17,51 @@ export function observationQuery(filter: ObservationFilter = {}): string {
   return query.size ? `?${query}` : "";
 }
 
-const labels: Record<ObservationMetadata["state"], string> = {
-  stopped: "Core Stopped",
-  disabled: "Observation Disabled",
-  unsupported: "Observation Unsupported",
-  connecting: "Connecting",
-  live: "Live",
-  disconnected: "Disconnected",
-  unauthorized: "Observation Unauthorized",
-  "invalid-config": "Invalid Observation Configuration",
-};
+const statusCodes = {
+  stopped: "coreStopped",
+  disabled: "disabled",
+  unsupported: "unsupported",
+  connecting: "connecting",
+  live: "live",
+  disconnected: "disconnected",
+  unauthorized: "unauthorized",
+  "invalid-config": "invalidConfig",
+} as const;
+
+type ObservationStatusCode =
+  | (typeof statusCodes)[keyof typeof statusCodes]
+  | "configNotRunning"
+  | "requestFailed"
+  | "unavailable"
+  | "loading"
+  | "heartbeatMissing";
 
 export function observationStatus(
   data: ObservationMetadata | undefined,
   failed: boolean,
   now: number,
   config?: string,
-): { label: string; live: boolean; matches: boolean } {
+): { code: ObservationStatusCode; live: boolean; matches: boolean } {
   const matches = config === undefined || data?.config === config;
-  if (data && !matches) return { label: "Config Not Running", live: false, matches: false };
+  if (data && !matches) return { code: "configNotRunning", live: false, matches: false };
   if (failed)
     return {
-      label: data ? "Stale · Request Failed" : "Observation Unavailable",
+      code: data ? "requestFailed" : "unavailable",
       live: false,
       matches,
     };
-  if (!data) return { label: "Loading Observation…", live: false, matches };
-  if (data.state !== "live") return { label: labels[data.state], live: false, matches };
+  if (!data) return { code: "loading", live: false, matches };
+  if (data.state !== "live") return { code: statusCodes[data.state], live: false, matches };
   const healthy =
     data.updated_at !== undefined &&
     Number.isFinite(data.updated_at) &&
     now - data.updated_at <= HEARTBEAT_MAX_AGE &&
     data.updated_at <= now + HEARTBEAT_MAX_AGE;
-  return { label: healthy ? "Live" : "Stale · Heartbeat Missing", live: healthy, matches };
+  return {
+    code: healthy ? "live" : "heartbeatMissing",
+    live: healthy,
+    matches,
+  };
 }
 
 export function observedCounters(
@@ -98,53 +110,68 @@ export function supportsObservation(schema: JsonSchema): boolean {
   });
 }
 
-export function observationSetupIssue(document: JsonObject, schema: JsonSchema): string | null {
-  if (!supportsObservation(schema))
-    return "schema: this core does not support the native API service";
+export type ObservationIssue =
+  | "observation.issueUnsupported"
+  | "observation.issueServicesArrayEdit"
+  | "observation.issueMultipleApis"
+  | "observation.issueApiExists"
+  | "observation.issueTagUsed"
+  | "observation.issueServicesArray"
+  | "observation.issueExactlyOneApi"
+  | "observation.issueTls"
+  | "observation.issueLoopback"
+  | "observation.issuePort"
+  | "observation.issueSecret"
+  | "observation.issueAddressLoopback"
+  | "observation.issuePortRange"
+  | "observation.issueSecretGeneration";
+
+export function observationSetupIssue(
+  document: JsonObject,
+  schema: JsonSchema,
+): ObservationIssue | null {
+  if (!supportsObservation(schema)) return "observation.issueUnsupported";
   if (document.services !== undefined && !Array.isArray(document.services))
-    return "services: expected an array; edit the configuration first";
+    return "observation.issueServicesArrayEdit";
   const services: unknown[] = Array.isArray(document.services) ? document.services : [];
   const existing = services.filter((service) => isObject(service) && service.type === "api");
-  if (existing.length > 1)
-    return "services: multiple API services; edit them to keep exactly one loopback, non-TLS service with a secret";
-  if (existing.length)
-    return "services: an API service already exists; edit it in Services instead. Observation requires a loopback IP, no TLS, and a nonempty secret";
+  if (existing.length > 1) return "observation.issueMultipleApis";
+  if (existing.length) return "observation.issueApiExists";
   if (services.some((service) => isObject(service) && service.tag === "suba-api"))
-    return "services: the suba-api tag is already in use; edit the existing service first";
+    return "observation.issueTagUsed";
   return null;
 }
 
 export function observationConfiguration(
   document: JsonObject,
   schema: JsonSchema,
-): { enabled: boolean; issue: string | null } {
-  const unavailable = (issue: string) => ({ enabled: false, issue });
-  if (!supportsObservation(schema))
-    return unavailable("schema: this core does not support the native API service");
+): { enabled: boolean; issue: ObservationIssue | null } {
+  const unavailable = (issue: ObservationIssue) => ({ enabled: false, issue });
+  if (!supportsObservation(schema)) return unavailable("observation.issueUnsupported");
   if (document.services !== undefined && !Array.isArray(document.services))
-    return unavailable("services: expected an array");
+    return unavailable("observation.issueServicesArray");
   const services: unknown[] = Array.isArray(document.services) ? document.services : [];
   const apis = services.filter(isObject).filter((service) => service.type === "api");
   if (apis.length === 0) return { enabled: false, issue: null };
-  if (apis.length > 1) return unavailable("services: observation requires exactly one API service");
+  if (apis.length > 1) return unavailable("observation.issueExactlyOneApi");
   const api = apis[0];
   if (
     api.tls !== undefined &&
     api.tls !== null &&
     (!isObject(api.tls) || api.tls.enabled !== false)
   )
-    return unavailable("services.api.tls: TLS observation is not supported");
+    return unavailable("observation.issueTls");
   if (typeof api.listen !== "string" || !isLoopbackAddress(api.listen))
-    return unavailable("services.api.listen: an explicit loopback IP address is required");
+    return unavailable("observation.issueLoopback");
   if (
     typeof api.listen_port !== "number" ||
     !Number.isInteger(api.listen_port) ||
     api.listen_port < 1 ||
     api.listen_port > 65535
   )
-    return unavailable("services.api.listen_port: a fixed nonzero port is required");
+    return unavailable("observation.issuePort");
   if (typeof api.secret !== "string" || !/^[\x20-\x7e]+$/.test(api.secret))
-    return unavailable("services.api.secret: a nonempty ASCII secret is required");
+    return unavailable("observation.issueSecret");
   return { enabled: true, issue: null };
 }
 
@@ -165,10 +192,10 @@ export function isLoopbackAddress(value: string): boolean {
   );
 }
 
-export function observationAddressIssue(address: string, port: string): string | null {
-  if (!isLoopbackAddress(address)) return "listen: enter a raw loopback IP address";
+export function observationAddressIssue(address: string, port: string): ObservationIssue | null {
+  if (!isLoopbackAddress(address)) return "observation.issueAddressLoopback";
   if (!/^[0-9]+$/.test(port) || Number(port) < 1 || Number(port) > 65535)
-    return "listen_port: enter a port from 1 to 65535";
+    return "observation.issuePortRange";
   return null;
 }
 
@@ -181,7 +208,7 @@ export function addObservationService(
 ): JsonObject {
   const issue = observationSetupIssue(document, schema) ?? observationAddressIssue(address, port);
   if (issue) throw new Error(issue);
-  if (!secret.trim()) throw new Error("secret: generation failed");
+  if (!secret.trim()) throw new Error("observation.issueSecretGeneration");
   return {
     ...document,
     services: [

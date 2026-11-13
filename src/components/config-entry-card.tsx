@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { BracesIcon } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { ArrayIndex } from "@/components/config-array-index";
 import { ConfigEntryTags } from "@/components/config-entry-tags";
@@ -33,6 +34,7 @@ export function ConfigEntryCard({
   collectionContext?: CollectionBindingContext;
   missingReferences?: MissingReference[];
 }) {
+  const { t } = useTranslation();
   const previewTags = titled && supportsCollectionBindings(entry);
   const missing = missingReferences.length > 0;
   return (
@@ -62,7 +64,7 @@ export function ConfigEntryCard({
               </span>
               {!previewTags && (
                 <span className="truncate font-mono text-xs text-fg-subtle">
-                  {summarize(entry)}
+                  {summarize(entry, t)}
                 </span>
               )}
             </>
@@ -71,7 +73,9 @@ export function ConfigEntryCard({
               {JSON.stringify(entry)}
             </code>
           )}
-          {missing && <span className="text-xs font-medium text-danger">Missing Reference</span>}
+          {missing && (
+            <span className="text-xs font-medium text-danger">{t("common.missingReference")}</span>
+          )}
           {details}
         </span>
       </button>
@@ -83,7 +87,7 @@ export function ConfigEntryCard({
           trigger={
             <button
               type="button"
-              aria-label="Show JSON"
+              aria-label={t("configEntry.showJson")}
               className="rounded-sm p-1 text-fg-subtle transition-colors hover:bg-bg-muted hover:text-fg"
             >
               <BracesIcon className="size-3.5" />

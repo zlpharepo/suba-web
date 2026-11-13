@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { RefreshCwIcon, Trash2Icon } from "lucide-react";
 
@@ -47,6 +48,7 @@ export function UserDialog({
   endpoints: EndpointsView | undefined;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const api = useApi();
   const queryClient = useQueryClient();
   const collections = useQuery({ queryKey: ["collections"], queryFn: api.collections.list });
@@ -74,7 +76,7 @@ export function UserDialog({
         collections: chosenCollections,
       }),
     onSuccess: () => {
-      toast.success(`Saved ${trimmed}`);
+      toast.success(t("userEditor.saved", { name: trimmed }));
       refresh();
       onClose();
     },
@@ -82,7 +84,7 @@ export function UserDialog({
   const remove = useMutation({
     mutationFn: (held: string) => api.inbounds.users.remove(held),
     onSuccess: (_, held) => {
-      toast.success(`Deleted ${held}`);
+      toast.success(t("userEditor.deleted", { name: held }));
       refresh();
       onClose();
     },
@@ -91,7 +93,7 @@ export function UserDialog({
   const renew = useMutation({
     mutationFn: (held: string) => api.inbounds.users.renewCredentials(held),
     onSuccess: (_, held) => {
-      toast.success(`Replaced the credentials of ${held}`);
+      toast.success(t("userEditor.credentialsReplaced", { name: held }));
       refresh();
     },
     onError: (error) => toast.error(errorMessage(error)),
@@ -141,8 +143,8 @@ export function UserDialog({
       open
       onOpenChange={(open) => !open && close()}
       width="lg"
-      title={user ? `Edit ${user.name}` : "New User"}
-      description="Managed access changes take effect after restart. Shared bindings do not change sing-box authentication."
+      title={user ? t("userEditor.editUser", { name: user.name }) : t("users.newUser")}
+      description={t("userEditor.accessImpact")}
       footer={
         <>
           {user && (
@@ -151,58 +153,58 @@ export function UserDialog({
                 trigger={
                   <Button variant="ghost" className="text-danger" disabled={busy}>
                     <Trash2Icon />
-                    <span className="max-sm:sr-only">Delete</span>
+                    <span className="max-sm:sr-only">{t("overview.delete")}</span>
                   </Button>
                 }
-                title={`Delete ${user.name}?`}
+                title={t("userEditor.deleteUser", { name: user.name })}
                 description={
                   userHasShared
-                    ? "Their subscription links stop working. Managed credentials leave after restart; shared inbound credentials remain valid for clients that already have them."
-                    : "Their subscription links stop working at once, and their credentials leave every inbound when sing-box restarts."
+                    ? t("userEditor.deleteSharedImpact")
+                    : t("userEditor.deleteManagedImpact")
                 }
-                confirmLabel="Delete"
+                confirmLabel={t("overview.delete")}
                 onConfirm={() => remove.mutate(user.name)}
               />
               <Confirm
                 trigger={
                   <Button variant="ghost" disabled={busy}>
                     <RefreshCwIcon />
-                    <span className="max-sm:sr-only">New Credentials</span>
+                    <span className="max-sm:sr-only">{t("userEditor.newCredentials")}</span>
                   </Button>
                 }
-                title={`New Credentials for ${user.name}?`}
+                title={t("userEditor.newCredentialsFor", { name: user.name })}
                 description={
                   userHasShared
-                    ? "Managed credentials, including managed inner credentials, change after restart. Shared inbound credentials stay the same. Clients using changed credentials must refresh; subscription links stay the same."
-                    : "Every inbound gets a new credential for them. Their subscription links stay the same, but each client must refresh after sing-box restarts."
+                    ? t("userEditor.renewSharedImpact")
+                    : t("userEditor.renewManagedImpact")
                 }
-                confirmLabel="Replace"
+                confirmLabel={t("userEditor.replace")}
                 onConfirm={() => renew.mutate(user.name)}
               />
             </span>
           )}
           <Button disabled={busy} onClick={close}>
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button
             variant="primary"
             disabled={!trimmed || taken || malformed || !dirty || busy}
             onClick={() => save.mutate()}
           >
-            Save
+            {t("providers.save")}
           </Button>
         </>
       }
     >
       <div className="grid gap-5">
         <Field
-          label="Name"
+          label={t("providers.name")}
           hint={
             taken
-              ? "Already taken."
+              ? t("userEditor.alreadyTaken")
               : malformed
-                ? "1 to 32 letters, digits, '.', '_' or '-'."
-                : "Managed servers log this name; shared bindings do not identify a client."
+                ? t("userEditor.nameRules")
+                : t("userEditor.nameHint")
           }
         >
           <Input
@@ -216,11 +218,11 @@ export function UserDialog({
         </Field>
 
         <div className="grid gap-2">
-          <span className="text-[13px] font-medium text-fg">Inbounds</span>
+          <span className="text-[13px] font-medium text-fg">{t("common.inbounds")}</span>
           {endpoints === undefined ? (
             <Skeleton className="h-20" />
           ) : groups.length === 0 ? (
-            <p className="text-[13px] text-fg-subtle">No inbound accepts a binding.</p>
+            <p className="text-[13px] text-fg-subtle">{t("userEditor.noBinding")}</p>
           ) : (
             <div className="grid gap-3 rounded-md border border-border p-3">
               {groups.map((group) => (
@@ -271,14 +273,17 @@ export function UserDialog({
                           )}
                           {hasModeChoice && (
                             <Select
-                              aria-label={`${entry.inbound} access mode`}
+                              aria-label={t("userEditor.accessMode", { name: entry.inbound })}
                               size="sm"
                               value={on ? mode : "none"}
                               options={[
-                                { value: "none", label: "No access" },
+                                { value: "none", label: t("userEditor.noAccess") },
                                 ...modes.map((value) => ({
                                   value,
-                                  label: value === "shared" ? "Shared access" : "Managed users",
+                                  label:
+                                    value === "shared"
+                                      ? t("users.sharedAccess")
+                                      : t("userEditor.managedUsers"),
                                 })),
                               ]}
                               onChange={(next) => {
@@ -290,7 +295,7 @@ export function UserDialog({
                           )}
                           {on && entry.inner_inbound && (
                             <span className="pl-6 text-xs text-fg-muted">
-                              Carries {entry.inner_inbound}; inner access is automatic.
+                              {t("userEditor.carriesInner", { name: entry.inner_inbound })}
                             </span>
                           )}
                           {on && entry.reason && (
@@ -298,20 +303,22 @@ export function UserDialog({
                           )}
                           {hasModeChoice && modes.length < (entry.modes?.length ?? 0) && (
                             <span className="text-xs text-fg-muted">
-                              Mode set by other users of this inbound.
+                              {t("userEditor.otherUsersMode")}
                             </span>
                           )}
                           {!hasModeChoice && modes.length === 0 && (
                             <span className="pl-6 text-xs text-warning">
-                              Existing bindings use a different mode.
+                              {t("userEditor.differentMode")}
                             </span>
                           )}
                           {!hasModeChoice && modes[0] === "shared" && (
-                            <span className="pl-6 text-xs text-warning">Shared access</span>
+                            <span className="pl-6 text-xs text-warning">
+                              {t("users.sharedAccess")}
+                            </span>
                           )}
                           {entry.shared_refused && (
                             <span className="pl-6 text-xs text-warning">
-                              Shared access unavailable: {entry.shared_refused}
+                              {t("userEditor.sharedUnavailable", { reason: entry.shared_refused })}
                             </span>
                           )}
                           {on && mode === "shared" && entry.shared_warning && (
@@ -332,13 +339,7 @@ export function UserDialog({
               ))}
             </div>
           )}
-          {hasShared && (
-            <p className="text-xs text-warning">
-              Shared access leaves the inbound credential unchanged. Removing a binding or replacing
-              this user's credentials does not revoke that shared credential; any managed inner
-              credential changes after restart.
-            </p>
-          )}
+          {hasShared && <p className="text-xs text-warning">{t("userEditor.sharedImpact")}</p>}
           {elsewhere.map((entry) => (
             <span
               key={entryKey(entry)}
@@ -348,21 +349,21 @@ export function UserDialog({
                 {entry.config} › {entry.inbound}
               </span>
               {(endpoints?.entries ?? []).find((held) => entryKey(held) === entryKey(entry))
-                ?.reason ?? "No such inbound."}
+                ?.reason ?? t("userEditor.noSuchInbound")}
               <Button size="sm" variant="ghost" onClick={() => pick(entry, false)}>
-                Remove
+                {t("singbox.remove")}
               </Button>
             </span>
           ))}
         </div>
 
         <div className="grid gap-2">
-          <span className="text-[13px] font-medium text-fg">Collections</span>
+          <span className="text-[13px] font-medium text-fg">{t("common.collections")}</span>
           {collections.error && <ErrorNote error={collections.error} />}
           {collections.isPending && <Skeleton className="h-10" />}
           {collectionChoices.length === 0 ? (
             collections.isSuccess && (
-              <p className="text-[13px] text-fg-subtle">No collections yet.</p>
+              <p className="text-[13px] text-fg-subtle">{t("userEditor.noCollections")}</p>
             )
           ) : (
             <div className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-md border border-border p-3 sm:grid-cols-3">
@@ -389,7 +390,7 @@ export function UserDialog({
         </div>
 
         <div className="grid gap-2">
-          <SectionTitle>Servers</SectionTitle>
+          <SectionTitle>{t("userEditor.servers")}</SectionTitle>
           <div className="divide-y divide-border rounded-md border border-border">
             {servers.map((server) => (
               <span
@@ -403,7 +404,9 @@ export function UserDialog({
                 </span>
                 {server.added && (
                   <Badge tone="success" className="ml-auto">
-                    {entryMode(server) === "shared" ? "Shares Inbound" : "Gets a Credential"}
+                    {entryMode(server) === "shared"
+                      ? t("userEditor.sharesInbound")
+                      : t("userEditor.getsCredential")}
                   </Badge>
                 )}
               </span>
@@ -419,13 +422,15 @@ export function UserDialog({
                   {server.config} › {server.inbound}
                 </span>
                 <Badge tone="danger" className="ml-auto">
-                  {entryMode(server) === "shared" ? "Stops Distribution" : "Loses Access"}
+                  {entryMode(server) === "shared"
+                    ? t("userEditor.stopsDistribution")
+                    : t("userEditor.losesAccess")}
                 </Badge>
               </span>
             ))}
             {servers.length === 0 && removed.length === 0 && (
               <p className="px-3 py-3 text-center text-[13px] text-fg-subtle">
-                Choose an inbound to give access.
+                {t("userEditor.chooseInbound")}
               </p>
             )}
           </div>

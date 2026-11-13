@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PlusIcon } from "lucide-react";
 
@@ -21,12 +22,14 @@ import {
   type Invitation,
 } from "@/lib/environments";
 import { useTarget } from "@/lib/target";
+import { dateTime } from "@/lib/format";
 import { Button } from "@/ui/button";
 import { Confirm, Dialog } from "@/ui/dialog";
 import { Field, Input, Textarea } from "@/ui/input";
 import { ErrorNote, Skeleton } from "@/ui/misc";
 
 export function EnvironmentActions() {
+  const { t } = useTranslation();
   const client = useQueryClient();
   const [adding, setAdding] = useState(false);
   const [allowing, setAllowing] = useState<EnvironmentMode | null>(null);
@@ -47,31 +50,33 @@ export function EnvironmentActions() {
   });
   return (
     <>
-      <Button onClick={() => setTrusting(true)}>Direct Access</Button>
+      <Button onClick={() => setTrusting(true)}>{t("environments.directAccess")}</Button>
       <Button variant="primary" onClick={() => setAdding(true)}>
         <PlusIcon />
-        New Environment
+        {t("environments.newEnvironment")}
       </Button>
       {adding && <NewEnvironmentDrawer onClose={() => setAdding(false)} />}
       {allowing && <InvitationDialog mode={allowing} onClose={() => setAllowing(null)} />}
       {trusting && (
-        <Dialog open title="Direct Access" onOpenChange={setTrusting} width="lg">
+        <Dialog open title={t("environments.directAccess")} onOpenChange={setTrusting} width="lg">
           <div className="grid gap-5">
             {identity.error && <ErrorNote error={identity.error} />}
             {identity.isPending && <Skeleton className="h-10" />}
             {identity.data && (
-              <Field label="Local Fingerprint">
+              <Field label={t("environments.localFingerprint")}>
                 <Fingerprint value={identity.data.fingerprint} />
               </Field>
             )}
             <div className="flex justify-end">
-              <Button onClick={() => setAllowing("direct")}>Allow Direct Access</Button>
+              <Button onClick={() => setAllowing("direct")}>
+                {t("environments.allowDirectAccess")}
+              </Button>
             </div>
             {peers.error && <ErrorNote error={peers.error} />}
             {revoke.error && <ErrorNote error={revoke.error} />}
             {peers.isPending && <Skeleton className="h-20" />}
             {peers.isSuccess && peers.data.length === 0 && (
-              <span className="text-[13px] text-fg-muted">No trusted peers.</span>
+              <span className="text-[13px] text-fg-muted">{t("environments.noTrustedPeers")}</span>
             )}
             {peers.data?.map((peer) => (
               <div key={peer.id} className="grid gap-2 border-t border-border pt-3">
@@ -80,12 +85,12 @@ export function EnvironmentActions() {
                   <Confirm
                     trigger={
                       <Button size="sm" disabled={revoke.isPending}>
-                        Revoke
+                        {t("environments.revoke")}
                       </Button>
                     }
-                    title="Revoke Access?"
-                    description="Withdraws this peer's access. Pair again to restore it."
-                    confirmLabel="Revoke"
+                    title={t("environments.revokeAccess")}
+                    description={t("environments.revokeAccessImpact")}
+                    confirmLabel={t("environments.revoke")}
                     onConfirm={() => revoke.mutate(peer.id)}
                   />
                 </div>
@@ -100,10 +105,11 @@ export function EnvironmentActions() {
 }
 
 function Fingerprint({ value }: { value: string }) {
+  const { t } = useTranslation();
   return (
     <div className="flex min-w-0 items-center gap-2">
       <code className="min-w-0 break-all text-xs text-fg-muted">{value}</code>
-      <CopyButton text={value} label="Copy Fingerprint" />
+      <CopyButton text={value} label={t("environments.copyFingerprint")} />
     </div>
   );
 }
@@ -117,6 +123,7 @@ export function EnvironmentDialog({
   onClose: () => void;
   embedded?: boolean;
 }) {
+  const { t } = useTranslation();
   const client = useQueryClient();
   const target = useTarget();
   const [name, setName] = useState(host?.name ?? "");
@@ -158,7 +165,7 @@ export function EnvironmentDialog({
   };
   const form = (
     <form className="grid gap-4" onSubmit={(event) => void submit(event)}>
-      <Field label="Name">
+      <Field label={t("providers.name")}>
         <Input
           value={name}
           onChange={(event) => setName(event.target.value)}
@@ -169,7 +176,11 @@ export function EnvironmentDialog({
       </Field>
       {host ? (
         <>
-          <Field label={host.mode === "edge" ? "Public Endpoint" : "Endpoint"}>
+          <Field
+            label={
+              host.mode === "edge" ? t("environments.publicEndpoint") : t("environments.endpoint")
+            }
+          >
             <Input
               value={endpoint}
               onChange={(event) => setEndpoint(event.target.value)}
@@ -181,9 +192,9 @@ export function EnvironmentDialog({
         </>
       ) : (
         <>
-          <Field label="Remote Invitation JSON">
+          <Field label={t("environments.remoteInvitation")}>
             <Textarea
-              aria-label="Invitation JSON"
+              aria-label={t("environments.invitationJson")}
               value={text}
               onChange={(event) => setText(event.target.value)}
               required
@@ -198,10 +209,14 @@ export function EnvironmentDialog({
       {error !== undefined && <ErrorNote error={error} />}
       <div className="flex justify-end gap-2">
         <Button onClick={close} disabled={saving}>
-          Cancel
+          {t("common.cancel")}
         </Button>
         <Button type="submit" variant="primary" disabled={saving || !name.trim()}>
-          {saving ? "Saving…" : host ? "Save" : "Add Environment"}
+          {saving
+            ? t("environments.saving")
+            : host
+              ? t("providers.save")
+              : t("environments.addEnvironment")}
         </Button>
       </div>
     </form>
@@ -212,7 +227,11 @@ export function EnvironmentDialog({
     <Dialog
       open
       onOpenChange={(open) => !open && close()}
-      title={host ? `Edit ${host.name}` : "New Environment"}
+      title={
+        host
+          ? t("environments.editEnvironment", { name: host.name })
+          : t("environments.newEnvironment")
+      }
     >
       {form}
     </Dialog>
@@ -228,6 +247,7 @@ function InvitationDialog({
   onClose: () => void;
   embedded?: boolean;
 }) {
+  const { t } = useTranslation();
   const initialEndpoint = window.location.origin;
   const [name, setName] = useState("");
   const [endpoint, setEndpoint] = useState(initialEndpoint);
@@ -278,7 +298,7 @@ function InvitationDialog({
     <div className="grid gap-4">
       {!invitation ? (
         <form className="grid gap-4" onSubmit={(event) => void generate(event)}>
-          <Field label={mode === "edge" ? "Name" : "Caller Name"}>
+          <Field label={mode === "edge" ? t("providers.name") : t("environments.callerName")}>
             <Input
               value={name}
               onChange={(event) => setName(event.target.value)}
@@ -287,7 +307,9 @@ function InvitationDialog({
               autoFocus
             />
           </Field>
-          <Field label={mode === "edge" ? "Manager URL" : "Public URL"}>
+          <Field
+            label={mode === "edge" ? t("environments.managerUrl") : t("environments.publicUrl")}
+          >
             <Input
               value={endpoint}
               onChange={(event) => setEndpoint(event.target.value)}
@@ -296,7 +318,7 @@ function InvitationDialog({
             />
           </Field>
           <Button type="submit" variant="primary" disabled={saving || !name.trim()}>
-            {saving ? "Generating…" : "Generate Invitation"}
+            {saving ? t("environments.generating") : t("environments.generateInvitation")}
           </Button>
         </form>
       ) : (
@@ -305,7 +327,7 @@ function InvitationDialog({
           {mode === "edge" && (
             <div
               role="group"
-              aria-label="Deployment Method"
+              aria-label={t("environments.deploymentMethod")}
               className="flex gap-1 rounded-md bg-bg-muted p-1"
             >
               {(["cli", "docker", "compose"] as const).map((method) => (
@@ -320,10 +342,18 @@ function InvitationDialog({
               ))}
             </div>
           )}
-          <Field label={mode === "edge" ? "Initial Pairing" : "Invitation JSON"}>
+          <Field
+            label={
+              mode === "edge" ? t("environments.initialPairing") : t("environments.invitationJson")
+            }
+          >
             <div className="relative">
               <Textarea
-                aria-label={mode === "edge" ? "Agent Command" : "Invitation JSON"}
+                aria-label={
+                  mode === "edge"
+                    ? t("environments.agentCommand")
+                    : t("environments.invitationJson")
+                }
                 className="font-mono text-xs pr-12"
                 value={
                   mode === "edge"
@@ -352,22 +382,22 @@ function InvitationDialog({
                   label={
                     mode === "edge"
                       ? deployment === "compose"
-                        ? "Copy Compose File"
+                        ? t("environments.copyCompose")
                         : deployment === "docker"
-                          ? "Copy Docker Command"
-                          : "Copy Agent Command"
-                      : "Copy Invitation JSON"
+                          ? t("environments.copyDocker")
+                          : t("environments.copyAgent")
+                      : t("environments.copyInvitation")
                   }
                 />
               </div>
             </div>
           </Field>
           <p className="text-xs text-fg-muted">
-            Expires {new Date(invitation.expires_at * 1000).toLocaleString()}.
+            {t("environments.expires", { time: dateTime(invitation.expires_at * 1000) })}
           </p>
           <div className="flex justify-end">
             <Button variant="danger" onClick={() => void revoke()} disabled={saving}>
-              {saving ? "Revoking…" : "Revoke Invitation"}
+              {saving ? t("environments.revoking") : t("environments.revokeInvitation")}
             </Button>
           </div>
         </>
@@ -378,24 +408,34 @@ function InvitationDialog({
   return embedded ? (
     content
   ) : (
-    <Dialog open onOpenChange={(open) => !open && close()} title="Allow Direct Access">
+    <Dialog
+      open
+      onOpenChange={(open) => !open && close()}
+      title={t("environments.allowDirectAccess")}
+    >
       {content}
     </Dialog>
   );
 }
 
 function NewEnvironmentDrawer({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation();
   const [mode, setMode] = useState<EnvironmentMode>("direct");
   const confirmDiscard = useConfirmDiscard();
   const close = () => {
     if (confirmDiscard()) onClose();
   };
   return (
-    <Dialog open drawer title="New Environment" onOpenChange={(open) => !open && close()}>
+    <Dialog
+      open
+      drawer
+      title={t("environments.newEnvironment")}
+      onOpenChange={(open) => !open && close()}
+    >
       <div className="grid gap-5">
         <div
           role="group"
-          aria-label="Connection Mode"
+          aria-label={t("environments.connectionMode")}
           className="grid grid-cols-2 rounded-md bg-bg-muted p-1"
         >
           {(["direct", "edge"] as const).map((value) => (
@@ -407,7 +447,7 @@ function NewEnvironmentDrawer({ onClose }: { onClose: () => void }) {
                 if (value !== mode && confirmDiscard()) setMode(value);
               }}
             >
-              {value === "direct" ? "Direct" : "Edge"}
+              {value === "direct" ? t("overview.direct") : t("overview.edge")}
             </Button>
           ))}
         </div>

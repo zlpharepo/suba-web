@@ -2,6 +2,7 @@ import { useCallback, useState, type ReactNode } from "react";
 import { Link, Outlet, useBlocker, useNavigate } from "@tanstack/react-router";
 import { useIsMutating, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Dialog as BaseDialog } from "@base-ui/react/dialog";
+import { useTranslation } from "react-i18next";
 import {
   CpuIcon,
   Layers3Icon,
@@ -20,6 +21,7 @@ import { TargetContext, useTarget } from "@/lib/target";
 import { readEnvironment, rememberEnvironment, type Environment } from "@/lib/environments";
 import { EDGE_POLL_INTERVAL } from "@/lib/edge";
 import { EnvironmentSwitcher } from "@/components/environment-switcher";
+import { LanguageButton } from "@/components/language-button";
 import { cx } from "@/lib/cx";
 import {
   DraftProtection,
@@ -38,6 +40,7 @@ interface NavItem {
 }
 
 function useNav(): NavItem[] {
+  const { t } = useTranslation();
   const { localClient, selected } = useTarget();
   const remote = selected?.mode === "direct" ? selected : null;
   // The route group is absent (404) when this build cannot run a core.
@@ -53,14 +56,14 @@ function useNav(): NavItem[] {
     core.isSuccess ||
     (remote !== null && !(core.error instanceof ApiError && core.error.status === 404));
   return [
-    { to: "/", label: "Dashboard", icon: <LayoutDashboardIcon /> },
-    { to: "/providers", label: "Providers", icon: <RssIcon /> },
-    { to: "/collections", label: "Collections", icon: <Layers3Icon /> },
+    { to: "/", label: t("common.dashboard"), icon: <LayoutDashboardIcon /> },
+    { to: "/providers", label: t("common.providers"), icon: <RssIcon /> },
+    { to: "/collections", label: t("common.collections"), icon: <Layers3Icon /> },
     ...(hasCore
       ? [
           // The inbounds and their users are part of the sing-box module, so
           // their routes go with it.
-          { to: "/inbounds", label: "Inbounds", icon: <NetworkIcon /> },
+          { to: "/inbounds", label: t("common.inbounds"), icon: <NetworkIcon /> },
           { to: "/sing-box", label: "sing-box", icon: <CpuIcon /> },
         ]
       : []),
@@ -100,6 +103,7 @@ export function AppLayout() {
 }
 
 function ApplicationShell() {
+  const { t } = useTranslation();
   const { localClient } = useTarget();
   const mutations = useIsMutating();
   const localMutations = useIsMutating({}, localClient);
@@ -132,15 +136,18 @@ function ApplicationShell() {
         <header className="sticky top-0 z-30 flex h-12 items-center justify-between border-b border-border bg-bg-subtle/85 px-3 backdrop-blur lg:hidden">
           <Brand />
           <BaseDialog.Root open={drawer} onOpenChange={setDrawer}>
-            <BaseDialog.Trigger aria-label="Menu" className={buttonClass("ghost", "md", true)}>
+            <BaseDialog.Trigger
+              aria-label={t("common.menu")}
+              className={buttonClass("ghost", "md", true)}
+            >
               <MenuIcon />
             </BaseDialog.Trigger>
             <BaseDialog.Portal>
               <BaseDialog.Backdrop className="fixed inset-0 z-40 bg-black/40 transition-opacity duration-200 data-ending-style:opacity-0 data-starting-style:opacity-0" />
               <BaseDialog.Popup className="fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-bg-subtle shadow-dialog transition-transform duration-200 ease-out outline-none data-ending-style:-translate-x-full data-starting-style:-translate-x-full">
-                <BaseDialog.Title className="sr-only">Navigation</BaseDialog.Title>
+                <BaseDialog.Title className="sr-only">{t("common.navigation")}</BaseDialog.Title>
                 <BaseDialog.Close
-                  aria-label="Close"
+                  aria-label={t("common.close")}
                   className={cx(buttonClass("ghost", "sm", true), "absolute top-3.5 right-3")}
                 >
                   <XIcon />
@@ -176,6 +183,7 @@ function Brand() {
 }
 
 function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
+  const { t } = useTranslation();
   const { localClient } = useTarget();
   const nav = useNav();
   const navigate = useNavigate();
@@ -224,11 +232,16 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           {info.data ? `v${info.data.version}` : ""}
         </span>
         <div className="flex gap-0.5">
-          <IconButton label={dark ? "Light Theme" : "Dark Theme"} size="sm" onClick={toggle}>
+          <LanguageButton />
+          <IconButton
+            label={t(dark ? "common.lightTheme" : "common.darkTheme")}
+            size="sm"
+            onClick={toggle}
+          >
             {dark ? <SunIcon /> : <MoonIcon />}
           </IconButton>
           <IconButton
-            label="Settings"
+            label={t("common.settings")}
             size="sm"
             onClick={() => {
               if (confirmDiscard()) {

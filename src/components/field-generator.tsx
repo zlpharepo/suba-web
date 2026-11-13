@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { KeyRoundIcon } from "lucide-react";
 
 import { CopyButton } from "@/components/shared";
@@ -27,6 +28,7 @@ export function FieldGenerator({
   value: JsonObject;
   onChange: (value: JsonObject) => void;
 }) {
+  const { t } = useTranslation();
   const api = useApi();
   const [name, setName] = useState(plan.name ?? "");
   const [pending, setPending] = useState(false);
@@ -65,14 +67,14 @@ export function FieldGenerator({
       const generated = generatedFields(plan, result.output);
       const next = applyGeneratedFields(latest.current.value, value, generated);
       if (!next) {
-        toast.error("generate.fields: the form changed; generate again");
+        toast.error(t("fieldGenerator.formChanged"));
         return;
       }
       latest.current.onChange(next);
       setCompanion(generated.companion);
     } catch {
       if (latest.current) {
-        toast.error("generate.fields: generation failed; fields were not changed");
+        toast.error(t("fieldGenerator.generationFailed"));
       }
     } finally {
       inFlight.current = false;
@@ -88,23 +90,28 @@ export function FieldGenerator({
         <Button
           size="sm"
           variant="ghost"
-          aria-label={`Generate ${plan.fields.map(humanize).join(" and ")}`}
+          aria-label={t("fieldGenerator.generateFields", {
+            fields: plan.fields.map(humanize).join(" and "),
+          })}
         >
           <KeyRoundIcon />
-          Generate
+          {t("generator.generate")}
         </Button>
       }
     >
       <div className="grid gap-3">
-        <span className="font-mono text-xs text-fg-muted">sing-box generate {plan.command}</span>
+        <span className="font-mono text-xs text-fg-muted">
+          {t("fieldGenerator.command", { command: plan.command })}
+        </span>
         <p className="text-xs text-fg-muted">
-          Replaces {plan.fields.map(humanize).join(" and ")} in this draft. Apply and Save to keep
-          the result.
+          {t("fieldGenerator.replaces", {
+            fields: plan.fields.map(humanize).join(" and "),
+          })}
         </p>
         {plan.name !== undefined && (
           <Input
-            aria-label="Server Name"
-            placeholder="Server Name"
+            aria-label={t("generator.serverName")}
+            placeholder={t("generator.serverName")}
             value={name}
             disabled={pending}
             onChange={(event) => setName(event.target.value)}
@@ -118,12 +125,12 @@ export function FieldGenerator({
           className={pending ? "opacity-50" : undefined}
           onClick={() => void generate()}
         >
-          {pending ? "Generating…" : "Generate and Fill"}
+          {pending ? t("generator.generating") : t("fieldGenerator.generateAndFill")}
         </Button>
         {companion && (
           <div className="grid gap-1.5">
             <div className="flex items-center justify-between text-xs text-fg-muted">
-              {companion.label}
+              {t(companion.label)}
               <CopyButton text={companion.value} />
             </div>
             <pre className="max-h-48 overflow-auto rounded-md bg-bg-muted p-2 font-mono text-xs break-all whitespace-pre-wrap">

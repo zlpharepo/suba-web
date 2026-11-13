@@ -1,4 +1,5 @@
-import type { Provider } from "./types";
+import type { Provider } from "./types.ts";
+import i18n from "./i18n.ts";
 
 const ANSI = new RegExp(String.raw`\u001b\[[0-9;]*m`, "g");
 
@@ -10,28 +11,34 @@ export function stripAnsi(line: string): string {
 /** A server timestamp (seconds since the epoch) in the viewer's locale. */
 export function formatTime(seconds: number | null | undefined): string {
   if (seconds === null || seconds === undefined) return "—";
-  return new Date(seconds * 1000).toLocaleString();
+  return new Date(seconds * 1000).toLocaleString(i18n.language);
+}
+
+export function dateTime(value: string | number | Date): string {
+  return new Date(value).toLocaleString(i18n.language);
 }
 
 /** How long ago a server timestamp was, coarsely. */
 export function ago(seconds: number): string {
-  return duration(Math.max(0, Date.now() / 1000 - seconds)) + " ago";
+  return i18n.t("time.ago", {
+    duration: duration(Math.max(0, Date.now() / 1000 - seconds)),
+  });
 }
 
 /** A span of seconds as its two largest units: `3d 4h`, `5h 12m`, `42s`. */
 export function duration(seconds: number): string {
-  const parts: [number, string][] = [
-    [Math.floor(seconds / 86400), "d"],
-    [Math.floor((seconds % 86400) / 3600), "h"],
-    [Math.floor((seconds % 3600) / 60), "m"],
-    [Math.floor(seconds % 60), "s"],
+  const parts: [number, "days" | "hours" | "minutes" | "seconds"][] = [
+    [Math.floor(seconds / 86400), "days"],
+    [Math.floor((seconds % 86400) / 3600), "hours"],
+    [Math.floor((seconds % 3600) / 60), "minutes"],
+    [Math.floor(seconds % 60), "seconds"],
   ];
   const first = parts.findIndex(([value]) => value > 0);
-  if (first === -1) return "0s";
+  if (first === -1) return i18n.t("time.zero");
   return parts
     .slice(first, first + 2)
     .filter(([value]) => value > 0)
-    .map(([value, unit]) => `${value}${unit}`)
+    .map(([value, unit]) => i18n.t(`time.${unit}`, { value }))
     .join(" ");
 }
 
@@ -54,8 +61,8 @@ export function rate(value: number | null): string {
 export function formatInterval(provider: Provider): string {
   if (provider.type === "inline") return "—";
   const seconds = provider.interval ?? 3600;
-  if (seconds === 0) return "manual";
-  if (seconds % 3600 === 0) return `${seconds / 3600}h`;
-  if (seconds % 60 === 0) return `${seconds / 60}m`;
-  return `${seconds}s`;
+  if (seconds === 0) return i18n.t("time.manual");
+  if (seconds % 3600 === 0) return i18n.t("time.hours", { value: seconds / 3600 });
+  if (seconds % 60 === 0) return i18n.t("time.minutes", { value: seconds / 60 });
+  return i18n.t("time.seconds", { value: seconds });
 }

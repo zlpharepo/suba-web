@@ -1,13 +1,16 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 
 import { api, session } from "@/lib/api";
+import { LanguageButton } from "@/components/language-button";
 import { Button } from "@/ui/button";
 import { Field, Input } from "@/ui/input";
 import { ErrorNote } from "@/ui/misc";
 
 export function LoginPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -33,20 +36,23 @@ export function LoginPage() {
 
   return (
     <div className="grid min-h-dvh place-items-center bg-bg-subtle px-4">
+      <div className="absolute top-4 right-4">
+        <LanguageButton />
+      </div>
       <div className="w-full max-w-[22rem]">
         <div className="mb-8 flex flex-col items-center gap-4 text-center">
           <span className="grid size-10 place-items-center rounded-lg bg-fg text-base font-bold text-bg">
             S
           </span>
           <h1 className="text-xl font-semibold tracking-tight text-fg">
-            {firstLogin ? "Create Administrator" : "Sign In to SubA"}
+            {t(firstLogin ? "login.createAdministrator" : "login.signInTitle")}
           </h1>
         </div>
         <form
           className="grid gap-4 rounded-lg border border-border bg-bg p-5 shadow-[0_1px_2px_0_oklch(0_0_0/0.04)]"
           onSubmit={submit}
         >
-          <Field label="Username">
+          <Field label={t("common.username")}>
             <Input
               autoComplete="username"
               value={username}
@@ -57,7 +63,7 @@ export function LoginPage() {
               autoFocus
             />
           </Field>
-          <Field label="Password">
+          <Field label={t("common.password")}>
             <Input
               type="password"
               autoComplete={firstLogin ? "new-password" : "current-password"}
@@ -75,7 +81,7 @@ export function LoginPage() {
             disabled={login.isPending}
             className="mt-1 w-full"
           >
-            {firstLogin ? "Create and Sign In" : "Sign In"}
+            {t(firstLogin ? "login.createAndSignIn" : "login.signIn")}
           </Button>
         </form>
       </div>

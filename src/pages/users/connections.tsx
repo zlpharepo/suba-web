@@ -1,9 +1,10 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowDownIcon, ArrowUpIcon, ArrowUpDownIcon, SearchIcon } from "lucide-react";
 
 import { selectConnections, type ConnectionFilters, type ConnectionSort } from "@/lib/connections";
-import { bytes } from "@/lib/format";
+import { bytes, dateTime } from "@/lib/format";
 import { OBSERVATION_INTERVAL, observationStatus } from "@/lib/observation";
 import { useApi, useTarget } from "@/lib/target";
 import { ResourceScope } from "@/lib/target-scope";
@@ -13,17 +14,6 @@ import { Button } from "@/ui/button";
 import { Input } from "@/ui/input";
 import { Select } from "@/ui/select";
 import { Skeleton } from "@/ui/misc";
-
-const columns: { field: ConnectionSort["field"]; label: string }[] = [
-  { field: "user", label: "User" },
-  { field: "inbound", label: "Inbound" },
-  { field: "network", label: "Network" },
-  { field: "source", label: "Source" },
-  { field: "destination", label: "Destination" },
-  { field: "uplink_total", label: "Upload" },
-  { field: "downlink_total", label: "Download" },
-  { field: "created_at", label: "Started" },
-];
 
 const choices = (values: (string | null)[], all: string, empty: string) => [
   { value: "", label: all },
@@ -40,6 +30,7 @@ export function ConnectionsView({ active }: { active: boolean }) {
 }
 
 function EnvironmentConnections({ active }: { active: boolean }) {
+  const { t } = useTranslation();
   const target = useTarget();
   const [host, setHost] = useState<Environment | null>(target.selected);
   const choices =
@@ -50,17 +41,17 @@ function EnvironmentConnections({ active }: { active: boolean }) {
     <div hidden={!active} className="grid gap-4">
       <div className="w-full sm:w-60">
         <Select
-          aria-label="Environment"
+          aria-label={t("connections.environment")}
           value={host?.id ?? "local"}
           options={[
-            { value: "local", label: "Local" },
+            { value: "local", label: t("overview.local") },
             ...choices.map((item) => ({ value: item.id, label: item.name })),
           ]}
           onChange={(id) => setHost(choices.find((item) => item.id === id) ?? null)}
         />
       </div>
       {!!target.error && (
-        <span className="text-xs text-danger">Environment registry unavailable</span>
+        <span className="text-xs text-danger">{t("connections.registryUnavailable")}</span>
       )}
       <ResourceScope key={host ? `${host.id}:${host.endpoint}` : "local"} host={host}>
         <ConnectionsPanel active={active} host={host} />
@@ -70,6 +61,17 @@ function EnvironmentConnections({ active }: { active: boolean }) {
 }
 
 export function ConnectionsPanel({ active, host }: { active: boolean; host?: Environment | null }) {
+  const { t } = useTranslation();
+  const columns: { field: ConnectionSort["field"]; label: string }[] = [
+    { field: "user", label: t("connections.user") },
+    { field: "inbound", label: t("connections.inbound") },
+    { field: "network", label: t("connections.network") },
+    { field: "source", label: t("connections.source") },
+    { field: "destination", label: t("connections.destination") },
+    { field: "uplink_total", label: t("connections.upload") },
+    { field: "downlink_total", label: t("connections.download") },
+    { field: "created_at", label: t("connections.started") },
+  ];
   const api = useApi();
   const selected = useTarget();
   const target = (host === undefined ? selected.host : host)?.id ?? "local";
@@ -88,7 +90,7 @@ export function ConnectionsPanel({ active, host }: { active: boolean; host?: Env
   const now = useObservationClock();
   const state = observationStatus(query.data, query.isError, now);
   const connections = query.data?.connections ?? [];
-  const rows = selectConnections(connections, filters, sort);
+  const rows = selectConnections(connections, filters, sort, t("connections.unidentified"));
   const users = connections.map((row) => row.user || null);
   const inbounds = connections.map((row) => row.inbound);
   const networks = connections.map((row) => row.network);
@@ -97,17 +99,17 @@ export function ConnectionsPanel({ active, host }: { active: boolean; host?: Env
   if (filters.network !== undefined) networks.push(filters.network);
 
   return (
-    <section hidden={!active} aria-label="Connections">
+    <section hidden={!active} aria-label={t("users.connections")}>
       <div className="grid min-w-0 gap-4">
         {!query.isPending && !state.live && (
           <div
             role="status"
             className="flex flex-wrap items-center justify-between gap-2 text-xs text-fg-muted"
           >
-            <span>{state.label}</span>
+            <span>{t(`observation.${state.code}`)}</span>
             {query.isError && (
               <Button size="sm" disabled={query.isFetching} onClick={() => void query.refetch()}>
-                Retry
+                {t("connections.retry")}
               </Button>
             )}
           </div>
@@ -116,8 +118,8 @@ export function ConnectionsPanel({ active, host }: { active: boolean; host?: Env
           <div className="relative col-span-2 min-w-0 sm:flex-1">
             <SearchIcon className="pointer-events-none absolute top-2 left-2.5 size-4 text-fg-subtle" />
             <Input
-              aria-label="Search Connections"
-              placeholder="Search Connections"
+              aria-label={t("connections.search")}
+              placeholder={t("connections.search")}
               className="pl-8"
               value={filters.search}
               onChange={(event) => setFilters({ ...filters, search: event.target.value })}
@@ -125,9 +127,9 @@ export function ConnectionsPanel({ active, host }: { active: boolean; host?: Env
           </div>
           <div className="min-w-0 sm:w-36">
             <Select
-              aria-label="User"
+              aria-label={t("connections.user")}
               value={filters.user === undefined ? "" : JSON.stringify(filters.user)}
-              options={choices(users, "All Users", "Unidentified")}
+              options={choices(users, t("connections.allUsers"), t("connections.unidentified"))}
               onChange={(value) =>
                 setFilters({
                   ...filters,
@@ -138,17 +140,21 @@ export function ConnectionsPanel({ active, host }: { active: boolean; host?: Env
           </div>
           <div className="min-w-0 sm:w-36">
             <Select
-              aria-label="Inbound"
+              aria-label={t("connections.inbound")}
               value={filters.inbound === undefined ? "" : JSON.stringify(filters.inbound)}
-              options={choices(inbounds, "All Inbounds", "Unidentified")}
+              options={choices(
+                inbounds,
+                t("connections.allInbounds"),
+                t("connections.unidentified"),
+              )}
               onChange={(value) => setFilters({ ...filters, inbound: parseChoice(value) })}
             />
           </div>
           <div className="min-w-0 sm:w-32">
             <Select
-              aria-label="Network"
+              aria-label={t("connections.network")}
               value={filters.network === undefined ? "" : JSON.stringify(filters.network)}
-              options={choices(networks, "All Networks", "Unknown")}
+              options={choices(networks, t("connections.allNetworks"), t("connections.unknown"))}
               onChange={(value) => setFilters({ ...filters, network: parseChoice(value) })}
             />
           </div>
@@ -158,25 +164,23 @@ export function ConnectionsPanel({ active, host }: { active: boolean; host?: Env
           <div className="rounded-md border border-border px-4 py-10 text-center text-[13px] text-fg-muted">
             {state.live
               ? connections.length
-                ? "No connections match."
-                : "No active connections."
-              : "No current connection snapshot."}
+                ? t("connections.noMatch")
+                : t("connections.noActive")
+              : t("connections.noSnapshot")}
           </div>
         ) : (
           rows.length > 0 && (
             <div
               className="min-w-0 overflow-x-auto rounded-md border border-border bg-bg focus-visible:outline-accent"
               role="region"
-              aria-label="Connection Table"
+              aria-label={t("connections.table")}
               tabIndex={0}
             >
               <table
-                aria-label="Connections"
+                aria-label={t("users.connections")}
                 className={`w-full min-w-[60rem] text-left text-xs ${state.live ? "" : "text-fg-muted"}`}
               >
-                <caption className="sr-only">
-                  Active connections and bytes in the current observation window.
-                </caption>
+                <caption className="sr-only">{t("connections.caption")}</caption>
                 <thead className="border-b border-border bg-bg-subtle">
                   <tr>
                     {columns.map(({ field, label }) => (
@@ -218,8 +222,10 @@ export function ConnectionsPanel({ active, host }: { active: boolean; host?: Env
                       key={`${target}:${query.data?.run_id}:${row.id}`}
                       className="hover:bg-bg-subtle"
                     >
-                      <td className="px-3 py-2.5">{row.user || "Unidentified"}</td>
-                      <td className="px-3 py-2.5">{row.inbound || "Unidentified"}</td>
+                      <td className="px-3 py-2.5">{row.user || t("connections.unidentified")}</td>
+                      <td className="px-3 py-2.5">
+                        {row.inbound || t("connections.unidentified")}
+                      </td>
                       <td className="px-3 py-2.5">{row.network}</td>
                       <td className="px-3 py-2.5">{row.source}</td>
                       <td className="px-3 py-2.5">
@@ -230,9 +236,7 @@ export function ConnectionsPanel({ active, host }: { active: boolean; host?: Env
                       </td>
                       <td className="px-3 py-2.5 whitespace-nowrap">{bytes(row.uplink_total)}</td>
                       <td className="px-3 py-2.5 whitespace-nowrap">{bytes(row.downlink_total)}</td>
-                      <td className="px-3 py-2.5 whitespace-nowrap">
-                        {new Date(row.created_at).toLocaleString()}
-                      </td>
+                      <td className="px-3 py-2.5 whitespace-nowrap">{dateTime(row.created_at)}</td>
                     </tr>
                   ))}
                 </tbody>

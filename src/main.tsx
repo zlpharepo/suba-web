@@ -9,6 +9,7 @@ import { createQueryClient } from "@/lib/scope";
 import { applyStoredTheme } from "@/lib/theme";
 import { router } from "@/router";
 import { Toaster } from "@/ui/toast";
+import "@/lib/i18n";
 import "./index.css";
 
 applyStoredTheme();

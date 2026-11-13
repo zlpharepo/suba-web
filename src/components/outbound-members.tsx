@@ -1,4 +1,5 @@
 import { BoxesIcon, XIcon } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { TagMultiInput } from "@/components/tag-input";
 import {
@@ -24,6 +25,7 @@ export function OutboundMembers({
   references?: ReferenceState;
   onChange: (entry: JsonObject) => void;
 }) {
+  const { t } = useTranslation();
   const names = collectionBindings(entry);
   const bound = names ?? [];
   const choices = [...new Set([...context.selected, ...bound])];
@@ -36,7 +38,7 @@ export function OutboundMembers({
   return (
     <div className="grid max-w-md gap-2">
       {bound.length > 0 && (
-        <div className="flex flex-wrap gap-1.5" aria-label="Bound Collections">
+        <div className="flex flex-wrap gap-1.5" aria-label={t("outboundMembers.boundCollections")}>
           {bound.map((name, index) => (
             <span
               key={`${index}:${name}`}
@@ -48,7 +50,7 @@ export function OutboundMembers({
               </span>
               <button
                 type="button"
-                aria-label={`Unbind Collection ${name}`}
+                aria-label={t("outboundMembers.unbind", { name })}
                 className="rounded-sm p-0.5 text-fg-subtle hover:text-fg"
                 onClick={() => select(bound.filter((held) => held !== name))}
               >
@@ -68,15 +70,15 @@ export function OutboundMembers({
         onChange={(next) => onChange({ ...entry, outbounds: next })}
         beforeOptions={(query) => (
           <div className="flex max-h-[min(12rem,calc(var(--available-height)*0.45))] min-h-0 shrink-0 flex-col gap-2 border-b border-border p-3">
-            <span className="shrink-0 text-xs font-medium text-fg-muted">Collections</span>
+            <span className="shrink-0 text-xs font-medium text-fg-muted">
+              {t("outboundMembers.collections")}
+            </span>
             {choices.length === 0 && (
-              <span className="text-xs text-fg-subtle">
-                Select collections in Collection Outbounds first.
-              </span>
+              <span className="text-xs text-fg-subtle">{t("outboundMembers.selectFirst")}</span>
             )}
             <div
               role="group"
-              aria-label="Collection Choices"
+              aria-label={t("outboundMembers.choices")}
               className="grid min-h-0 gap-2 overflow-y-auto overscroll-contain"
             >
               {choices
@@ -99,28 +101,24 @@ export function OutboundMembers({
           </div>
         )}
       />
-      <p className="text-xs text-fg-subtle">
-        Collection tags are locked previews. Only collection names are saved; members update on
-        Start or Restart.
-      </p>
+      <p className="text-xs text-fg-subtle">{t("outboundMembers.lockedHint")}</p>
       {names === null ? (
         <p role="alert" className="text-xs text-danger">
-          x-suba-collections: expected a list of collection names; edit JSON to repair it.
+          {t("outboundMembers.invalidBindings")}
         </p>
       ) : unavailable ? (
         <p role="alert" className="text-xs text-danger">
-          x-suba-collections: a bound collection is no longer selected. Reconnect it or remove the
-          binding before starting.
+          {t("outboundMembers.notSelected")}
         </p>
       ) : context.failed ? (
         <p role="alert" className="text-xs text-danger">
-          Collection members could not be loaded. Refresh Collection Outbounds to retry.
+          {t("outboundMembers.loadFailed")}
         </p>
       ) : context.pending ? (
-        <p className="text-xs text-fg-subtle">Loading collection members…</p>
+        <p className="text-xs text-fg-subtle">{t("outboundMembers.loading")}</p>
       ) : bound.length > 0 && manual.length + locked.length === 0 ? (
         <p role="alert" className="text-xs text-danger">
-          outbounds: no members are available; the core cannot start.
+          {t("outboundMembers.noMembers")}
         </p>
       ) : null}
     </div>

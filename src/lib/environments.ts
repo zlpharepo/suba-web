@@ -63,8 +63,7 @@ function agentArguments(invitation: Invitation): [string, string] {
   requireInvitationMode(invitation, "edge");
   const endpoint = managerEndpoint(invitation.endpoint);
   const id = environmentId(invitation.id);
-  if (!/^[a-f\d]{64}$/i.test(invitation.secret))
-    throw new Error("invitation.secret: expected a pairing token");
+  if (!/^[a-f\d]{64}$/i.test(invitation.secret)) throw new Error("errors.pairingToken");
   return [`${endpoint}/api`, `${id}.${invitation.secret}`];
 }
 
@@ -107,7 +106,7 @@ volumes:
 const UUID = /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i;
 
 export function environmentId(value: string): string {
-  if (!UUID.test(value)) throw new Error("environment.id: expected a UUID");
+  if (!UUID.test(value)) throw new Error("errors.environmentId");
   return value;
 }
 
@@ -124,7 +123,7 @@ function endpoint(value: string, mode: EnvironmentMode): string {
   try {
     url = new URL(value);
   } catch {
-    throw new Error("endpoint: expected an absolute URL");
+    throw new Error("errors.endpointAbsolute");
   }
   const authority = value.match(/^https?:\/\/([^/]+)/)?.[1];
   const literalLoopback =
@@ -135,11 +134,7 @@ function endpoint(value: string, mode: EnvironmentMode): string {
     url.protocol !== "https:" &&
     !(url.protocol === "http:" && (mode === "edge" || literalLoopback))
   ) {
-    throw new Error(
-      mode === "edge"
-        ? "endpoint: expected HTTP or HTTPS"
-        : "endpoint: HTTPS is required except for literal loopback addresses",
-    );
+    throw new Error(mode === "edge" ? "errors.endpointEdgeScheme" : "errors.endpointDirectScheme");
   }
   if (
     !authority ||
@@ -153,7 +148,7 @@ function endpoint(value: string, mode: EnvironmentMode): string {
     value !== value.trim() ||
     value.includes("\\")
   ) {
-    throw new Error("endpoint: credentials, query parameters and fragments are not allowed");
+    throw new Error("errors.endpointShape");
   }
   return url.href.replace(/\/+$/, "");
 }
@@ -161,7 +156,7 @@ function endpoint(value: string, mode: EnvironmentMode): string {
 export function requireInvitationMode(invitation: Invitation, mode: EnvironmentMode): Invitation {
   if ((invitation.mode ?? "direct") !== mode)
     throw new Error(
-      `invitation.mode: expected ${mode === "edge" ? "an Edge" : "a Direct"} invitation`,
+      mode === "edge" ? "errors.expectedEdgeInvitation" : "errors.expectedDirectInvitation",
     );
   return invitation;
 }
@@ -173,7 +168,7 @@ export function subscriptionUrl(endpoint: string | null, path: string): string |
     /[?#\\]/.test(path) ||
     path.split("/").some((part) => part === "." || part === "..")
   ) {
-    throw new Error("subscription.path: expected an absolute resource path");
+    throw new Error("errors.subscriptionPath");
   }
   return `${endpoint.replace(/\/+$/, "")}${path}`;
 }
@@ -183,14 +178,14 @@ export function parseInvitation(text: string, now = Date.now() / 1000): Invitati
   try {
     value = JSON.parse(text);
   } catch {
-    throw new Error("invitation: expected valid JSON");
+    throw new Error("errors.invitationJson");
   }
   if (!value || typeof value !== "object" || Array.isArray(value))
-    throw new Error("invitation: expected an object");
+    throw new Error("errors.invitationObject");
   const invitation = value as Partial<Invitation>;
-  if (invitation.version !== 1) throw new Error("invitation.version: unsupported version");
+  if (invitation.version !== 1) throw new Error("errors.invitationVersion");
   if (typeof invitation.id !== "string" || !UUID.test(invitation.id))
-    throw new Error("invitation.id: expected a UUID");
+    throw new Error("errors.invitationId");
   const identity = invitation.identity;
   if (
     !identity ||
@@ -203,18 +198,17 @@ export function parseInvitation(text: string, now = Date.now() / 1000): Invitati
     typeof identity.fingerprint !== "string" ||
     !identity.fingerprint.trim()
   ) {
-    throw new Error("invitation.identity: expected a public identity");
+    throw new Error("errors.invitationIdentity");
   }
-  if (typeof invitation.endpoint !== "string")
-    throw new Error("invitation.endpoint: expected a URL");
+  if (typeof invitation.endpoint !== "string") throw new Error("errors.invitationEndpoint");
   if (invitation.mode !== undefined && invitation.mode !== "direct" && invitation.mode !== "edge")
-    throw new Error("invitation.mode: expected direct or edge");
+    throw new Error("errors.invitationMode");
   if (invitation.mode === "edge") managerEndpoint(invitation.endpoint);
   else directEndpoint(invitation.endpoint);
   if (typeof invitation.secret !== "string" || !invitation.secret.trim())
-    throw new Error("invitation.secret: required");
+    throw new Error("errors.invitationSecret");
   if (!Number.isSafeInteger(invitation.expires_at) || invitation.expires_at! <= now)
-    throw new Error("invitation.expires_at: expired or invalid");
+    throw new Error("errors.invitationExpiry");
   // Only the public contract is forwarded; pasted metadata never becomes stored state.
   return {
     ...(invitation.mode === undefined ? {} : { mode: invitation.mode }),

@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { CheckIcon, CopyIcon, PlusIcon, XIcon } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { makePattern, PATTERN_KINDS, patternKind, patternText } from "@/lib/pattern";
 import type { Pattern, PatternKind } from "@/lib/types";
@@ -18,6 +19,7 @@ export function PatternsEditor({
   value: Pattern[];
   onChange: (value: Pattern[]) => void;
 }) {
+  const { t } = useTranslation();
   const replace = (index: number, pattern: Pattern) =>
     onChange(value.map((item, at) => (at === index ? pattern : item)));
 
@@ -31,7 +33,7 @@ export function PatternsEditor({
           onClick={() => onChange([...value, makePattern("keyword", "")])}
         >
           <PlusIcon />
-          Add
+          {t("providers.add")}
         </Button>
       </div>
       {value.map((pattern, index) => (
@@ -39,7 +41,7 @@ export function PatternsEditor({
           {/* `controlClass` carries `w-full`, so the width lives on a wrapper. */}
           <div className="w-24 shrink-0 sm:w-28">
             <Select<PatternKind>
-              aria-label="Match By"
+              aria-label={t("common.matchBy")}
               value={patternKind(pattern)}
               onChange={(kind) => replace(index, makePattern(kind, patternText(pattern)))}
               options={PATTERN_KINDS.map((kind) => ({
@@ -57,7 +59,7 @@ export function PatternsEditor({
             placeholder={patternKind(pattern) === "regex" ? "^US" : "text"}
           />
           <IconButton
-            label="Remove"
+            label={t("providers.remove")}
             onClick={() => onChange(value.filter((_, at) => at !== index))}
           >
             <XIcon />
@@ -70,18 +72,19 @@ export function PatternsEditor({
 
 export function CopyButton({
   text,
-  label = "Copy",
+  label,
   icon = <CopyIcon />,
 }: {
   text: string;
   label?: string;
   icon?: ReactNode;
 }) {
+  const { t } = useTranslation();
   const [done, setDone] = useState(false);
 
   return (
     <IconButton
-      label={label}
+      label={label ?? t("common.copy")}
       size="sm"
       onClick={() => {
         void navigator.clipboard.writeText(text).then(
@@ -89,7 +92,7 @@ export function CopyButton({
             setDone(true);
             setTimeout(() => setDone(false), 1200);
           },
-          () => toast.error("Copying needs a secure (https) page"),
+          () => toast.error(t("common.copyingRequiresHttps")),
         );
       }}
     >

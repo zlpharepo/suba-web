@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   BoxesIcon,
@@ -42,6 +43,7 @@ import { ConnectionsView } from "./connections";
 type Tab = "users" | "endpoints" | "connections";
 
 export function UsersPage() {
+  const { t } = useTranslation();
   const api = useApi();
   const [tab, setTab] = useState<Tab>("users");
   // `""` opens a new one; a name opens that one.
@@ -68,12 +70,12 @@ export function UsersPage() {
   return (
     <>
       <PageHeader
-        title="Inbounds"
+        title={t("common.inbounds")}
         actions={
           tab === "users" && (
             <Button variant="primary" disabled={!ready} onClick={() => setEditingUser("")}>
               <PlusIcon />
-              New User
+              {t("users.newUser")}
             </Button>
           )
         }
@@ -88,7 +90,7 @@ export function UsersPage() {
             label: (
               <>
                 <UsersIcon />
-                Users
+                {t("users.users")}
               </>
             ),
           },
@@ -97,7 +99,7 @@ export function UsersPage() {
             label: (
               <>
                 <NetworkIcon />
-                Endpoints
+                {t("users.endpoints")}
               </>
             ),
           },
@@ -106,7 +108,7 @@ export function UsersPage() {
             label: (
               <>
                 <ActivityIcon />
-                Connections
+                {t("users.connections")}
               </>
             ),
           },
@@ -133,11 +135,11 @@ export function UsersPage() {
           {users.data && heldUsers.length === 0 && (
             <Empty
               icon={<UsersIcon />}
-              title="No Users"
+              title={t("users.noUsers")}
               action={
                 <Button disabled={!ready} onClick={() => setEditingUser("")}>
                   <PlusIcon />
-                  New User
+                  {t("users.newUser")}
                 </Button>
               }
             />
@@ -218,6 +220,7 @@ function Tabs<T extends string>({
 }
 
 function Notice({ users, exports }: { users: UserView[]; exports?: ConfigExports }) {
+  const { t } = useTranslation();
   const changes = restartChanges(users, exports);
   const unset =
     publicHostUnset(exports) &&
@@ -233,7 +236,7 @@ function Notice({ users, exports }: { users: UserView[]; exports?: ConfigExports
       {changes > 0 && (
         <span className="flex flex-wrap items-center gap-2">
           <Dot tone="warning" />
-          {changes} {changes === 1 ? "change waits" : "changes wait"} for this core to restart.
+          {t("users.pendingChanges", { count: changes })}
           <Button
             size="sm"
             className="ml-auto"
@@ -244,19 +247,19 @@ function Notice({ users, exports }: { users: UserView[]; exports?: ConfigExports
             <RotateCwIcon
               className={restart.isPending ? "animate-spin motion-reduce:animate-none" : undefined}
             />
-            {restart.isPending ? "Restarting…" : "Restart"}
+            {restart.isPending ? t("users.restarting") : t("users.restart")}
           </Button>
         </span>
       )}
       {restart.error && (
         <div role="alert" className="text-danger">
-          {coreActionFailure("restart", restart.error)} · {errorMessage(restart.error)}
+          {t(coreActionFailure("restart", restart.error))} · {errorMessage(restart.error)}
         </div>
       )}
       {unset && (
         <span className="flex items-center gap-2">
           <Dot tone="neutral" />
-          Set a valid public-host in the server configuration to export nodes.
+          {t("users.publicHostRequired")}
         </span>
       )}
     </div>
@@ -278,9 +281,18 @@ function UserCard({
   onEdit?: () => void;
   onPreview: () => void;
 }) {
+  const { t } = useTranslation();
   const api = useApi();
   const queryClient = useQueryClient();
   const summary = grantSummary(user.grants);
+  const summaryParts: string[] = [t("users.serverCount", { count: summary.total })];
+  if (summary.unavailable)
+    summaryParts.push(t("users.unavailableCount", { count: summary.unavailable }));
+  if (summary.unverified)
+    summaryParts.push(t("users.unverifiedCount", { count: summary.unverified }));
+  if (summary.pending) summaryParts.push(t("users.pendingCount", { count: summary.pending }));
+  if (summary.shared) summaryParts.push(t("users.sharedCount", { count: summary.shared }));
+  if (summaryParts.length === 1) summaryParts.push(t("users.allApplied"));
 
   return (
     <Card>
@@ -292,15 +304,15 @@ function UserCard({
           {user.grants.length > 0 && (
             <span className="flex items-center gap-2 text-xs text-fg-muted">
               <Dot tone={summary.tone} />
-              {summary.text}
+              {summaryParts.join(" · ")}
             </span>
           )}
         </div>
         <div className="flex shrink-0 gap-0.5">
-          <IconButton label="Preview Subscription" onClick={onPreview}>
+          <IconButton label={t("users.previewSubscription")} onClick={onPreview}>
             <EyeIcon />
           </IconButton>
-          <IconButton label="Edit" disabled={!onEdit} onClick={onEdit}>
+          <IconButton label={t("overview.edit")} disabled={!onEdit} onClick={onEdit}>
             <PencilIcon />
           </IconButton>
         </div>
@@ -314,7 +326,7 @@ function UserCard({
       <ObservationSummary
         snapshot={observation}
         filter={{ user: user.name }}
-        title="Traffic"
+        title={t("users.traffic")}
         className="border-t border-border px-4 py-3"
       />
       <DeliveryLinks
@@ -339,10 +351,11 @@ function Grants({
   missingCollections: string[];
   inUse?: string;
 }) {
+  const { t } = useTranslation();
   return (
     <section className="border-t border-border">
       <h3 className="px-4 pt-3 pb-1 text-2xs font-semibold tracking-wide text-fg-subtle uppercase">
-        Access
+        {t("users.access")}
       </h3>
       {collections.length > 0 && (
         <div className="flex flex-wrap gap-1 px-4 py-2">
@@ -358,7 +371,9 @@ function Grants({
           ))}
         </div>
       )}
-      {grants.length === 0 && <p className="px-4 py-2 text-[13px] text-fg-subtle">No Inbounds</p>}
+      {grants.length === 0 && (
+        <p className="px-4 py-2 text-[13px] text-fg-subtle">{t("users.noInbounds")}</p>
+      )}
       {grants.map((grant) => {
         const state = grant.state && stateBadge(grant.state);
         return (
@@ -374,11 +389,13 @@ function Grants({
                 </span>
               )}
               {(grant.host || grant.config !== inUse) && (
-                <span className="truncate font-mono text-xs text-fg-subtle">in {grant.config}</span>
+                <span className="truncate font-mono text-xs text-fg-subtle">
+                  {t("users.inConfiguration", { name: grant.config })}
+                </span>
               )}
             </span>
-            {state && <Badge tone={state.tone}>{state.label}</Badge>}
-            {grant.mode === "shared" && <Badge tone="warning">Shared access</Badge>}
+            {state && <Badge tone={state.tone}>{t(state.key)}</Badge>}
+            {grant.mode === "shared" && <Badge tone="warning">{t("users.sharedAccess")}</Badge>}
             <span className="ml-auto flex min-w-0 items-center">
               <ExportActions item={grant} />
             </span>
@@ -390,7 +407,6 @@ function Grants({
 }
 
 const TARGET_LABELS: Record<string, string> = {
-  links: "Links",
   base64: "Base64",
   "sing-box": "sing-box",
   clash: "Clash / Mihomo",
@@ -399,6 +415,7 @@ const TARGET_LABELS: Record<string, string> = {
 
 // Fetched only when opened: the subscription carries every credential of the user.
 function SubscriptionDialog({ user, onClose }: { user: UserView | null; onClose: () => void }) {
+  const { t } = useTranslation();
   const api = useApi();
   const info = useQuery({ queryKey: ["system", "info"], queryFn: api.system.info });
   const [target, setTarget] = useState("links");
@@ -422,14 +439,22 @@ function SubscriptionDialog({ user, onClose }: { user: UserView | null; onClose:
           <Tabs
             value={target}
             onChange={setTarget}
-            options={targets.map((held) => ({ value: held, label: TARGET_LABELS[held] ?? held }))}
+            options={targets.map((held) => ({
+              value: held,
+              label: held === "links" ? t("users.links") : (TARGET_LABELS[held] ?? held),
+            }))}
           />
           {content.data && (
             <span className="text-xs text-fg-subtle tabular-nums">
-              {content.data.nodes} nodes · {content.data.skipped} skipped
+              {t("collections.previewSummary", {
+                nodes: content.data.nodes ?? "—",
+                skipped: content.data.skipped ?? "—",
+              })}
             </span>
           )}
-          {content.data && <CopyButton text={content.data.body} label="Copy Document" />}
+          {content.data && (
+            <CopyButton text={content.data.body} label={t("collections.copyDocument")} />
+          )}
         </div>
         {content.error && <ErrorNote error={content.error} />}
         {content.isPending ? (
@@ -437,7 +462,7 @@ function SubscriptionDialog({ user, onClose }: { user: UserView | null; onClose:
         ) : (
           content.data && (
             <pre className="max-h-[40vh] overflow-auto rounded-md bg-bg-muted p-3 font-mono text-xs break-all whitespace-pre-wrap text-fg">
-              {content.data.body || "(empty)"}
+              {content.data.body || t("collections.emptyDocument")}
             </pre>
           )
         )}

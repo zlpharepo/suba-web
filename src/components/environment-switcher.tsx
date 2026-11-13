@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { CheckIcon, ChevronsUpDownIcon, SearchIcon, ServerIcon } from "lucide-react";
 
 import { useTarget } from "@/lib/target";
@@ -9,12 +10,13 @@ import { Input } from "@/ui/input";
 import { ErrorNote } from "@/ui/misc";
 
 export function EnvironmentSwitcher({ onSelect }: { onSelect?: () => void }) {
+  const { t } = useTranslation();
   const target = useTarget();
   const confirmDiscard = useConfirmDiscard();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const environments = [null, ...target.environments].filter((environment) =>
-    `${environment?.name ?? "Local"} ${environment?.endpoint ?? ""}`
+    `${environment?.name ?? t("overview.local")} ${environment?.endpoint ?? ""}`
       .toLowerCase()
       .includes(search.toLowerCase()),
   );
@@ -22,7 +24,7 @@ export function EnvironmentSwitcher({ onSelect }: { onSelect?: () => void }) {
     <>
       <button
         type="button"
-        aria-label="Switch Environment"
+        aria-label={t("environments.switchEnvironment")}
         aria-haspopup="dialog"
         aria-expanded={open}
         className="flex h-12 w-full items-center gap-2 rounded-md px-2 text-left transition-colors hover:bg-bg-muted"
@@ -37,21 +39,23 @@ export function EnvironmentSwitcher({ onSelect }: { onSelect?: () => void }) {
         <span className="grid min-w-0 flex-1 gap-0.5">
           <span className="truncate text-[13px] font-medium">
             {target.selected?.name ??
-              (target.selectedId === "local" ? "Local" : "Environment Unavailable")}
+              (target.selectedId === "local" ? t("overview.local") : t("environments.unavailable"))}
           </span>
           <span className="truncate text-2xs text-fg-subtle">
-            {target.selected?.mode === "edge" ? "Edge" : (target.selected?.endpoint ?? "Manager")}
+            {target.selected?.mode === "edge"
+              ? t("overview.edge")
+              : (target.selected?.endpoint ?? t("overview.manager"))}
           </span>
         </span>
         <ChevronsUpDownIcon className="size-3.5 shrink-0 text-fg-subtle" />
       </button>
-      <Dialog open={open} onOpenChange={setOpen} title="Select Environment">
+      <Dialog open={open} onOpenChange={setOpen} title={t("environments.selectEnvironment")}>
         <div className="grid gap-3">
           <div className="relative">
             <SearchIcon className="pointer-events-none absolute top-2 left-2.5 size-4 text-fg-subtle" />
             <Input
-              aria-label="Search Environments"
-              placeholder="Search environments"
+              aria-label={t("environments.searchEnvironments")}
+              placeholder={t("environments.searchEnvironments")}
               autoFocus
               value={search}
               onChange={(event) => setSearch(event.target.value)}
@@ -83,20 +87,26 @@ export function EnvironmentSwitcher({ onSelect }: { onSelect?: () => void }) {
                   </span>
                   <span className="grid min-w-0 flex-1 gap-0.5">
                     <span className="truncate text-[13px] font-medium">
-                      {environment?.name ?? "Local"}
+                      {environment?.name ?? t("overview.local")}
                     </span>
                     <span className="truncate text-xs text-fg-subtle">
-                      {environment?.endpoint ?? (environment ? "Edge" : "Manager")}
+                      {environment?.endpoint ??
+                        (environment ? t("overview.edge") : t("overview.manager"))}
                     </span>
                   </span>
                   {current && (
-                    <CheckIcon className="size-4 text-accent" aria-label="Current Environment" />
+                    <CheckIcon
+                      className="size-4 text-accent"
+                      aria-label={t("environments.currentEnvironment")}
+                    />
                   )}
                 </button>
               );
             })}
             {environments.length === 0 && (
-              <span className="py-4 text-center text-sm text-fg-muted">No environments found.</span>
+              <span className="py-4 text-center text-sm text-fg-muted">
+                {t("environments.noEnvironments")}
+              </span>
             )}
           </div>
         </div>

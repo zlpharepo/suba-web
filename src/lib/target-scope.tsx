@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { QueryClientProvider, useIsMutating } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { pageEnvironment, type Environment } from "./environments";
 import { createScope } from "./scope";
 import { useDraftProtection } from "./draft-protection";
@@ -8,6 +9,7 @@ import { Button } from "@/ui/button";
 import { ErrorNote } from "@/ui/misc";
 
 export function EnvironmentPage({ path, children }: { path: string; children: ReactNode }) {
+  const { t } = useTranslation();
   const target = useTarget();
   const host = pageEnvironment(target.selected, path);
   const unavailable = target.selectedId !== "local" && !target.selected && path !== "/";
@@ -20,10 +22,10 @@ export function EnvironmentPage({ path, children }: { path: string; children: Re
               <ErrorNote error={target.error} />
             ) : (
               <p className="text-sm text-fg-muted">
-                {target.updatedAt ? "Environment unavailable" : "Loading environment…"}
+                {t(target.updatedAt ? "environmentScope.unavailable" : "environmentScope.loading")}
               </p>
             )}
-            <Button onClick={() => target.select(null)}>Use Local Environment</Button>
+            <Button onClick={() => target.select(null)}>{t("environmentScope.useLocal")}</Button>
           </div>
         ) : (
           children

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useIsMutating, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ChevronDownIcon,
@@ -38,6 +39,7 @@ import { Switch } from "@/ui/toggle";
 import { toast } from "@/ui/notify";
 
 export function SingboxPage() {
+  const { t } = useTranslation();
   const api = useApi();
   const core = useQuery({ queryKey: ["singbox"], queryFn: api.singbox.get });
   const action = useCoreAction();
@@ -49,7 +51,7 @@ export function SingboxPage() {
     queryFn: () => api.singbox.status(),
     refetchInterval: acting ? false : 3000,
   });
-  const dead = status.data && !status.data.running ? died(status.data) : null;
+  const dead = status.data && !status.data.running ? died(status.data, t) : null;
 
   return (
     <>
@@ -73,7 +75,7 @@ export function SingboxPage() {
         {status.error && <ErrorNote error={status.error} />}
         {action.error && (
           <ErrorNote
-            error={`${coreActionFailure(action.variables ?? "start", action.error)} · ${errorMessage(action.error)}`}
+            error={`${t(coreActionFailure(action.variables ?? "start", action.error))} · ${errorMessage(action.error)}`}
           />
         )}
         {dead && <ErrorNote error={dead} />}
@@ -82,7 +84,7 @@ export function SingboxPage() {
             role="status"
             className="rounded-md bg-warning-subtle px-3 py-2.5 text-[13px] text-warning"
           >
-            Restart to Apply Changes
+            {t("singbox.applyChanges")}
           </p>
         )}
       </div>
@@ -93,6 +95,7 @@ export function SingboxPage() {
 }
 
 function ConfigurationWorkspace({ core }: { core: Core }) {
+  const { t } = useTranslation();
   // Editing is local to this page; runtime settings must keep their actual selection.
   const [editing, setEditing] = useState(core.config);
   const [sectionDraft, setSectionDraft] = useState<SectionDraftStatus>({
@@ -114,7 +117,7 @@ function ConfigurationWorkspace({ core }: { core: Core }) {
         />
         {editing !== core.config && (
           <span className="text-xs text-fg-muted">
-            Start / Restart: <span className="font-mono">{core.config}</span>
+            {t("singbox.startRestartConfig", { name: core.config })}
           </span>
         )}
         <PrivilegesChip core={core} />
@@ -151,18 +154,24 @@ function ConfigurationWorkspace({ core }: { core: Core }) {
  * process gave up, and inventing one is how a tun that could not be created
  * turns into a page that says nothing at all.
  */
-function died(status: Running): string | null {
+function died(status: Running, t: ReturnType<typeof useTranslation>["t"]): string | null {
   const exit = status.exits.at(-1);
   if (!exit || (exit.code === 0 && exit.signal === null)) return null;
 
-  const how = exit.signal !== null ? `signal ${exit.signal}` : `status ${exit.code}`;
+  const how =
+    exit.signal !== null
+      ? t("singbox.exitSignal", { value: exit.signal })
+      : t("singbox.exitStatus", { value: exit.code ?? "—" });
   const said = [...status.log].reverse().find((line) => !line.startsWith("[suba]"));
 
-  return `The core exited with ${how}${said ? `: ${stripAnsi(said)}` : ""}`;
+  return said
+    ? t("singbox.coreExitedWithLog", { reason: how, log: stripAnsi(said) })
+    : t("singbox.coreExited", { reason: how });
 }
 
 function NoVersion() {
-  return <Empty icon={<DownloadIcon />} title="Install sing-box" />;
+  const { t } = useTranslation();
+  return <Empty icon={<DownloadIcon />} title={t("singbox.installSingbox")} />;
 }
 
 /* ---------------------------------------------------------------- process */
@@ -176,6 +185,7 @@ function Controls({
   hasVersion: boolean;
   action: ReturnType<typeof useCoreAction>;
 }) {
+  const { t } = useTranslation();
   const [log, setLog] = useState(false);
   const busy = useIsMutating({ mutationKey: ["singbox", "action"] }) > 0;
   const pending = act.isPending;
@@ -186,15 +196,19 @@ function Controls({
       <span role="status" className="mr-1.5 flex items-center gap-2 text-[13px] text-fg-muted">
         <Dot tone={running ? "success" : "neutral"} live={running && !pending} />
         {pending
-          ? { start: "Starting…", restart: "Restarting…", stop: "Stopping…" }[action]
+          ? {
+              start: t("singbox.starting"),
+              restart: t("singbox.restarting"),
+              stop: t("singbox.stopping"),
+            }[action]
           : running
-            ? "Running"
-            : "Stopped"}
+            ? t("singbox.running")
+            : t("singbox.stopped")}
       </span>
       {running ? (
         <>
           <IconButton
-            label={pending && action === "restart" ? "Restarting…" : "Restart"}
+            label={pending && action === "restart" ? t("singbox.restarting") : t("singbox.restart")}
             variant="secondary"
             aria-busy={pending && action === "restart"}
             disabled={busy}
@@ -207,7 +221,7 @@ function Controls({
             )}
           </IconButton>
           <IconButton
-            label={pending && action === "stop" ? "Stopping…" : "Stop"}
+            label={pending && action === "stop" ? t("singbox.stopping") : t("singbox.stop")}
             variant="secondary"
             aria-busy={pending && action === "stop"}
             disabled={busy}
@@ -222,7 +236,7 @@ function Controls({
         </>
       ) : (
         <IconButton
-          label={pending ? "Starting…" : "Start"}
+          label={pending ? t("singbox.starting") : t("singbox.start")}
           variant="primary"
           aria-busy={pending}
           disabled={busy || !hasVersion}
@@ -235,7 +249,7 @@ function Controls({
           )}
         </IconButton>
       )}
-      <IconButton label="Log" variant="secondary" onClick={() => setLog(true)}>
+      <IconButton label={t("singbox.log")} variant="secondary" onClick={() => setLog(true)}>
         <FileTextIcon />
       </IconButton>
       <Generator iconOnly />
@@ -251,6 +265,7 @@ function LogDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const { t } = useTranslation();
   const api = useApi();
   const status = useQuery({
     queryKey: ["singbox", "status"],
@@ -272,19 +287,27 @@ function LogDialog({
       open={open}
       onOpenChange={onOpenChange}
       width="xl"
-      title="Log"
+      title={t("singbox.log")}
       description={
         status.data?.running
-          ? `pid ${status.data.pid} · started ${status.data.started_at ? ago(status.data.started_at) : ""}`
+          ? t("singbox.logRunning", {
+              pid: status.data.pid ?? "—",
+              time: status.data.started_at ? ago(status.data.started_at) : "",
+            })
           : lastExit
-            ? `exited ${ago(lastExit.at)} · ${lastExit.signal !== null ? `signal ${lastExit.signal}` : `status ${lastExit.code}`}`
+            ? lastExit.signal !== null
+              ? t("singbox.logExitedSignal", { time: ago(lastExit.at), signal: lastExit.signal })
+              : t("singbox.logExitedStatus", {
+                  time: ago(lastExit.at),
+                  status: lastExit.code ?? "—",
+                })
             : undefined
       }
     >
       {status.error && <ErrorNote error={status.error} />}
       <div className="-mx-5 -my-4 min-h-64 bg-[oklch(0.17_0_0)] px-4 py-3 font-mono text-xs leading-relaxed text-[oklch(0.86_0_0)]">
         {lines.length === 0 ? (
-          <span className="text-[oklch(0.55_0_0)]">No output.</span>
+          <span className="text-[oklch(0.55_0_0)]">{t("singbox.noOutput")}</span>
         ) : (
           lines.map((line, index) => (
             <div
@@ -307,6 +330,7 @@ function LogDialog({
 /* ---------------------------------------------------------------- version */
 
 function VersionChip({ current }: { current: string | null }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
 
   return (
@@ -316,8 +340,8 @@ function VersionChip({ current }: { current: string | null }) {
         onClick={() => setOpen(true)}
         className={cx(buttonClass("secondary", "sm"), "font-mono")}
       >
-        <span className="font-sans text-fg-subtle">Version</span>
-        {current ?? "none"}
+        <span className="font-sans text-fg-subtle">{t("singbox.version")}</span>
+        {current ?? t("singbox.none")}
         <ChevronDownIcon className="!size-3.5 text-fg-subtle" />
       </button>
       <VersionsDialog open={open} onOpenChange={setOpen} current={current} />
@@ -334,6 +358,7 @@ function VersionsDialog({
   onOpenChange: (open: boolean) => void;
   current: string | null;
 }) {
+  const { t } = useTranslation();
   const api = useApi();
   const queryClient = useQueryClient();
   const versions = useQuery({
@@ -393,7 +418,7 @@ function VersionsDialog({
     }
     const completed = observedInstall.current === watchedVersion;
     if (installationState === "installed") {
-      if (completed) toast.success(`Installed sing-box ${watchedVersion}`);
+      if (completed) toast.success(t("singbox.installedSingbox", { version: watchedVersion }));
       void queryClient.invalidateQueries({
         queryKey: ["singbox"],
         exact: true,
@@ -403,10 +428,12 @@ function VersionsDialog({
         exact: true,
       });
     } else if (installationState === "failed" && completed) {
-      toast.error(`Install Failed · ${installationError}`);
+      toast.error(
+        t("singbox.installFailedWithReason", { reason: installationError ?? t("common.unknown") }),
+      );
     }
     if (completed) observedInstall.current = null;
-  }, [watching, watchedVersion, installationState, installationError, queryClient]);
+  }, [watching, watchedVersion, installationState, installationError, queryClient, t]);
 
   const invalidate = () => void queryClient.invalidateQueries({ queryKey: ["singbox"] });
 
@@ -450,13 +477,13 @@ function VersionsDialog({
   const installing = install.isPending || installationState === "downloading";
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange} title="Versions" width="md">
+    <Dialog open={open} onOpenChange={onOpenChange} title={t("singbox.versions")} width="md">
       <div className="grid gap-5">
         <div className="grid gap-1.5">
           {versions.isPending && <Skeleton className="h-16" />}
           {versions.error && <ErrorNote error={versions.error} />}
           {versions.isSuccess && rows.length === 0 && (
-            <p className="text-[13px] text-fg-subtle">Nothing installed yet.</p>
+            <p className="text-[13px] text-fg-subtle">{t("singbox.nothingInstalled")}</p>
           )}
           {rows.map((item) => (
             <VersionRow
@@ -470,7 +497,7 @@ function VersionsDialog({
         </div>
 
         <div className="grid gap-2 border-t border-border pt-4">
-          <span className="text-[13px] font-medium text-fg">Install</span>
+          <span className="text-[13px] font-medium text-fg">{t("singbox.install")}</span>
           {install.error && (
             <div role="alert">
               <ErrorNote error={install.error} />
@@ -483,9 +510,9 @@ function VersionsDialog({
             <div className="flex gap-2">
               <Select
                 className="flex-1 font-mono"
-                aria-label="Release"
+                aria-label={t("singbox.release")}
                 value={picked}
-                placeholder={releases.isPending ? "Loading…" : "Choose a release"}
+                placeholder={releases.isPending ? t("singbox.loading") : t("singbox.chooseRelease")}
                 disabled={!releases.data || installing}
                 onChange={(version) => {
                   setRelease(version);
@@ -497,9 +524,9 @@ function VersionsDialog({
                     <span className="flex items-center gap-2 font-mono">
                       {item.version}
                       {item.version === releases.data?.stable && (
-                        <Badge tone="success">stable</Badge>
+                        <Badge tone="success">{t("singbox.stable")}</Badge>
                       )}
-                      {installed.has(item.version) && <Badge>installed</Badge>}
+                      {installed.has(item.version) && <Badge>{t("singbox.installed")}</Badge>}
                     </span>
                   ),
                 }))}
@@ -515,7 +542,7 @@ function VersionsDialog({
                 ) : (
                   <DownloadIcon />
                 )}
-                {installing ? "Installing…" : "Install"}
+                {installing ? t("singbox.installing") : t("singbox.install")}
               </Button>
             </div>
           )}
@@ -536,6 +563,7 @@ function VersionRow({
   onUse: () => void;
   onRemove: () => void;
 }) {
+  const { t } = useTranslation();
   const state = item.installation;
   const ready = state.status === "installed";
 
@@ -550,37 +578,37 @@ function VersionRow({
     >
       <div className="flex flex-wrap items-center gap-3">
         <span className="font-mono text-[13px] font-medium text-fg">{item.version}</span>
-        {current && <Badge tone="accent">in use</Badge>}
-        {item.runtime.status === "running" && <Badge tone="success">running</Badge>}
+        {current && <Badge tone="accent">{t("singbox.inUse")}</Badge>}
+        {item.runtime.status === "running" && <Badge tone="success">{t("singbox.running")}</Badge>}
         <span className="min-w-0 flex-1 text-xs text-fg-subtle">
           {state.status === "downloading"
-            ? "Downloading…"
+            ? t("singbox.downloading")
             : state.status === "installed"
-              ? `installed ${ago(state.installed_at)}`
+              ? t("singbox.installedAgo", { time: ago(state.installed_at) })
               : ""}
         </span>
         {ready && !current && (
           <Button size="sm" onClick={onUse}>
-            Use
+            {t("singbox.use")}
           </Button>
         )}
         {ready && !current && (
           <Confirm
             trigger={
-              <IconButton label="Remove" size="sm">
+              <IconButton label={t("singbox.remove")} size="sm">
                 <Trash2Icon />
               </IconButton>
             }
-            title={`Remove ${item.version}?`}
-            description="Its binary and schema are deleted."
-            confirmLabel="Remove"
+            title={t("singbox.removeVersion", { version: item.version })}
+            description={t("singbox.removeVersionImpact")}
+            confirmLabel={t("singbox.remove")}
             onConfirm={onRemove}
           />
         )}
       </div>
       {state.status === "failed" && (
         <p role="alert" className="text-xs text-danger">
-          <span className="font-medium">Install Failed</span> · {state.error}
+          <span className="font-medium">{t("singbox.installFailed")}</span> · {state.error}
         </p>
       )}
       {state.status === "downloading" && (
@@ -594,11 +622,13 @@ function VersionRow({
           </div>
           <div
             role="progressbar"
-            aria-label={`Download ${item.version}`}
+            aria-label={t("singbox.downloadVersion", { version: item.version })}
             aria-valuemin={0}
             aria-valuemax={100}
             aria-valuenow={state.progress.percentage ?? undefined}
-            aria-valuetext={`${bytes(state.progress.downloaded)} downloaded`}
+            aria-valuetext={t("singbox.downloadedBytes", {
+              size: bytes(state.progress.downloaded),
+            })}
             className="relative h-1.5 overflow-hidden rounded-full bg-bg-muted"
           >
             <div
@@ -637,17 +667,22 @@ function ConfigChip({
   section: SectionDraftStatus;
   onResetSection: () => void;
 }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
 
   return (
     <>
-      <div role="group" aria-label="Configuration" className="inline-flex items-center">
+      <div
+        role="group"
+        aria-label={t("singbox.configuration")}
+        className="inline-flex items-center"
+      >
         <button
           type="button"
           onClick={() => setOpen(true)}
           className={cx(buttonClass("secondary", "sm"), "rounded-r-none")}
         >
-          <span className="text-fg-subtle">Config</span>
+          <span className="text-fg-subtle">{t("singbox.config")}</span>
           <span className="font-mono">{editing}</span>
           <ChevronDownIcon className="!size-3.5 text-fg-subtle" />
         </button>
@@ -685,6 +720,7 @@ function ConfigsDialog({
   editing: string;
   onSelect: (name: string) => void;
 }) {
+  const { t } = useTranslation();
   const api = useApi();
   const queryClient = useQueryClient();
   const configs = useQuery({
@@ -764,21 +800,25 @@ function ConfigsDialog({
   const held = configs.data ?? [];
   const taken = held.some((config) => config.name === name);
   const label =
-    action.mode === "new" ? "Create" : action.mode === "rename" ? "Rename" : "Duplicate";
+    action.mode === "new"
+      ? t("singbox.create")
+      : action.mode === "rename"
+        ? t("singbox.rename")
+        : t("singbox.duplicate");
 
   return (
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
       width="md"
-      title="Configurations"
-      description="Click a name to edit, or click 'Use' to apply it on the next start/restart."
+      title={t("singbox.configurations")}
+      description={t("singbox.configHint")}
     >
       <div className="grid gap-4">
         {configs.error && <ErrorNote error={configs.error} />}
         {configs.isPending && <Skeleton className="h-24" />}
         {configs.data && held.length === 0 && (
-          <p className="text-[13px] text-fg-subtle">No configuration saved yet.</p>
+          <p className="text-[13px] text-fg-subtle">{t("singbox.noConfigs")}</p>
         )}
         <div className="grid gap-1.5">
           {held.map((config) => (
@@ -813,15 +853,15 @@ function ConfigsDialog({
         <div className="grid gap-2 border-t border-border pt-4">
           <span className="text-[13px] font-medium text-fg">
             {action.mode === "new"
-              ? "New Configuration"
+              ? t("singbox.newConfig")
               : action.mode === "rename"
-                ? `Rename ${action.from}`
-                : `Duplicate ${action.from}`}
+                ? t("singbox.renameConfig", { name: action.from })
+                : t("singbox.duplicateConfig", { name: action.from })}
           </span>
           <div className="flex gap-2">
             <Input
               className="font-mono"
-              placeholder="Name"
+              placeholder={t("providers.name")}
               value={name}
               onChange={(event) => setName(event.target.value)}
             />
@@ -843,13 +883,11 @@ function ConfigsDialog({
                   setName("");
                 }}
               >
-                Cancel
+                {t("common.cancel")}
               </Button>
             )}
           </div>
-          <p className="text-xs text-fg-subtle">
-            1–64 characters: letters, digits, '.', '_', or '-'.
-          </p>
+          <p className="text-xs text-fg-subtle">{t("singbox.configNameRules")}</p>
         </div>
       </div>
     </Dialog>
@@ -875,6 +913,7 @@ function ConfigRow({
   onDuplicate: () => void;
   onRemove: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div
       className={cx(
@@ -884,7 +923,7 @@ function ConfigRow({
     >
       <button
         type="button"
-        aria-label={`Edit ${config.name}`}
+        aria-label={t("singbox.editConfig", { name: config.name })}
         aria-current={editing || undefined}
         disabled={busy}
         onClick={onEdit}
@@ -892,28 +931,28 @@ function ConfigRow({
       >
         {config.name}
       </button>
-      {editing && <Badge>Editing</Badge>}
-      {config.current && <Badge tone="accent">In Use</Badge>}
+      {editing && <Badge>{t("singbox.editing")}</Badge>}
+      {config.current && <Badge tone="accent">{t("singbox.inUse")}</Badge>}
       {!config.current && (
         <Button size="sm" disabled={busy} onClick={onUse}>
-          Use
+          {t("singbox.use")}
         </Button>
       )}
       <Menu
         trigger={
-          <IconButton label="More" size="sm" disabled={busy}>
+          <IconButton label={t("singbox.more")} size="sm" disabled={busy}>
             <MoreHorizontalIcon />
           </IconButton>
         }
         items={[
-          { label: "Rename", icon: <PencilIcon />, onSelect: onRename },
-          { label: "Duplicate", icon: <CopyIcon />, onSelect: onDuplicate },
+          { label: t("singbox.rename"), icon: <PencilIcon />, onSelect: onRename },
+          { label: t("singbox.duplicate"), icon: <CopyIcon />, onSelect: onDuplicate },
           ...(config.current
             ? []
             : [
                 "separator" as const,
                 {
-                  label: "Remove",
+                  label: t("singbox.remove"),
                   icon: <Trash2Icon />,
                   danger: true,
                   onSelect: onRemove,
@@ -937,6 +976,7 @@ function ConfigRow({
  * turns it off behind the operator.
  */
 function AutostartChip({ core }: { core: Core }) {
+  const { t } = useTranslation();
   const api = useApi();
   const queryClient = useQueryClient();
   const choose = useMutation({
@@ -958,8 +998,8 @@ function AutostartChip({ core }: { core: Core }) {
       trigger={
         <button type="button" className={buttonClass("secondary", "sm")}>
           <PlayIcon className="text-fg-subtle" />
-          <span className="text-fg-subtle">Autostart</span>
-          {core.autostart ? "On" : "Off"}
+          <span className="text-fg-subtle">{t("singbox.autostart")}</span>
+          {core.autostart ? t("singbox.on") : t("singbox.off")}
           <ChevronDownIcon className="!size-3.5 text-fg-subtle" />
         </button>
       }
@@ -968,7 +1008,7 @@ function AutostartChip({ core }: { core: Core }) {
         <Switch
           checked={core.autostart}
           onChange={(on) => choose.mutate(on)}
-          label="Start with SubA"
+          label={t("singbox.startWithSuba")}
         />
       </div>
     </Popover>
@@ -987,6 +1027,7 @@ function AutostartChip({ core }: { core: Core }) {
  * to be is refused, and the answer names which way out to take.
  */
 function PrivilegesChip({ core }: { core: Core }) {
+  const { t } = useTranslation();
   const api = useApi();
   const queryClient = useQueryClient();
   const choose = useMutation({
@@ -1007,8 +1048,8 @@ function PrivilegesChip({ core }: { core: Core }) {
       trigger={
         <button type="button" className={buttonClass("secondary", "sm")}>
           <ShieldIcon className="text-fg-subtle" />
-          <span className="text-fg-subtle">Privileges</span>
-          {core.privilege === "root" ? "Root" : "Operator"}
+          <span className="text-fg-subtle">{t("singbox.privileges")}</span>
+          {core.privilege === "root" ? t("singbox.root") : t("singbox.operator")}
           <ChevronDownIcon className="!size-3.5 text-fg-subtle" />
         </button>
       }
@@ -1017,13 +1058,9 @@ function PrivilegesChip({ core }: { core: Core }) {
         <Switch
           checked={core.privilege === "root"}
           onChange={(on) => choose.mutate(on ? "root" : "operator")}
-          label="Run Core as Root"
+          label={t("singbox.runAsRoot")}
         />
-        <p className="text-xs leading-relaxed text-fg-subtle">
-          Root or administrator privileges are required to enable TUN mode (or TProxy/Redirect on
-          Linux). SubA must be started with the <code>--run-as-root</code> flag; otherwise, startup
-          will be rejected.
-        </p>
+        <p className="text-xs leading-relaxed text-fg-subtle">{t("singbox.privilegeHint")}</p>
       </div>
     </Popover>
   );

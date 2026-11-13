@@ -33,6 +33,7 @@ import type {
   VersionView,
 } from "./types.ts";
 import type { JsonObject, JsonSchema } from "./schema.ts";
+import i18n from "./i18n.ts";
 import { observationQuery } from "./observation.ts";
 import {
   directEndpoint,
@@ -415,16 +416,18 @@ async function edgeRequest<T>(request: () => Promise<T>): Promise<T> {
     const status = error instanceof ApiError ? error.status : 0;
     const reason =
       status === 409
-        ? "disconnect the configured manager before connecting again"
+        ? "errors.edgeConflict"
         : status === 400
-          ? "invalid invitation or connection settings"
+          ? "errors.edgeSettings"
           : status === 401 || status === 403
-            ? "authorization failed; check the session and manager trust"
-            : "request failed; check the endpoint, explicit proxy and network";
-    throw new ApiError(status, `edge: ${reason}`);
+            ? "errors.edgeAuthorization"
+            : "errors.edgeRequest";
+    throw new ApiError(status, reason);
   }
 }
 
 export function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+  const message = error instanceof Error ? error.message : String(error);
+  // Errors cross a runtime boundary: local failures carry keys while server failures stay text.
+  return i18n.exists(message) ? i18n.t(message as never) : message;
 }

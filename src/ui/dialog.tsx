@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Dialog as BaseDialog } from "@base-ui/react/dialog";
 import { AlertDialog } from "@base-ui/react/alert-dialog";
 import { XIcon } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { cx } from "@/lib/cx";
 import { Button } from "./button";
@@ -42,6 +43,7 @@ export function Dialog({
   drawer?: boolean;
   children: ReactNode;
 }) {
+  const { t } = useTranslation();
   return (
     <BaseDialog.Root open={open} onOpenChange={onOpenChange}>
       <BaseDialog.Portal>
@@ -65,7 +67,7 @@ export function Dialog({
               )}
             </div>
             <BaseDialog.Close
-              aria-label="Close"
+              aria-label={t("common.close")}
               className={cx(buttonClass("ghost", "sm", true), "-mr-1.5 -mt-0.5")}
             >
               <XIcon />
@@ -97,6 +99,7 @@ export function Confirm({
   confirmLabel: string;
   onConfirm: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <AlertDialog.Root>
       <AlertDialog.Trigger render={trigger} />
@@ -112,7 +115,7 @@ export function Confirm({
             </AlertDialog.Description>
           </div>
           <div className="flex justify-end gap-2 border-t border-border bg-bg-subtle px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:rounded-b-lg">
-            <AlertDialog.Close render={<Button>Cancel</Button>} />
+            <AlertDialog.Close render={<Button>{t("common.cancel")}</Button>} />
             <AlertDialog.Close render={<Button variant="danger" onClick={onConfirm} />}>
               {confirmLabel}
             </AlertDialog.Close>

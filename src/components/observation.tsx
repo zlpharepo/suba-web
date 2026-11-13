@@ -1,4 +1,5 @@
-import { bytes, rate } from "@/lib/format";
+import { useTranslation } from "react-i18next";
+import { bytes, dateTime, rate } from "@/lib/format";
 import { observationStatus, observedCounters } from "@/lib/observation";
 import type { ObservationFilter, ObservationMetadata } from "@/lib/types";
 import { useObservationMetrics, type MetricsSnapshot } from "@/lib/use-observation";
@@ -18,16 +19,18 @@ export function ObservationState({
   now: number;
   config?: string;
 }) {
+  const { t } = useTranslation();
   const state = observationStatus(data, failed, now, config);
+  const statusLabel = t(`observation.${state.code}`);
   return (
     <Popover
       openOnHover
-      label="Observation Details"
+      label={t("observation.details")}
       trigger={
         <Button
           size="sm"
-          aria-label="Observation Status"
-          aria-description={state.label}
+          aria-label={t("observation.statusControl")}
+          aria-description={statusLabel}
           className="w-6 rounded-l-none border-l-0 px-0"
         >
           <Dot
@@ -44,23 +47,23 @@ export function ObservationState({
       className="w-80"
     >
       <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 text-xs [&_dt]:text-fg-subtle [&_dd]:wrap-break-word">
-        <dt>Status</dt>
-        <dd aria-live="polite">{state.label}</dd>
+        <dt>{t("observation.status")}</dt>
+        <dd aria-live="polite">{statusLabel}</dd>
         {data?.config && (
           <>
-            <dt>Running Config</dt>
+            <dt>{t("observation.runningConfig")}</dt>
             <dd className="font-mono">{data.config}</dd>
           </>
         )}
         {data?.window_started_at !== undefined && (
           <>
-            <dt>Window Started</dt>
-            <dd>{new Date(data.window_started_at).toLocaleString()}</dd>
+            <dt>{t("observation.windowStarted")}</dt>
+            <dd>{dateTime(data.window_started_at)}</dd>
           </>
         )}
       </dl>
       {data?.reason && <p className="mt-2 text-xs text-danger">{data.reason}</p>}
-      {data?.gap && <p className="mt-2 text-xs text-warning">Observation interrupted</p>}
+      {data?.gap && <p className="mt-2 text-xs text-warning">{t("observation.interrupted")}</p>}
     </Popover>
   );
 }
@@ -78,6 +81,7 @@ export function ObservationSummary({
   className?: string;
   title?: string;
 }) {
+  const { t } = useTranslation();
   const { data, failed, now } = snapshot;
   const state = observationStatus(data, failed, now, config);
   const counters = state.live ? observedCounters(data, filter, config) : null;
@@ -87,19 +91,19 @@ export function ObservationSummary({
       {title && (
         <h3 className="text-2xs font-semibold tracking-wide text-fg-subtle uppercase">{title}</h3>
       )}
-      {!state.matches && <Badge>{state.label}</Badge>}
+      {!state.matches && <Badge>{t(`observation.${state.code}`)}</Badge>}
       {counters && (
         <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs tabular-nums sm:grid-cols-3">
           <div>
-            <span className="block text-fg-subtle">Active Connections</span>
+            <span className="block text-fg-subtle">{t("observation.activeConnections")}</span>
             {counters.connections}
           </div>
           <div>
-            <span className="block text-fg-subtle">Upload / Download</span>
+            <span className="block text-fg-subtle">{t("observation.uploadDownload")}</span>
             {rate(counters.uplink)} / {rate(counters.downlink)}
           </div>
           <div>
-            <span className="block text-fg-subtle">Window Bytes ↑ / ↓</span>
+            <span className="block text-fg-subtle">{t("observation.windowBytes")}</span>
             {bytes(counters.uplink_total)} / {bytes(counters.downlink_total)}
           </div>
         </div>

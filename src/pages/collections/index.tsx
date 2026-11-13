@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { BoxesIcon, EyeIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
 
@@ -24,6 +25,7 @@ import { Checkbox } from "@/ui/toggle";
 import { toast } from "@/ui/notify";
 
 export function CollectionsPage() {
+  const { t } = useTranslation();
   const api = useApi();
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<string | null>(null);
@@ -39,7 +41,7 @@ export function CollectionsPage() {
   const remove = useMutation({
     mutationFn: (name: string) => api.collections.remove(name),
     onSuccess: (_, name) => {
-      toast.success(`Deleted ${name}`);
+      toast.success(t("collections.deleted", { name }));
       void queryClient.invalidateQueries({ queryKey: ["collections"] });
     },
     onError: (error) => toast.error(errorMessage(error)),
@@ -48,11 +50,11 @@ export function CollectionsPage() {
   return (
     <>
       <PageHeader
-        title="Collections"
+        title={t("common.collections")}
         actions={
           <Button variant="primary" onClick={() => setCreating(true)}>
             <PlusIcon />
-            New Collection
+            {t("collections.newCollection")}
           </Button>
         }
       />
@@ -67,11 +69,11 @@ export function CollectionsPage() {
       {collections.data && entries.length === 0 && (
         <Empty
           icon={<BoxesIcon />}
-          title="No Collections"
+          title={t("collections.noCollections")}
           action={
             <Button onClick={() => setCreating(true)}>
               <PlusIcon />
-              New Collection
+              {t("collections.newCollection")}
             </Button>
           }
         />
@@ -115,6 +117,7 @@ function CollectionCard({
   onPreview: () => void;
   onDelete: () => void;
 }) {
+  const { t } = useTranslation();
   const filters = [
     ...(collection.excludes ?? []).map((pattern) => ({ pattern, sign: "−" })),
     ...(collection.includes ?? []).map((pattern) => ({ pattern, sign: "+" })),
@@ -127,7 +130,7 @@ function CollectionCard({
           <div className="flex items-baseline gap-2">
             <h2 className="truncate text-[15px] font-semibold text-fg">{name}</h2>
             <span className="text-xs text-fg-subtle tabular-nums">
-              {collection.nodes} {collection.nodes === 1 ? "node" : "nodes"}
+              {t("collections.nodeCount", { count: collection.nodes })}
             </span>
           </div>
           <div className="flex flex-wrap gap-1">
@@ -147,21 +150,21 @@ function CollectionCard({
           </div>
         </div>
         <div className="flex shrink-0 gap-0.5">
-          <IconButton label="Preview" onClick={onPreview}>
+          <IconButton label={t("collections.preview")} onClick={onPreview}>
             <EyeIcon />
           </IconButton>
-          <IconButton label="Edit" onClick={onEdit}>
+          <IconButton label={t("overview.edit")} onClick={onEdit}>
             <PencilIcon />
           </IconButton>
           <Confirm
             trigger={
-              <IconButton label="Delete">
+              <IconButton label={t("overview.delete")}>
                 <Trash2Icon />
               </IconButton>
             }
-            title={`Delete ${name}?`}
-            description="Every subscription URL of this collection stops working."
-            confirmLabel="Delete"
+            title={t("collections.deleteCollection", { name })}
+            description={t("collections.deleteImpact")}
+            confirmLabel={t("overview.delete")}
             onConfirm={onDelete}
           />
         </div>
@@ -196,6 +199,7 @@ function CollectionDialog({
   name?: string;
   collection?: CollectionSummary;
 }) {
+  const { t } = useTranslation();
   const confirmDiscard = useConfirmDiscard();
   return (
     <Dialog
@@ -203,7 +207,7 @@ function CollectionDialog({
       onOpenChange={(next) => {
         if (next || confirmDiscard()) onOpenChange(next);
       }}
-      title={name ? `Edit ${name}` : "New Collection"}
+      title={name ? t("collections.editCollection", { name }) : t("collections.newCollection")}
       width="md"
     >
       {open && (
@@ -226,6 +230,7 @@ function CollectionForm({
   collection?: CollectionSummary;
   onDone: () => void;
 }) {
+  const { t } = useTranslation();
   const api = useApi();
   const queryClient = useQueryClient();
   const providers = useQuery({
@@ -272,7 +277,7 @@ function CollectionForm({
 
   return (
     <form className="grid gap-5" onSubmit={submit}>
-      <Field label="Name">
+      <Field label={t("providers.name")}>
         <Input
           value={name}
           onChange={(event) => setName(event.target.value)}
@@ -283,9 +288,9 @@ function CollectionForm({
       </Field>
 
       <div className="grid gap-2">
-        <span className="text-[13px] font-medium text-fg">Providers</span>
+        <span className="text-[13px] font-medium text-fg">{t("common.providers")}</span>
         {choices.length === 0 ? (
-          <p className="text-[13px] text-fg-subtle">No providers yet.</p>
+          <p className="text-[13px] text-fg-subtle">{t("collections.noProviders")}</p>
         ) : (
           <div className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-md border border-border p-3 sm:grid-cols-3">
             {choices.map((member) => (
@@ -306,8 +311,8 @@ function CollectionForm({
         )}
       </div>
 
-      <PatternsEditor label="Exclude" value={excludes} onChange={setExcludes} />
-      <PatternsEditor label="Include" value={includes} onChange={setIncludes} />
+      <PatternsEditor label={t("providers.exclude")} value={excludes} onChange={setExcludes} />
+      <PatternsEditor label={t("providers.include")} value={includes} onChange={setIncludes} />
 
       {save.error && <ErrorNote error={save.error} />}
 
@@ -317,10 +322,10 @@ function CollectionForm({
             if (confirmDiscardChanges({ dirty, saving: save.isPending })) onDone();
           }}
         >
-          Cancel
+          {t("common.cancel")}
         </Button>
         <Button type="submit" variant="primary" disabled={save.isPending}>
-          Save
+          {t("providers.save")}
         </Button>
       </div>
     </form>
@@ -331,6 +336,7 @@ const DEFAULT_TARGET = "base64";
 
 // Fetched only when opened: the artifact carries every node's credentials.
 function PreviewDialog({ name, onClose }: { name: string | null; onClose: () => void }) {
+  const { t } = useTranslation();
   const api = useApi();
   const info = useQuery({
     queryKey: ["system", "info"],
@@ -359,21 +365,26 @@ function PreviewDialog({ name, onClose }: { name: string | null; onClose: () => 
         <div className="flex flex-wrap items-center gap-2">
           <div className="w-40">
             <Select
-              aria-label="Target"
+              aria-label={t("collections.target")}
               value={target}
               onChange={setTarget}
               options={(info.data?.targets ?? [{ name: DEFAULT_TARGET }]).map(({ name }) => ({
                 value: name,
-                label: name === DEFAULT_TARGET ? `${name} (default)` : name,
+                label: name === DEFAULT_TARGET ? t("collections.defaultTarget", { name }) : name,
               }))}
             />
           </div>
           {content.data && (
             <span className="text-xs text-fg-subtle tabular-nums">
-              {content.data.nodes} nodes · {content.data.skipped} skipped
+              {t("collections.previewSummary", {
+                nodes: content.data.nodes ?? "—",
+                skipped: content.data.skipped ?? "—",
+              })}
             </span>
           )}
-          {content.data && <CopyButton text={content.data.body} label="Copy Document" />}
+          {content.data && (
+            <CopyButton text={content.data.body} label={t("collections.copyDocument")} />
+          )}
         </div>
         {content.error && <ErrorNote error={content.error} />}
         {content.isPending ? (
@@ -381,7 +392,7 @@ function PreviewDialog({ name, onClose }: { name: string | null; onClose: () => 
         ) : (
           content.data && (
             <pre className="max-h-[40vh] overflow-auto rounded-md bg-bg-muted p-3 font-mono text-xs break-all whitespace-pre-wrap text-fg">
-              {content.data.body || "(empty)"}
+              {content.data.body || t("collections.emptyDocument")}
             </pre>
           )
         )}
@@ -389,7 +400,7 @@ function PreviewDialog({ name, onClose }: { name: string | null; onClose: () => 
         {nodes.data && nodes.data.nodes.length > 0 && (
           <div className="grid gap-1">
             <span className="text-xs font-medium text-fg-subtle">
-              Nodes · {nodes.data.passed_over} filtered
+              {t("collections.nodeSummary", { filtered: nodes.data.passed_over })}
             </span>
             <div className="divide-y divide-border rounded-md border border-border">
               {nodes.data.nodes.map((node) => (

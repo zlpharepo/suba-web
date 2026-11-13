@@ -24,6 +24,7 @@ export function selectConnections(
   connections: ObservedConnection[],
   filters: ConnectionFilters,
   sort: ConnectionSort,
+  unidentified: string,
 ): ObservedConnection[] {
   const search = filters.search.trim().toLowerCase();
   return connections
@@ -34,7 +35,7 @@ export function selectConnections(
         (filters.network === undefined || connection.network === filters.network) &&
         (!search ||
           [
-            connection.user || "Unidentified",
+            connection.user || unidentified,
             connection.inbound,
             connection.network,
             connection.source,

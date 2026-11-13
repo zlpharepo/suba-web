@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 
 import { api, session } from "@/lib/api";
 import { useConfirmDiscard, useDraftProtection } from "@/lib/draft-protection";
@@ -11,6 +12,7 @@ import { PageHeader } from "@/ui/layout";
 import { Card, ErrorNote, Skeleton } from "@/ui/misc";
 
 export function SettingsPage() {
+  const { t } = useTranslation();
   const { localClient } = useTarget();
   const account = useQuery(
     { queryKey: ["account"], queryFn: api.account.get, retry: false },
@@ -23,10 +25,10 @@ export function SettingsPage() {
 
   return (
     <div className="max-w-2xl">
-      <PageHeader title="Settings" />
+      <PageHeader title={t("common.settings")} />
       <div className="grid gap-6">
         <section className="grid gap-3">
-          <h2 className="text-sm font-semibold text-fg">Account</h2>
+          <h2 className="text-sm font-semibold text-fg">{t("common.account")}</h2>
           <Card className="p-5">
             {account.error ? (
               <ErrorNote error={account.error} />
@@ -43,7 +45,7 @@ export function SettingsPage() {
           </Card>
         </section>
         <section className="grid gap-3">
-          <h2 className="text-sm font-semibold text-fg">Subscription</h2>
+          <h2 className="text-sm font-semibold text-fg">{t("settings.subscription")}</h2>
           <Card className="p-5">
             {settings.error ? (
               <ErrorNote error={settings.error} />
@@ -65,6 +67,7 @@ export function SettingsPage() {
 }
 
 function SessionActions() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { localClient } = useTarget();
@@ -86,7 +89,7 @@ function SessionActions() {
 
   return (
     <section className="grid gap-3">
-      <h2 className="text-sm font-semibold text-fg">Sessions</h2>
+      <h2 className="text-sm font-semibold text-fg">{t("settings.sessions")}</h2>
       <Card className="grid gap-3 p-5">
         <div className="flex flex-wrap gap-2">
           <Button
@@ -97,10 +100,10 @@ function SessionActions() {
             disabled={others.isPending || logout.isPending}
           >
             {others.isPending
-              ? "Signing Out…"
+              ? t("settings.signingOut")
               : othersSignedOut
-                ? "Other Sessions Signed Out"
-                : "Sign Out Other Sessions"}
+                ? t("settings.othersSignedOut")
+                : t("settings.signOutOthers")}
           </Button>
           <Button
             onClick={() => {
@@ -108,7 +111,7 @@ function SessionActions() {
             }}
             disabled={others.isPending || logout.isPending}
           >
-            {logout.isPending ? "Signing Out…" : "Sign Out"}
+            {logout.isPending ? t("settings.signingOut") : t("settings.signOut")}
           </Button>
         </div>
         {others.error && <ErrorNote error={others.error} />}
@@ -118,6 +121,7 @@ function SessionActions() {
 }
 
 function UpdatesPanel() {
+  const { t } = useTranslation();
   const { localClient } = useTarget();
   const web = useQuery(
     { queryKey: ["system", "web"], queryFn: api.web.status, retry: false },
@@ -138,12 +142,14 @@ function UpdatesPanel() {
 
   return (
     <section className="grid gap-3">
-      <h2 className="text-sm font-semibold text-fg">Updates</h2>
+      <h2 className="text-sm font-semibold text-fg">{t("settings.updates")}</h2>
       <Card className="grid gap-5 p-5">
         <div className="grid gap-2">
           <div className="flex items-center justify-between gap-3">
-            <span className="text-sm font-medium text-fg">Web</span>
-            <span className="font-mono text-xs text-fg-muted">{current ?? "Unknown"}</span>
+            <span className="text-sm font-medium text-fg">{t("common.web")}</span>
+            <span className="font-mono text-xs text-fg-muted">
+              {current ?? t("common.unknown")}
+            </span>
           </div>
           {web.error ? (
             <ErrorNote error={web.error} />
@@ -152,14 +158,16 @@ function UpdatesPanel() {
           ) : (
             <div className="flex items-center justify-between gap-3">
               <span className="text-xs text-fg-muted">
-                {latest ? `Latest ${latest}` : "Release unavailable"}
+                {latest
+                  ? t("settings.latest", { version: latest })
+                  : t("settings.releaseUnavailable")}
               </span>
               <Button
                 size="sm"
                 onClick={() => update.mutate()}
                 disabled={!available || update.isPending}
               >
-                {update.isPending ? "Updating…" : "Update Web"}
+                {update.isPending ? t("settings.updating") : t("settings.updateWeb")}
               </Button>
             </div>
           )}
@@ -167,15 +175,13 @@ function UpdatesPanel() {
         </div>
         <div className="grid gap-2 border-t border-border pt-5">
           <div className="flex items-center justify-between gap-3">
-            <span className="text-sm font-medium text-fg">Server</span>
+            <span className="text-sm font-medium text-fg">{t("common.server")}</span>
             <span className="font-mono text-xs text-fg-muted">
-              {system.data?.version ?? "Unknown"}
+              {system.data?.version ?? t("common.unknown")}
             </span>
           </div>
           {system.error && <ErrorNote error={system.error} />}
-          <p className="text-xs text-fg-muted">
-            Pull the new image and recreate the container with the same data volumes.
-          </p>
+          <p className="text-xs text-fg-muted">{t("settings.serverUpgrade")}</p>
         </div>
       </Card>
     </section>
@@ -193,6 +199,7 @@ function useReauthenticate() {
 }
 
 function UsernameForm({ username: initial }: { username: string }) {
+  const { t } = useTranslation();
   const [username, setUsername] = useState(initial);
   const [current, setCurrent] = useState("");
   const reauthenticate = useReauthenticate();
@@ -209,7 +216,7 @@ function UsernameForm({ username: initial }: { username: string }) {
 
   return (
     <form className="grid gap-4" onSubmit={submit}>
-      <Field label="Username">
+      <Field label={t("common.username")}>
         <Input
           value={username}
           onChange={(event) => setUsername(event.target.value)}
@@ -219,7 +226,7 @@ function UsernameForm({ username: initial }: { username: string }) {
           maxLength={64}
         />
       </Field>
-      <Field label="Current Password">
+      <Field label={t("settings.currentPassword")}>
         <Input
           type="password"
           autoComplete="current-password"
@@ -233,7 +240,7 @@ function UsernameForm({ username: initial }: { username: string }) {
       {change.error && <ErrorNote error={change.error} />}
       <div>
         <Button type="submit" variant="primary" disabled={username === initial || change.isPending}>
-          Change Username
+          {t("settings.changeUsername")}
         </Button>
       </div>
     </form>
@@ -241,6 +248,7 @@ function UsernameForm({ username: initial }: { username: string }) {
 }
 
 function PasswordForm() {
+  const { t } = useTranslation();
   const reauthenticate = useReauthenticate();
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
@@ -264,8 +272,8 @@ function PasswordForm() {
 
   return (
     <form className="grid gap-4" onSubmit={submit}>
-      <h3 className="text-sm font-medium text-fg">Password</h3>
-      <Field label="Current Password">
+      <h3 className="text-sm font-medium text-fg">{t("common.password")}</h3>
+      <Field label={t("settings.currentPassword")}>
         <Input
           type="password"
           autoComplete="current-password"
@@ -277,7 +285,7 @@ function PasswordForm() {
         />
       </Field>
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="New Password">
+        <Field label={t("settings.newPassword")}>
           <Input
             type="password"
             autoComplete="new-password"
@@ -288,7 +296,7 @@ function PasswordForm() {
             maxLength={128}
           />
         </Field>
-        <Field label="Confirm Password">
+        <Field label={t("settings.confirmPassword")}>
           <Input
             type="password"
             autoComplete="new-password"
@@ -306,13 +314,13 @@ function PasswordForm() {
       </div>
       {mismatch && (
         <p role="alert" className="text-sm text-danger">
-          Passwords do not match.
+          {t("settings.passwordMismatch")}
         </p>
       )}
       {change.error && <ErrorNote error={change.error} />}
       <div>
         <Button type="submit" variant="primary" disabled={change.isPending}>
-          Change Password
+          {t("settings.changePassword")}
         </Button>
       </div>
     </form>
@@ -320,6 +328,7 @@ function PasswordForm() {
 }
 
 function PrefixForm({ initial }: { initial: string }) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [prefix, setPrefix] = useState(initial);
   const dirty = prefix !== initial;
@@ -333,19 +342,13 @@ function PrefixForm({ initial }: { initial: string }) {
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    if (
-      !dirty ||
-      !window.confirm(
-        "Changing the prefix immediately disables all existing subscription URLs. Save the new prefix?",
-      )
-    )
-      return;
+    if (!dirty || !window.confirm(t("settings.prefixWarning"))) return;
     save.mutate();
   };
 
   return (
     <form className="grid gap-4" onSubmit={submit}>
-      <Field label="Delivery Prefix">
+      <Field label={t("settings.deliveryPrefix")}>
         <div className="flex items-center gap-2">
           <span className="text-sm text-fg-subtle">/</span>
           <Input
@@ -361,7 +364,7 @@ function PrefixForm({ initial }: { initial: string }) {
       {save.error && <ErrorNote error={save.error} />}
       <div>
         <Button type="submit" variant="primary" disabled={!dirty || save.isPending}>
-          Save Prefix
+          {t("settings.savePrefix")}
         </Button>
       </div>
     </form>

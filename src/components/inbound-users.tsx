@@ -4,6 +4,7 @@
 
 import { Link } from "@tanstack/react-router";
 import { LockIcon, UsersIcon } from "lucide-react";
+import { Trans, useTranslation } from "react-i18next";
 
 import { ArrayIndex } from "@/components/config-array-index";
 import { ExportActions } from "@/components/export-actions";
@@ -13,10 +14,9 @@ import { savedInbound, stateBadge } from "@/lib/users";
 import { SectionTitle } from "@/ui/layout";
 import { Badge, ErrorNote, Skeleton } from "@/ui/misc";
 
-const UNSAVED = "Save to export";
-
 /** The badges an inbound card gets: how many users SubA adds, and a refused hand-written one. */
 export function InboundBadges({ inbound }: { inbound?: InboundUsers }) {
+  const { t } = useTranslation();
   if (!inbound) return null;
   const managed = inbound.managed.length;
   const shared = inbound.shared?.length ?? 0;
@@ -28,11 +28,13 @@ export function InboundBadges({ inbound }: { inbound?: InboundUsers }) {
       {managed > 0 && (
         <Badge tone="accent">
           <UsersIcon className="size-3" />
-          {managed} managed
+          {t("inboundUsers.managedCount", { count: managed })}
         </Badge>
       )}
-      {shared > 0 && <Badge tone="warning">{shared} shared</Badge>}
-      {conflict && <Badge tone="danger">Name Conflict</Badge>}
+      {shared > 0 && (
+        <Badge tone="warning">{t("inboundUsers.sharedCount", { count: shared })}</Badge>
+      )}
+      {conflict && <Badge tone="danger">{t("inboundUsers.nameConflict")}</Badge>}
     </span>
   );
 }
@@ -54,8 +56,9 @@ export function InboundUsersPanel({
   entry: Record<string, unknown>;
   unsaved: boolean;
 }) {
+  const { t } = useTranslation();
   const inbound = savedInbound(exports, index, entry.tag);
-  const disabled = unsaved ? UNSAVED : undefined;
+  const disabled = unsaved ? t("inboundUsers.saveToExport") : undefined;
   const written = Array.isArray(entry.users) ? (entry.users as unknown[]) : [];
   const nameOf = (at: number) => {
     const user = written[at];
@@ -82,37 +85,38 @@ export function InboundUsersPanel({
     <div className="grid gap-4 border-t border-border pt-4">
       {!unsaved && inbound?.tag && <InboundObservation config={config} inbound={inbound.tag} />}
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        <h3 className="text-[13px] font-semibold text-fg">Users</h3>
+        <h3 className="text-[13px] font-semibold text-fg">{t("inboundUsers.users")}</h3>
         {exports &&
           (exports.public_host ? (
             <span className="min-w-0 truncate text-xs text-fg-subtle">
-              Public host <span className="font-mono text-fg-muted">{exports.public_host}</span>
+              {t("inboundUsers.publicHost")}{" "}
+              <span className="font-mono text-fg-muted">{exports.public_host}</span>
             </span>
           ) : exports.host ? (
             <Link to="/inbounds" className="text-xs text-warning underline underline-offset-2">
-              Set the public address in Endpoints
+              {t("inboundUsers.setPublicAddress")}
             </Link>
           ) : (
-            <span className="text-xs text-warning">
-              Set a valid public-host in the server configuration.
-            </span>
+            <span className="text-xs text-warning">{t("inboundUsers.setPublicHost")}</span>
           ))}
       </div>
       {error ? <ErrorNote error={error} /> : !exports && <Skeleton className="h-16" />}
-      {exports && !inbound && <p className="text-xs text-fg-subtle">{UNSAVED}</p>}
+      {exports && !inbound && (
+        <p className="text-xs text-fg-subtle">{t("inboundUsers.saveToExport")}</p>
+      )}
 
       {inbound && !inbound.refused && (inbound.managed.length > 0 || !inbound.shared?.length) && (
         <div className="grid gap-2">
-          <SectionTitle>Managed Users</SectionTitle>
+          <SectionTitle>{t("inboundUsers.managedUsers")}</SectionTitle>
           <p className="flex items-start gap-1.5 text-xs text-fg-muted">
             <LockIcon className="mt-px size-3.5 shrink-0" />
             <span>
-              Added to every inbound the user chose, and written when sing-box starts. Edit them on
-              the{" "}
-              <Link to="/inbounds" className="text-fg underline underline-offset-2">
-                Inbounds page
-              </Link>
-              .
+              <Trans
+                i18nKey="inboundUsers.managedDescription"
+                components={{
+                  link: <Link to="/inbounds" className="text-fg underline underline-offset-2" />,
+                }}
+              />
             </span>
           </p>
           <div className="divide-y divide-border rounded-md border border-border">
@@ -126,7 +130,7 @@ export function InboundUsersPanel({
                   <span className="min-w-0 truncate font-mono text-[13px] text-fg">
                     {user.user}
                   </span>
-                  <Badge tone={state.tone}>{state.label}</Badge>
+                  <Badge tone={state.tone}>{t(state.key)}</Badge>
                   <span className="ml-auto flex min-w-0 items-center">
                     <ExportActions item={user} unsaved={disabled} />
                   </span>
@@ -135,7 +139,7 @@ export function InboundUsersPanel({
             })}
             {inbound.managed.length === 0 && (
               <p className="px-3 py-3 text-center text-[13px] text-fg-subtle">
-                No user chose this inbound.
+                {t("inboundUsers.noUserChose")}
               </p>
             )}
           </div>
@@ -144,22 +148,21 @@ export function InboundUsersPanel({
 
       {inbound && (inbound.shared?.length ?? 0) > 0 && (
         <div className="grid gap-2">
-          <SectionTitle>Shared Access</SectionTitle>
+          <SectionTitle>{t("inboundUsers.sharedAccess")}</SectionTitle>
           <p className="text-xs text-warning">
-            Changing the inbound credential affects every client after restart. New Credentials does
-            not change it; removing a binding cannot revoke a saved copy.
+            {t("inboundUsers.sharedWarning")}
             {entry.type === "shadowtls" && (!entry.version || entry.version === 1) && (
-              <> ShadowTLS v1 has no outer authentication.</>
+              <> {t("inboundUsers.shadowTlsNoAuthentication")}</>
             )}
             {entry.type === "snell" && entry.version === 6 && entry.mode === "unsafe-raw" && (
-              <> Snell v6 unsafe-raw does not authenticate the PSK.</>
+              <> {t("inboundUsers.snellUnsafeRaw")}</>
             )}
           </p>
           <div className="divide-y divide-border rounded-md border border-border">
             {inbound.shared?.map((user) => (
               <div key={user.user} className="flex flex-wrap items-center gap-2 px-3 py-1.5">
                 <span className="min-w-0 truncate font-mono text-[13px] text-fg">{user.user}</span>
-                <Badge tone={stateBadge(user.state).tone}>{stateBadge(user.state).label}</Badge>
+                <Badge tone={stateBadge(user.state).tone}>{t(stateBadge(user.state).key)}</Badge>
                 <span className="ml-auto flex min-w-0 items-center">
                   <ExportActions item={user} unsaved={disabled} />
                 </span>
@@ -171,7 +174,7 @@ export function InboundUsersPanel({
 
       {inbound && inbound.users.length > 0 && (
         <div className="grid gap-2">
-          <SectionTitle>Hand-Written Users</SectionTitle>
+          <SectionTitle>{t("inboundUsers.handWrittenUsers")}</SectionTitle>
           <div className="divide-y divide-border rounded-md border border-border">
             {inbound.users.map((user) => (
               <div
@@ -200,8 +203,9 @@ export function InboundUsersPanel({
 
       {inbound?.departing && inbound.departing.length > 0 && (
         <p className="text-xs text-fg-muted">
-          Still served until restart:{" "}
-          <span className="font-mono">{inbound.departing.join(", ")}</span>
+          {t("inboundUsers.stillServed", {
+            names: inbound.departing.join(t("common.listSeparator")),
+          })}
         </p>
       )}
     </div>

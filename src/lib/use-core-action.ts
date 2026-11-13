@@ -1,18 +1,31 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 
 import { ApiError, errorMessage } from "./api";
 import { useApi } from "./target";
 import type { Core, CoreAction } from "./types";
 import { toast } from "@/ui/notify";
 
-export function coreActionFailure(action: CoreAction, error: unknown): string {
+type CoreActionFailure =
+  | "core.configurationCheckFailed"
+  | "core.startFailed"
+  | "core.restartFailed"
+  | "core.stopFailed";
+
+export function coreActionFailure(action: CoreAction, error: unknown): CoreActionFailure {
   if (action !== "stop" && error instanceof ApiError && error.status === 422) {
-    return "Configuration Check Failed";
+    return "core.configurationCheckFailed";
   }
-  return { start: "Start Failed", restart: "Restart Failed", stop: "Stop Failed" }[action];
+  const keys: Record<CoreAction, CoreActionFailure> = {
+    start: "core.startFailed",
+    restart: "core.restartFailed",
+    stop: "core.stopFailed",
+  };
+  return keys[action];
 }
 
 export function useCoreAction() {
+  const { t } = useTranslation();
   const api = useApi();
   const client = useQueryClient();
   return useMutation({
@@ -21,7 +34,7 @@ export function useCoreAction() {
       const status = await api.singbox.act(action);
       if (action !== "stop" && !status.running) {
         client.setQueryData(["singbox", "status"], status);
-        throw new Error("The core stopped before startup completed.");
+        throw new Error(t("core.stoppedBeforeStartup"));
       }
       return status;
     },
@@ -32,14 +45,15 @@ export function useCoreAction() {
         ["singbox"],
         (core) => core && { ...core, running: status.running },
       );
-      toast.success(
-        { start: "Started sing-box", restart: "Restarted sing-box", stop: "Stopped sing-box" }[
-          action
-        ],
-      );
+      const keys = {
+        start: "core.started",
+        restart: "core.restarted",
+        stop: "core.stopped",
+      } as const;
+      toast.success(t(keys[action]));
     },
     onError: (error, action) =>
-      toast.error(`${coreActionFailure(action, error)} · ${errorMessage(error)}`),
+      toast.error(`${t(coreActionFailure(action, error))} · ${errorMessage(error)}`),
     onSettled: () => {
       void client.invalidateQueries({ queryKey: ["singbox"] });
       void client.invalidateQueries({ queryKey: ["inbounds"] });

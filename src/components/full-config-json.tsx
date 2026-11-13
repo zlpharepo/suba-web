@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { BracesIcon, CheckIcon } from "lucide-react";
 
@@ -27,10 +28,11 @@ export function FullConfigJson({
   section: SectionDraftStatus;
   onResetSection: () => void;
 }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const trigger = (
     <IconButton
-      label="Full JSON"
+      label={t("fullJson.open")}
       variant="secondary"
       size="sm"
       className="rounded-l-none border-l-0"
@@ -46,9 +48,9 @@ export function FullConfigJson({
       {section.dirty ? (
         <Confirm
           trigger={trigger}
-          title="Unsaved Section Changes"
-          description="Full JSON reads the saved configuration. Cancel to save your section first, or discard its changes to continue."
-          confirmLabel="Discard and Open"
+          title={t("fullJson.unsavedSection")}
+          description={t("fullJson.unsavedSectionDescription")}
+          confirmLabel={t("fullJson.discardAndOpen")}
           onConfirm={() => {
             onResetSection();
             setOpen(true);
@@ -81,6 +83,7 @@ function LoadDocument({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const { t } = useTranslation();
   const api = useApi();
   const document = useQuery({
     queryKey: configKey(name),
@@ -102,7 +105,7 @@ function LoadDocument({
           <div className="grid gap-3">
             <ErrorNote error={document.error} />
             <Button disabled={document.isFetching} onClick={() => void document.refetch()}>
-              Retry
+              {t("common.retry")}
             </Button>
           </div>
         ) : (
@@ -126,6 +129,7 @@ function DocumentEditor({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const { t } = useTranslation();
   const api = useApi();
   const queryClient = useQueryClient();
   // Refetches must not advance the ETag of a draft based on an older document.
@@ -150,23 +154,23 @@ function DocumentEditor({
       void queryClient.invalidateQueries({ queryKey: exportsKey(name) });
       onSaved();
       if (saved.value.warnings.length) {
-        toast.error("Saved, but the core may refuse this configuration.");
+        toast.error(t("fullJson.savedWithWarning"));
       } else {
-        toast.success("Saved");
+        toast.success(t("editor.saved"));
       }
     },
   });
   useDraftProtection({ dirty, saving: save.isPending });
   const saveFailure =
     save.error instanceof ApiError && save.error.status === 412
-      ? "configuration: changed elsewhere; copy your edits, then close and reopen"
+      ? t("fullJson.changedElsewhere")
       : save.error
-        ? "configuration: could not save; the draft has been kept"
+        ? t("fullJson.saveFailed")
         : null;
   const error =
-    parsed.error ??
+    (parsed.error ? t(`fullJson.${parsed.error}`) : null) ??
     saveFailure ??
-    (!baseline.etag ? "configuration: missing version; close and reopen before saving" : null);
+    (!baseline.etag ? t("fullJson.missingVersion") : null);
   const close = () => {
     if (save.isPending) return;
     if (dirty) setConfirmClose(true);
@@ -183,7 +187,7 @@ function DocumentEditor({
         footer={
           <>
             <Button disabled={save.isPending} onClick={close}>
-              Close
+              {t("common.close")}
             </Button>
             <Button
               variant="primary"
@@ -191,7 +195,7 @@ function DocumentEditor({
               onClick={() => parsed.value && save.mutate(parsed.value)}
             >
               <CheckIcon />
-              {save.isPending ? "Saving…" : "Save"}
+              {save.isPending ? t("common.saving") : t("common.save")}
             </Button>
           </>
         }
@@ -202,11 +206,13 @@ function DocumentEditor({
               disabled={parsed.error !== null || save.isPending}
               onClick={() => setText(JSON.stringify(parsed.value, null, 2))}
             >
-              Format JSON
+              {t("fullJson.format")}
             </Button>
-            <CopyButton text={text} label="Copy JSON" />
+            <CopyButton text={text} label={t("common.copyJson")} />
             <Generator />
-            {dirty && <span className="ml-auto text-xs text-fg-subtle">Unsaved Changes</span>}
+            {dirty && (
+              <span className="ml-auto text-xs text-fg-subtle">{t("editor.unsavedChanges")}</span>
+            )}
           </div>
           {error && (
             <p role="alert" id="config-json-error" className="text-[13px] text-danger">
@@ -214,7 +220,7 @@ function DocumentEditor({
             </p>
           )}
           <Textarea
-            aria-label="Full Configuration JSON"
+            aria-label={t("fullJson.fullConfig")}
             aria-invalid={parsed.error !== null}
             aria-describedby={error ? "config-json-error" : undefined}
             className="min-h-96 font-mono text-xs"
@@ -232,19 +238,19 @@ function DocumentEditor({
         <Dialog
           open
           onOpenChange={(next) => !next && setConfirmClose(false)}
-          title="Discard JSON Changes?"
-          description="The unsaved JSON will be lost."
+          title={t("fullJson.discardTitle")}
+          description={t("fullJson.discardDescription")}
           width="sm"
           footer={
             <>
-              <Button onClick={() => setConfirmClose(false)}>Keep Editing</Button>
+              <Button onClick={() => setConfirmClose(false)}>{t("fullJson.keepEditing")}</Button>
               <Button variant="danger" onClick={onClose}>
-                Discard
+                {t("editor.discard")}
               </Button>
             </>
           }
         >
-          <p className="text-[13px] text-fg-muted">Copy the JSON first if you want to keep it.</p>
+          <p className="text-[13px] text-fg-muted">{t("fullJson.copyFirst")}</p>
         </Dialog>
       )}
     </>

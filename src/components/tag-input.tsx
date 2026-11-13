@@ -2,6 +2,8 @@ import { useEffect, useId, useRef, useState, type ReactNode, type RefObject } fr
 import { Autocomplete } from "@base-ui/react/autocomplete";
 import { Combobox } from "@base-ui/react/combobox";
 import { CheckIcon, ChevronDownIcon, LockKeyholeIcon, PlusIcon, XIcon } from "lucide-react";
+import type { TFunction } from "i18next";
+import { useTranslation } from "react-i18next";
 
 import { editableTagSelection } from "@/lib/collection-bindings";
 import { cx } from "@/lib/cx";
@@ -16,6 +18,18 @@ const itemClass =
   "flex cursor-default items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-fg outline-none data-highlighted:bg-bg-muted";
 const iconClass =
   "flex size-6 shrink-0 items-center justify-center rounded-sm text-fg-subtle outline-none hover:bg-bg-muted hover:text-fg focus-visible:ring-2 focus-visible:ring-accent/40";
+
+const SPACE_KEYS = {
+  inbound: "inbound",
+  outbound: "outbound",
+  dns: "dns",
+  route: "route",
+} as const;
+
+function spaceName(t: TFunction, space: string): string {
+  const known = SPACE_KEYS[space as keyof typeof SPACE_KEYS];
+  return known ? t(`tagInput.spaces.${known}`) : humanize(space);
+}
 
 function useTagPopup(
   anchor: RefObject<HTMLDivElement | null>,
@@ -84,6 +98,7 @@ export function TagInput({
   missing?: boolean;
   onChange: (value: string) => void;
 }) {
+  const { t } = useTranslation();
   const anchor = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState<string | null>(null);
@@ -91,7 +106,8 @@ export function TagInput({
   const popup = useTagPopup(anchor, popupRef, () => setQuery(null));
   const choices = tagChoices(options);
   const matches = tagChoices(choices, query ?? "");
-  const label = `${humanize(space)} Tag`;
+  const name = spaceName(t, space);
+  const label = t("tagInput.label", { name });
   const notice = useId();
 
   return (
@@ -122,14 +138,14 @@ export function TagInput({
           aria-label={label}
           aria-invalid={invalid || missing}
           aria-describedby={missing ? notice : undefined}
-          placeholder="Select or Enter a Tag"
+          placeholder={t("tagInput.selectOne")}
           className={cx(controlClass, "h-9 pr-15 font-mono", missing && "aria-invalid:text-danger")}
         />
         <div className="absolute inset-y-0 right-1 flex items-center">
           {value !== "" && (
             <button
               type="button"
-              aria-label={`Clear ${label}`}
+              aria-label={t("tagInput.clear", { name: label })}
               className={iconClass}
               onClick={() => {
                 onChange("");
@@ -140,14 +156,17 @@ export function TagInput({
               <XIcon className="size-3.5" />
             </button>
           )}
-          <Autocomplete.Trigger aria-label={`Choose ${label}`} className={iconClass}>
+          <Autocomplete.Trigger
+            aria-label={t("tagInput.choose", { name: label })}
+            className={iconClass}
+          >
             <ChevronDownIcon className="size-3.5" />
           </Autocomplete.Trigger>
         </div>
       </div>
       {missing && (
         <p id={notice} role="status" className="text-xs text-danger">
-          Referenced tag is missing.
+          {t("tagInput.missingReference")}
         </p>
       )}
       <Autocomplete.Portal>
@@ -160,11 +179,11 @@ export function TagInput({
         >
           <Autocomplete.Popup ref={popupRef} className={popupClass}>
             <div className="flex shrink-0 items-center justify-between border-b border-border px-3 py-2 text-xs text-fg-subtle">
-              <span>{humanize(space)}</span>
+              <span>{name}</span>
               <span className="tabular-nums">{matches.length}</span>
             </div>
             <Autocomplete.Empty className="px-3 py-4 text-xs text-fg-subtle">
-              No matching tags. Enter a custom tag above.
+              {t("tagInput.noMatches")}
             </Autocomplete.Empty>
             <Autocomplete.List className={listClass}>
               {(tag: string) => (
@@ -201,6 +220,7 @@ export function TagMultiInput({
   lockedValues?: string[];
   beforeOptions?: (query: string) => ReactNode;
 }) {
+  const { t } = useTranslation();
   const anchor = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
@@ -213,7 +233,8 @@ export function TagMultiInput({
   const custom = query.trim() !== "" && !choices.includes(query) && !selected.includes(query);
   const items = custom ? [...choices, query] : choices;
   const filtered = custom ? [...matches, query] : matches;
-  const label = `${humanize(space)} Tags`;
+  const name = spaceName(t, space);
+  const label = t("tagInput.labelMultiple", { name });
 
   return (
     <Combobox.Root
@@ -275,20 +296,24 @@ export function TagMultiInput({
               )}
             >
               <span className="min-w-0 truncate font-mono" title={tag}>
-                {tag || "(Empty)"}
+                {tag || t("tagInput.emptyValue")}
               </span>
-              {missingValues.includes(tag) && <span className="text-xs">Missing Reference</span>}
+              {missingValues.includes(tag) && (
+                <span className="text-xs">{t("common.missingReference")}</span>
+              )}
               {lockedValues.includes(tag) ? (
                 <span
                   className="flex size-5 items-center justify-center text-fg-subtle"
-                  aria-label="From Collection"
-                  title="Managed by collection binding"
+                  aria-label={t("tagInput.fromCollection")}
+                  title={t("tagInput.managedByCollection")}
                 >
                   <LockKeyholeIcon className="size-3" />
                 </span>
               ) : (
                 <Combobox.ChipRemove
-                  aria-label={`Remove ${tag || "Empty Tag"}`}
+                  aria-label={t("tagInput.remove", {
+                    name: tag || t("tagInput.emptyTag"),
+                  })}
                   className="flex size-5 shrink-0 items-center justify-center rounded-sm text-fg-subtle hover:bg-bg-emphasis hover:text-fg"
                 >
                   <XIcon className="size-3" />
@@ -300,7 +325,7 @@ export function TagMultiInput({
             ref={input}
             aria-label={label}
             aria-invalid={invalid || missingValues.length > 0}
-            placeholder={selected.length ? "Add Tag…" : "Select or Enter Tags"}
+            placeholder={selected.length ? t("tagInput.addTag") : t("tagInput.enterMany")}
             className="h-6 min-w-24 flex-1 bg-transparent text-[13px] text-fg outline-none placeholder:text-fg-subtle"
             onKeyDown={(event) => {
               if (event.key !== "Enter") return;
@@ -321,7 +346,7 @@ export function TagMultiInput({
           {values.some((tag) => !lockedValues.includes(tag)) && (
             <button
               type="button"
-              aria-label={`Clear ${label}`}
+              aria-label={t("tagInput.clear", { name: label })}
               className={iconClass}
               onClick={() => {
                 commit([]);
@@ -332,7 +357,10 @@ export function TagMultiInput({
               <XIcon className="size-3.5" />
             </button>
           )}
-          <Combobox.Trigger aria-label={`Choose ${label}`} className={iconClass}>
+          <Combobox.Trigger
+            aria-label={t("tagInput.choose", { name: label })}
+            className={iconClass}
+          >
             <ChevronDownIcon className="size-3.5" />
           </Combobox.Trigger>
         </div>
@@ -348,7 +376,9 @@ export function TagMultiInput({
           <Combobox.Popup ref={popupRef} className={popupClass}>
             {beforeOptions?.(query)}
             <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-3 py-2 text-xs text-fg-subtle">
-              <span className="tabular-nums">{selected.length} Selected</span>
+              <span className="tabular-nums">
+                {t("tagInput.selected", { count: selected.length })}
+              </span>
               <button
                 type="button"
                 disabled={!matches.length || matches.every((tag) => selected.includes(tag))}
@@ -358,11 +388,11 @@ export function TagMultiInput({
                   input.current?.focus();
                 }}
               >
-                {query ? "Select Matches" : "Select All"}
+                {query ? t("tagInput.selectMatches") : t("tagInput.selectAll")}
               </button>
             </div>
             <Combobox.Empty className="px-3 py-4 text-xs text-fg-subtle">
-              No matching tags. Enter a custom tag above.
+              {t("tagInput.noMatches")}
             </Combobox.Empty>
             <Combobox.List className={listClass}>
               {(tag: string) => (
@@ -386,11 +416,13 @@ export function TagMultiInput({
                   </span>
                   {lockedValues.includes(tag) && (
                     <LockKeyholeIcon
-                      aria-label="From Collection"
+                      aria-label={t("tagInput.fromCollection")}
                       className="size-3 text-fg-subtle"
                     />
                   )}
-                  {custom && tag === query && <span className="text-xs text-fg-subtle">Add</span>}
+                  {custom && tag === query && (
+                    <span className="text-xs text-fg-subtle">{t("tagInput.add")}</span>
+                  )}
                 </Combobox.Item>
               )}
             </Combobox.List>

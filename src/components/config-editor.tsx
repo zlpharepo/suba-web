@@ -21,6 +21,7 @@ import {
   type ReactNode,
 } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { BracesIcon, CheckIcon, ListIcon, PlusIcon, Trash2Icon } from "lucide-react";
 
 import { CollectionOutbounds } from "@/components/collection-outbounds";
@@ -105,6 +106,7 @@ export function ConfigEditor({
   revision: number;
   onDraftStatus: (status: SectionDraftStatus) => void;
 }) {
+  const { t } = useTranslation();
   const api = useApi();
   const { collections } = core;
   const schema = useQuery({
@@ -206,14 +208,14 @@ export function ConfigEditor({
           references.isError && (
             <div className="mb-4 flex items-center gap-2">
               <p role="alert" className="text-xs text-danger">
-                Reference data could not be loaded. Local tags remain available.
+                {t("editor.referenceLoadFailed")}
               </p>
               <Button
                 size="sm"
                 disabled={references.isFetching}
                 onClick={() => void references.refetch()}
               >
-                Retry Tags
+                {t("editor.retryTags")}
               </Button>
             </div>
           )
@@ -299,6 +301,7 @@ function Section({
  * every keystroke being a request, and Discard is one assignment.
  */
 function useDraft(config: string, name: string, document: Versioned<JsonObject>, editing = false) {
+  const { t } = useTranslation();
   const api = useApi();
   const queryClient = useQueryClient();
   // A refetch may replace the cache, but not the version that produced this draft.
@@ -337,12 +340,12 @@ function useDraft(config: string, name: string, document: Versioned<JsonObject>,
       });
       void queryClient.invalidateQueries({ queryKey: exportsKey(config) });
       if (saved.value.warnings.length > 0) {
-        toast.error(`Saved, but the core will refuse it: ${saved.value.warnings.join("; ")}`);
+        toast.error(t("editor.savedWithWarning", { reason: saved.value.warnings.join("; ") }));
       } else {
-        toast.success("Saved");
+        toast.success(t("editor.saved"));
       }
     },
-    onError: saveError,
+    onError: (error) => saveError(error, t),
   });
 
   if (observed !== document) {
@@ -380,9 +383,9 @@ function useDraft(config: string, name: string, document: Versioned<JsonObject>,
   };
 }
 
-function saveError(error: unknown) {
+function saveError(error: unknown, t: ReturnType<typeof useTranslation>["t"]) {
   if (error instanceof ApiError && error.status === 412) {
-    toast.error("The configuration changed elsewhere. Reload and try again.");
+    toast.error(t("editor.changedElsewhere"));
   } else {
     toast.error(errorMessage(error));
   }
@@ -413,24 +416,27 @@ function EditorBar({
   onReset: () => void;
   onClear: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="sticky top-0 z-10 -mx-4 mb-5 flex flex-wrap items-center gap-2 border-b border-border bg-bg/90 px-4 py-2.5 backdrop-blur sm:mx-0 sm:px-0">
       <ModeToggle raw={raw} onChange={onRaw} />
       <div className="ml-auto flex items-center gap-1.5">
         {dirty && (
-          <span className="mr-1 hidden text-xs text-fg-subtle sm:inline">Unsaved Changes</span>
+          <span className="mr-1 hidden text-xs text-fg-subtle sm:inline">
+            {t("editor.unsavedChanges")}
+          </span>
         )}
         <Button size="md" variant="ghost" disabled={empty && !dirty} onClick={onClear}>
-          Clear
+          {t("editor.clear")}
         </Button>
         {dirty && (
           <Button size="md" variant="ghost" onClick={onReset}>
-            Discard
+            {t("editor.discard")}
           </Button>
         )}
         <Button variant="primary" disabled={!dirty || saving || invalid} onClick={onSave}>
           <CheckIcon />
-          Save
+          {t("providers.save")}
         </Button>
       </div>
     </div>
@@ -438,10 +444,11 @@ function EditorBar({
 }
 
 function ModeToggle({ raw, onChange }: { raw: boolean; onChange: (raw: boolean) => void }) {
+  const { t } = useTranslation();
   return (
     <div className="flex gap-0.5 rounded-md bg-bg-muted p-0.5">
       {[
-        { value: false, label: "Form", icon: <ListIcon /> },
+        { value: false, label: t("editor.form"), icon: <ListIcon /> },
         { value: true, label: "JSON", icon: <BracesIcon /> },
       ].map((option) => (
         <button
@@ -495,6 +502,7 @@ function FormView({
   node: JsonSchema;
   document: Versioned<JsonObject>;
 }) {
+  const { t } = useTranslation();
   const { held, draft, setDraft, raw, setRaw, dirty, invalid, setInvalid, rawKey, reset, save } =
     useDraft(config, name, document);
   const localDocument = useMemo(
@@ -519,11 +527,11 @@ function FormView({
       <SectionHeading title={humanize(name)} />
       {draft === undefined && !raw ? (
         <Empty
-          title={`${humanize(name)} Not Set`}
+          title={t("editor.notSet", { name: humanize(name) })}
           action={
             <Button onClick={() => setDraft(defaultFor(tree, node))}>
               <PlusIcon />
-              Set {humanize(name)}
+              {t("editor.setEntry", { name: humanize(name) })}
             </Button>
           }
         />
@@ -799,6 +807,7 @@ function CardList({
   /** What a card says beyond its entry, such as the users SubA adds to an inbound. */
   details?: (entry: JsonObject, index: number) => ReactNode;
 }) {
+  const { t } = useTranslation();
   const collectionContext = useContext(CollectionBindings);
   // A list whose entries carry no tag is shown as what it is — JSON — because
   // there is no name to put on a card.
@@ -813,12 +822,12 @@ function CardList({
         actions={
           <Button size="sm" onClick={onAdd}>
             <PlusIcon />
-            New {title}
+            {t("editor.newEntry", { name: title })}
           </Button>
         }
       />
       {entries.length === 0 ? (
-        <Empty title={`No ${sectionTitle}`} />
+        <Empty title={t("editor.noEntries", { name: sectionTitle })} />
       ) : (
         <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
           {entries.map((entry, index) => (
@@ -834,13 +843,13 @@ function CardList({
               actions={
                 <Confirm
                   trigger={
-                    <IconButton label="Remove" size="sm">
+                    <IconButton label={t("singbox.remove")} size="sm">
                       <Trash2Icon />
                     </IconButton>
                   }
-                  title={`Remove ${title} [${index}]?`}
-                  description="It goes when the section is saved."
-                  confirmLabel="Remove"
+                  title={t("editor.removeEntry", { name: title, index })}
+                  description={t("editor.removeAfterSave")}
+                  confirmLabel={t("singbox.remove")}
                   onConfirm={() => onRemove(index)}
                 />
               }
@@ -875,6 +884,7 @@ function EntryDialog({
   /** What the server says about the users of the saved entry, given the entry as it opened. */
   users?: (index: number, entry: JsonObject, changed: boolean) => ReactNode;
 }) {
+  const { t } = useTranslation();
   const collectionContext = useContext(CollectionBindings);
   const seed = target.index === null ? undefined : entries[target.index];
   // A new entry starts on the first branch its schema offers. An empty object
@@ -912,7 +922,7 @@ function EntryDialog({
   const title = tag
     ? tag
     : target.index === null
-      ? `New ${noun(path)}`
+      ? t("editor.newEntry", { name: noun(path) })
       : `${noun(path)} [${target.index}]`;
 
   return (
@@ -924,7 +934,7 @@ function EntryDialog({
       description={path.split(".").map(humanize).join(" · ")}
       footer={
         <>
-          <Button onClick={onClose}>Cancel</Button>
+          <Button onClick={onClose}>{t("common.cancel")}</Button>
           <Button
             variant="primary"
             disabled={invalid || (needsTag && !validTag)}
@@ -933,7 +943,7 @@ function EntryDialog({
               onClose();
             }}
           >
-            Apply
+            {t("editor.apply")}
           </Button>
         </>
       }

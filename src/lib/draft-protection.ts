@@ -1,4 +1,5 @@
 import { createContext, useContext, useId, useLayoutEffect } from "react";
+import i18n from "./i18n.ts";
 
 export interface DraftStatus {
   dirty: boolean;
@@ -11,7 +12,7 @@ export const DraftProtection = createContext<{
 } | null>(null);
 
 export function confirmDiscardChanges({ dirty, saving }: DraftStatus): boolean {
-  return !saving && (!dirty || window.confirm("Discard unsaved changes? Your edits will be lost."));
+  return !saving && (!dirty || window.confirm(i18n.t("common.discardChanges")));
 }
 
 export function useConfirmDiscard() {
