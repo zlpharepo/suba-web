@@ -11,6 +11,7 @@ import {
   MoonIcon,
   NetworkIcon,
   RssIcon,
+  SettingsIcon,
   SunIcon,
   XIcon,
 } from "lucide-react";
@@ -238,6 +239,18 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         <div className="flex gap-0.5">
           <IconButton label={dark ? "Light Theme" : "Dark Theme"} size="sm" onClick={toggle}>
             {dark ? <SunIcon /> : <MoonIcon />}
+          </IconButton>
+          <IconButton
+            label="Settings"
+            size="sm"
+            onClick={() => {
+              if (confirmDiscard()) {
+                onNavigate?.();
+                void navigate({ to: "/settings", ignoreBlocker: true });
+              }
+            }}
+          >
+            <SettingsIcon />
           </IconButton>
           <IconButton
             label="Sign Out"

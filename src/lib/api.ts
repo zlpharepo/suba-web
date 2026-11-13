@@ -343,6 +343,20 @@ const { json, none } = transport("/api");
 
 export const api = {
   ...createApi(),
+  account: {
+    get: () => json<{ username: string }>("GET", "/account"),
+    changeUsername: (username: string, current_password: string) =>
+      none("PUT", "/account", { username, current_password }),
+    changePassword: (current_password: string, new_password: string) =>
+      none("PUT", "/account/password", { current_password, new_password }),
+  },
+  settings: {
+    get: () => json<{ subscription_prefix: string }>("GET", "/system/settings"),
+    update: (subscription_prefix: string) =>
+      json<{ subscription_prefix: string }>("PUT", "/system/settings", {
+        subscription_prefix,
+      }),
+  },
   auth: {
     login: (username: string, password: string) =>
       json<{ access_token: string }>("POST", "/auth/password", {

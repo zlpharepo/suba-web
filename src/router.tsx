@@ -105,6 +105,15 @@ const singboxRoute = createRoute({
   }),
 });
 
+const settingsRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/settings",
+  component: lazyRouteComponent(async () => {
+    const { SettingsPage } = await import("@/pages/settings");
+    return { default: SettingsPage };
+  }),
+});
+
 const routeTree = rootRoute.addChildren([
   loginRoute,
   appRoute.addChildren([
@@ -113,6 +122,7 @@ const routeTree = rootRoute.addChildren([
     collectionsRoute,
     inboundsRoute,
     singboxRoute,
+    settingsRoute,
   ]),
 ]);
 
