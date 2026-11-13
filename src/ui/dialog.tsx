@@ -12,7 +12,7 @@ const backdrop =
 
 // Bottom sheet on a phone, centred card from `sm` up.
 const popup =
-  "fixed z-50 flex flex-col bg-bg shadow-dialog outline-none transition-[opacity,transform] duration-200 ease-out " +
+  "fixed z-50 flex flex-col overflow-hidden bg-bg shadow-dialog outline-none transition-[opacity,transform] duration-200 ease-out " +
   "inset-x-0 bottom-0 max-h-[92dvh] rounded-t-lg data-ending-style:translate-y-4 data-ending-style:opacity-0 data-starting-style:translate-y-4 data-starting-style:opacity-0 " +
   "sm:inset-x-auto sm:bottom-auto sm:top-[12vh] sm:left-1/2 sm:max-h-[76vh] sm:w-[calc(100vw-2rem)] sm:-translate-x-1/2 sm:rounded-lg sm:data-ending-style:translate-y-0 sm:data-ending-style:scale-[0.98] sm:data-starting-style:translate-y-0 sm:data-starting-style:scale-[0.98]";
 
