@@ -167,7 +167,9 @@ export function endpointGroups(endpoints?: EndpointsView): EndpointGroup[] {
 export function grantableEndpointGroups(endpoints?: EndpointsView): EndpointGroup[] {
   return endpointGroups(endpoints).flatMap((group) => {
     const entries = group.entries.filter((entry) =>
-      entry.modes ? entry.modes.length > 0 : entry.reason === undefined,
+      entry.modes
+        ? entry.modes.length > 0 || entry.shared_refused !== undefined
+        : entry.reason === undefined,
     );
     return entries.length > 0 ? [{ ...group, entries }] : [];
   });
