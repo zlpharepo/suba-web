@@ -116,8 +116,7 @@ const routeTree = rootRoute.addChildren([
   ]),
 ]);
 
-// Hash history: the server's `/{prefix}/{token}` delivery route would answer
-// any two-segment path, so the UI's own paths must not reach the server.
+// Hash history keeps the UI's paths away from root-level delivery routes.
 export const router = createRouter({ routeTree, history: createHashHistory() });
 
 declare module "@tanstack/react-router" {
