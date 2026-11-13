@@ -11,6 +11,8 @@ import {
 } from "@/lib/draft-protection";
 import {
   agentCommand,
+  agentCompose,
+  agentDockerCommand,
   directEndpoint,
   managerEndpoint,
   parseInvitation,
@@ -230,6 +232,7 @@ function InvitationDialog({
   const [name, setName] = useState("");
   const [endpoint, setEndpoint] = useState(initialEndpoint);
   const [invitation, setInvitation] = useState<Invitation>();
+  const [deployment, setDeployment] = useState<"cli" | "docker" | "compose">("cli");
   const [error, setError] = useState<unknown>();
   const [saving, setSaving] = useState(false);
   const dirty = !invitation && (name !== "" || endpoint !== initialEndpoint);
@@ -299,28 +302,70 @@ function InvitationDialog({
       ) : (
         <>
           <Fingerprint value={invitation.identity.fingerprint} />
-          <Field label={mode === "edge" ? "Initial Pairing Command" : "Invitation JSON"}>
-            <Textarea
-              aria-label={mode === "edge" ? "Agent Command" : "Invitation JSON"}
-              className="font-mono text-xs"
-              value={
-                mode === "edge" ? agentCommand(invitation) : JSON.stringify(invitation, null, 2)
-              }
-              readOnly
-              rows={mode === "edge" ? 5 : 10}
-              spellCheck={false}
-            />
+          {mode === "edge" && (
+            <div
+              role="group"
+              aria-label="Deployment Method"
+              className="flex gap-1 rounded-md bg-bg-muted p-1"
+            >
+              {(["cli", "docker", "compose"] as const).map((method) => (
+                <Button
+                  key={method}
+                  aria-pressed={deployment === method}
+                  variant={deployment === method ? "secondary" : "ghost"}
+                  onClick={() => setDeployment(method)}
+                >
+                  {method === "cli" ? "CLI" : method === "docker" ? "Docker CLI" : "Compose"}
+                </Button>
+              ))}
+            </div>
+          )}
+          <Field label={mode === "edge" ? "Initial Pairing" : "Invitation JSON"}>
+            <div className="relative">
+              <Textarea
+                aria-label={mode === "edge" ? "Agent Command" : "Invitation JSON"}
+                className="font-mono text-xs pr-12"
+                value={
+                  mode === "edge"
+                    ? deployment === "cli"
+                      ? agentCommand(invitation)
+                      : deployment === "docker"
+                        ? agentDockerCommand(invitation)
+                        : agentCompose(invitation)
+                    : JSON.stringify(invitation, null, 2)
+                }
+                readOnly
+                rows={mode === "edge" ? (deployment === "compose" ? 12 : 5) : 10}
+                spellCheck={false}
+              />
+              <div className="absolute top-1.5 right-1.5">
+                <CopyButton
+                  text={
+                    mode === "edge"
+                      ? deployment === "cli"
+                        ? agentCommand(invitation)
+                        : deployment === "docker"
+                          ? agentDockerCommand(invitation)
+                          : agentCompose(invitation)
+                      : JSON.stringify(invitation, null, 2)
+                  }
+                  label={
+                    mode === "edge"
+                      ? deployment === "compose"
+                        ? "Copy Compose File"
+                        : deployment === "docker"
+                          ? "Copy Docker Command"
+                          : "Copy Agent Command"
+                      : "Copy Invitation JSON"
+                  }
+                />
+              </div>
+            </div>
           </Field>
           <p className="text-xs text-fg-muted">
             Expires {new Date(invitation.expires_at * 1000).toLocaleString()}.
           </p>
-          <div className="flex items-center justify-between gap-2">
-            <CopyButton
-              text={
-                mode === "edge" ? agentCommand(invitation) : JSON.stringify(invitation, null, 2)
-              }
-              label={mode === "edge" ? "Copy Agent Command" : "Copy Invitation JSON"}
-            />
+          <div className="flex justify-end">
             <Button variant="danger" onClick={() => void revoke()} disabled={saving}>
               {saving ? "Revoking…" : "Revoke Invitation"}
             </Button>

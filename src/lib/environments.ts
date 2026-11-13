@@ -51,13 +51,57 @@ export function pageEnvironment(host: Environment | null, path: string): Environ
 }
 
 export function agentCommand(invitation: Invitation): string {
+  const [endpoint, token] = agentArguments(invitation);
+  return `EDGE_AGENT=true MANAGER_API_URL=${shellQuote(endpoint)} AGENT_TOKEN=${shellQuote(token)} suba`;
+}
+
+function shellQuote(value: string): string {
+  return `'${value.replaceAll("'", "'\\''")}'`;
+}
+
+function agentArguments(invitation: Invitation): [string, string] {
   requireInvitationMode(invitation, "edge");
   const endpoint = managerEndpoint(invitation.endpoint);
   const id = environmentId(invitation.id);
   if (!/^[a-f\d]{64}$/i.test(invitation.secret))
     throw new Error("invitation.secret: expected a pairing token");
-  const quote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`;
-  return `suba --edge-agent --manager-api-url ${quote(`${endpoint}/api`)} --agent-token ${quote(`${id}.${invitation.secret}`)}`;
+  return [`${endpoint}/api`, `${id}.${invitation.secret}`];
+}
+
+const agentImage = "ghcr.io/zlpharepo/suba:latest";
+const agentName = (invitation: Invitation) => `suba-agent-${environmentId(invitation.id)}`;
+
+export function agentDockerCommand(invitation: Invitation): string {
+  const name = agentName(invitation);
+  const [endpoint, token] = agentArguments(invitation);
+  return [
+    `docker run -d --name ${name} --restart unless-stopped`,
+    "-e EDGE_AGENT=true",
+    `-e MANAGER_API_URL=${shellQuote(endpoint)}`,
+    `-e AGENT_TOKEN=${shellQuote(token)}`,
+    `-v ${name}-config:/app/config -v ${name}-data:/app/data`,
+    agentImage,
+  ].join(" \\\n  ");
+}
+
+export function agentCompose(invitation: Invitation): string {
+  const [endpoint, token] = agentArguments(invitation);
+  return `name: ${agentName(invitation)}
+services:
+  suba-agent:
+    image: ${agentImage}
+    restart: unless-stopped
+    environment:
+      EDGE_AGENT: "true"
+      MANAGER_API_URL: ${JSON.stringify(endpoint)}
+      AGENT_TOKEN: ${JSON.stringify(token)}
+    volumes:
+      - suba-agent-config:/app/config
+      - suba-agent-data:/app/data
+
+volumes:
+  suba-agent-config:
+  suba-agent-data:`;
 }
 
 const UUID = /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i;
