@@ -778,9 +778,7 @@ function ConfigsDialog({
         {configs.error && <ErrorNote error={configs.error} />}
         {configs.isPending && <Skeleton className="h-24" />}
         {configs.data && held.length === 0 && (
-          <p className="text-[13px] text-fg-subtle">
-            No configuration has been written yet. Saving any section of this one makes it.
-          </p>
+          <p className="text-[13px] text-fg-subtle">No configuration saved yet.</p>
         )}
         <div className="grid gap-1.5">
           {held.map((config) => (
@@ -850,11 +848,7 @@ function ConfigsDialog({
             )}
           </div>
           <p className="text-xs text-fg-subtle">
-            {action.mode === "new"
-              ? "A name is 1 to 64 letters, digits, '.', '_' or '-'. A new configuration starts empty."
-              : action.mode === "duplicate"
-                ? `${action.from} is copied; the copy is not the one in use.`
-                : "The name moves, and the one in use follows it."}
+            1–64 characters: letters, digits, '.', '_', or '-'.
           </p>
         </div>
       </div>
