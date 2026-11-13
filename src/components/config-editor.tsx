@@ -519,7 +519,7 @@ function FormView({
       <SectionHeading title={humanize(name)} />
       {draft === undefined && !raw ? (
         <Empty
-          title={`${humanize(name)} is not set.`}
+          title={`${humanize(name)} Not Set`}
           action={
             <Button onClick={() => setDraft(defaultFor(tree, node))}>
               <PlusIcon />
@@ -804,11 +804,12 @@ function CardList({
   // there is no name to put on a card.
   const titled = entries.every((entry) => typeof entry.tag === "string");
   const title = noun(path);
+  const sectionTitle = humanize(path.split(".").pop() ?? path);
 
   return (
     <div>
       <SectionHeading
-        title={humanize(path.split(".").pop() ?? path)}
+        title={sectionTitle}
         actions={
           <Button size="sm" onClick={onAdd}>
             <PlusIcon />
@@ -817,7 +818,7 @@ function CardList({
         }
       />
       {entries.length === 0 ? (
-        <Empty title={`No ${title.toLowerCase()} yet.`} />
+        <Empty title={`No ${sectionTitle}`} />
       ) : (
         <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
           {entries.map((entry, index) => (

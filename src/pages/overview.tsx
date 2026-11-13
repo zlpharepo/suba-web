@@ -3,10 +3,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowDownIcon,
   ArrowUpIcon,
+  InfoIcon,
   Layers3Icon,
   MoreHorizontalIcon,
   PencilIcon,
-  ServerIcon,
   Trash2Icon,
 } from "lucide-react";
 
@@ -157,22 +157,16 @@ function EnvironmentCard({
         current ? "border-accent/50 bg-accent/[0.02]" : "border-border bg-bg",
       )}
     >
-      <div className="grid gap-4 p-5">
+      <div className="grid gap-3 p-4">
         <div className="flex items-start justify-between gap-3">
-          <div className="flex min-w-0 items-start gap-3">
-            <span className="mt-0.5 rounded-md border border-border bg-bg p-2">
-              <ServerIcon className="size-4 text-fg-muted" />
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+            <h2 className="max-w-full truncate text-sm font-semibold">
+              {environment?.name ?? "Local"}
+            </h2>
+            <span className="flex shrink-0 items-center gap-1.5">
+              <Badge>{edge ? "Edge" : environment ? "Direct" : "Manager"}</Badge>
+              {info.data && <Badge mono>v{info.data.version}</Badge>}
             </span>
-            <div className="grid min-w-0 gap-1.5">
-              <h2 className="truncate text-sm font-semibold">{environment?.name ?? "Local"}</h2>
-              <span className="truncate text-xs text-fg-muted">
-                {metrics.data?.host.name ?? "—"}
-              </span>
-              <div className="flex flex-wrap gap-1.5">
-                <Badge>{edge ? "Edge" : environment ? "Direct" : "Manager"}</Badge>
-                {info.data && <Badge mono>v{info.data.version}</Badge>}
-              </div>
-            </div>
           </div>
           <div className="flex shrink-0 items-center gap-1">
             <Button
@@ -205,8 +199,16 @@ function EnvironmentCard({
             )}
           </div>
         </div>
-        <div className="grid min-w-0 gap-1 text-xs text-fg-subtle">
-          <span className="truncate font-mono" title={address ?? undefined} aria-label="Address">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-fg-subtle">
+          <span className="truncate text-fg-muted">{metrics.data?.host.name ?? "—"}</span>
+          <span className="hidden text-fg-subtle sm:inline" aria-hidden="true">
+            ·
+          </span>
+          <span
+            className="max-w-full truncate font-mono"
+            title={address ?? undefined}
+            aria-label="Address"
+          >
             {address ?? "—"}
           </span>
           {edge && (
@@ -217,24 +219,24 @@ function EnvironmentCard({
               compact
             />
           )}
-          <span>
+          <span className="basis-full whitespace-nowrap">
             {edge ? "Last Heartbeat" : "Last Online"} ·{" "}
             {lastSeen ? new Date(lastSeen).toLocaleString() : "—"}
           </span>
         </div>
         {metrics.error && <ErrorNote error={metrics.error} />}
         {!edge && (
-          <div className="flex items-center gap-5 border-t border-border pt-3 text-xs text-fg-muted">
+          <div className="flex min-h-10 items-center gap-4 border-t border-border pt-2.5 text-xs text-fg-muted">
             <span>
               <span className="mr-1.5 font-medium text-fg">
                 {providers.data ? Object.keys(providers.data).length : "—"}
-              </span>
+              </span>{" "}
               Providers
             </span>
             <span>
               <span className="mr-1.5 font-medium text-fg">
                 {collections.data ? Object.keys(collections.data).length : "—"}
-              </span>
+              </span>{" "}
               Collections
             </span>
             {!environment && (
@@ -245,7 +247,7 @@ function EnvironmentCard({
           </div>
         )}
       </div>
-      <div className="grid grid-cols-2 gap-5 border-t border-border bg-bg-subtle/40 p-5 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-x-5 gap-y-3 border-t border-border px-4 py-3.5 sm:grid-cols-4">
         <Stat
           label="CPU"
           value={data?.cpu.usage == null ? "—" : `${data.cpu.usage.toFixed(0)}%`}
@@ -268,16 +270,22 @@ function EnvironmentCard({
           }
         />
         <Stat
-          label="Network"
+          label={
+            <span className="inline-flex items-center gap-1">
+              Network
+              <NetworkUsage
+                received={data?.network.received}
+                transmitted={data?.network.transmitted}
+              />
+            </span>
+          }
+          stacked
           value={
             data ? (
               <NetworkRate down={data.network.receive_rate} up={data.network.transmit_rate} />
             ) : (
               "—"
             )
-          }
-          detail={
-            data && `${bytes(data.network.received)} in · ${bytes(data.network.transmitted)} out`
           }
         />
       </div>
@@ -294,18 +302,41 @@ function Stat({
   value,
   meter,
   detail,
+  stacked = false,
 }: {
-  label: string;
+  label: ReactNode;
   value: ReactNode;
   meter?: number;
   detail?: ReactNode;
+  stacked?: boolean;
 }) {
   return (
-    <div className="grid min-w-0 content-start gap-2">
-      <span className="text-xs text-fg-muted">{label}</span>
-      <span className="text-xl font-semibold tracking-tight tabular-nums">{value}</span>
+    <div className="grid min-w-0 content-start gap-1.5">
+      <div
+        className={cx(
+          "flex min-w-0 justify-between gap-1.5",
+          stacked ? "flex-col" : "items-baseline",
+        )}
+      >
+        <span className="text-xs text-fg-muted">{label}</span>
+        <span
+          className={cx(
+            "min-w-0 text-sm font-semibold tracking-tight tabular-nums",
+            !stacked && "text-right",
+          )}
+        >
+          {value}
+        </span>
+      </div>
       {meter !== undefined && <Meter value={meter} />}
-      <span className="text-2xs text-fg-subtle tabular-nums">{detail}</span>
+      {detail && (
+        <span
+          className="min-w-0 truncate text-2xs text-fg-subtle tabular-nums"
+          title={typeof detail === "string" ? detail : undefined}
+        >
+          {detail}
+        </span>
+      )}
     </div>
   );
 }
@@ -325,16 +356,44 @@ function Meter({ value }: { value: number }) {
 
 function NetworkRate({ down, up }: { down: number | null; up: number | null }) {
   return (
-    <span className="flex flex-col gap-0.5 text-base font-semibold">
+    <span className="flex flex-col gap-0.5 whitespace-nowrap text-xs font-semibold">
       <span className="flex items-center gap-1.5">
-        <ArrowDownIcon className="size-3.5 text-fg-subtle" />
+        <ArrowDownIcon className="size-3.5 shrink-0 text-fg-subtle" />
         {rate(down)}
       </span>
       <span className="flex items-center gap-1.5">
-        <ArrowUpIcon className="size-3.5 text-fg-subtle" />
+        <ArrowUpIcon className="size-3.5 shrink-0 text-fg-subtle" />
         {rate(up)}
       </span>
     </span>
+  );
+}
+
+function NetworkUsage({ received, transmitted }: { received?: number; transmitted?: number }) {
+  return (
+    <Popover
+      openOnHover
+      label="Network Data Usage"
+      trigger={
+        <button
+          type="button"
+          aria-label="Network Data Usage"
+          className="inline-flex size-4 items-center justify-center rounded text-fg-subtle hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+        >
+          <InfoIcon className="size-3.5" />
+        </button>
+      }
+    >
+      <div className="grid gap-2 text-xs">
+        <span className="font-medium text-fg">Data Usage</span>
+        <dl className="grid grid-cols-[auto_auto] gap-x-4 gap-y-1.5 tabular-nums">
+          <dt className="text-fg-muted">Received</dt>
+          <dd className="text-right font-mono">{received == null ? "—" : bytes(received)}</dd>
+          <dt className="text-fg-muted">Transmitted</dt>
+          <dd className="text-right font-mono">{transmitted == null ? "—" : bytes(transmitted)}</dd>
+        </dl>
+      </div>
+    </Popover>
   );
 }
 

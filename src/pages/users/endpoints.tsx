@@ -197,7 +197,7 @@ function EndpointRow({
             {effective.port !== null && `:${effective.port}`}
           </span>
           <span className="text-xs text-fg-subtle">
-            {effective.overridden ? "Address override" : "Instance default"}
+            {effective.overridden ? "Address Override" : "Instance Default"}
             {effective.port === null && " · no port: the inbound sets no listen_port"}
             {effective.port !== null &&
               endpoint.port === undefined &&
@@ -394,13 +394,13 @@ function EndpointDialog({
 
         {shadowTls && (
           <Field
-            label="Inner inbound"
+            label="Inner Inbound"
             hint="Binding this outer inbound also authorizes the user on its inner inbound. The subscription contains only the combined node."
           >
             <Select
               value={innerInbound}
               onChange={setInnerInbound}
-              options={[{ value: "none", label: "Select an inbound" }, ...innerOptions]}
+              options={[{ value: "none", label: "Select an Inbound" }, ...innerOptions]}
             />
           </Field>
         )}

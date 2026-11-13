@@ -133,7 +133,7 @@ export function UsersPage() {
           {users.data && heldUsers.length === 0 && (
             <Empty
               icon={<UsersIcon />}
-              title="No users yet."
+              title="No Users"
               action={
                 <Button disabled={!ready} onClick={() => setEditingUser("")}>
                   <PlusIcon />
@@ -285,26 +285,16 @@ function UserCard({
   return (
     <Card>
       <div className="flex items-start justify-between gap-3 p-4 pb-3">
-        <div className="grid min-w-0 gap-2">
-          <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <h2 className="max-w-full truncate font-mono text-[15px] font-semibold text-fg">
-              {user.name}
-            </h2>
-            {user.collections.map((collection) => (
-              <Badge
-                key={collection}
-                tone={user.missing_collections.includes(collection) ? "danger" : "neutral"}
-                className="max-w-full"
-              >
-                <BoxesIcon className="size-3 shrink-0" />
-                <span className="truncate">{collection}</span>
-              </Badge>
-            ))}
-          </div>
-          <span className="flex items-center gap-2 text-xs text-fg-muted">
-            <Dot tone={summary.tone} />
-            {summary.text}
-          </span>
+        <div className="grid min-w-0 gap-1.5">
+          <h2 className="max-w-full truncate font-mono text-[15px] font-semibold text-fg">
+            {user.name}
+          </h2>
+          {user.grants.length > 0 && (
+            <span className="flex items-center gap-2 text-xs text-fg-muted">
+              <Dot tone={summary.tone} />
+              {summary.text}
+            </span>
+          )}
         </div>
         <div className="flex shrink-0 gap-0.5">
           <IconButton label="Preview Subscription" onClick={onPreview}>
@@ -315,12 +305,18 @@ function UserCard({
           </IconButton>
         </div>
       </div>
+      <Grants
+        grants={user.grants}
+        collections={user.collections}
+        missingCollections={user.missing_collections}
+        inUse={inUse}
+      />
       <ObservationSummary
         snapshot={observation}
         filter={{ user: user.name }}
-        className="border-t border-border p-4"
+        title="Traffic"
+        className="border-t border-border px-4 py-3"
       />
-      <Grants grants={user.grants} inUse={inUse} />
       <DeliveryLinks
         links={user.links}
         mint={(label) => api.inbounds.users.mintToken(user.name, label)}
@@ -332,16 +328,37 @@ function UserCard({
 }
 
 /** A user's inbound bindings and the export status of each. */
-function Grants({ grants, inUse }: { grants: GrantView[]; inUse?: string }) {
-  if (grants.length === 0) {
-    return (
-      <p className="border-t border-border px-4 py-3 text-[13px] text-fg-subtle">
-        This user has chosen no inbound.
-      </p>
-    );
-  }
+function Grants({
+  grants,
+  collections,
+  missingCollections,
+  inUse,
+}: {
+  grants: GrantView[];
+  collections: string[];
+  missingCollections: string[];
+  inUse?: string;
+}) {
   return (
-    <div className="border-t border-border">
+    <section className="border-t border-border">
+      <h3 className="px-4 pt-3 pb-1 text-2xs font-semibold tracking-wide text-fg-subtle uppercase">
+        Access
+      </h3>
+      {collections.length > 0 && (
+        <div className="flex flex-wrap gap-1 px-4 py-2">
+          {collections.map((collection) => (
+            <Badge
+              key={collection}
+              tone={missingCollections.includes(collection) ? "danger" : "neutral"}
+              className="max-w-full"
+            >
+              <BoxesIcon className="size-3 shrink-0" />
+              <span className="truncate">{collection}</span>
+            </Badge>
+          ))}
+        </div>
+      )}
+      {grants.length === 0 && <p className="px-4 py-2 text-[13px] text-fg-subtle">No Inbounds</p>}
       {grants.map((grant) => {
         const state = grant.state && stateBadge(grant.state);
         return (
@@ -368,7 +385,7 @@ function Grants({ grants, inUse }: { grants: GrantView[]; inUse?: string }) {
           </div>
         );
       })}
-    </div>
+    </section>
   );
 }
 
@@ -424,11 +441,6 @@ function SubscriptionDialog({ user, onClose }: { user: UserView | null; onClose:
             </pre>
           )
         )}
-        <p className="text-xs text-fg-subtle">
-          The inbounds of the configuration in use come first, in the order they were chosen, then
-          the nodes of{" "}
-          {user && user.collections.length > 0 ? user.collections.join(", ") : "no collection"}.
-        </p>
       </div>
     </Dialog>
   );

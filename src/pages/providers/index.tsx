@@ -28,7 +28,7 @@ import { buttonClass } from "@/ui/styles";
 import { Dialog } from "@/ui/dialog";
 import { Field, Input, Textarea } from "@/ui/input";
 import { PageHeader } from "@/ui/layout";
-import { Badge, Empty, ErrorNote, Skeleton } from "@/ui/misc";
+import { Badge, Card, Empty, ErrorNote, Skeleton } from "@/ui/misc";
 import { Menu } from "@/ui/popover";
 import { Select } from "@/ui/select";
 import { Switch } from "@/ui/toggle";
@@ -75,7 +75,7 @@ export function ProvidersPage() {
         actions={
           <Button variant="primary" onClick={() => setCreating(true)}>
             <PlusIcon />
-            New provider
+            New Provider
           </Button>
         }
       />
@@ -85,98 +85,89 @@ export function ProvidersPage() {
       {providers.data && entries.length === 0 && (
         <Empty
           icon={<RssIcon />}
-          title="No providers yet."
+          title="No Providers"
           action={
             <Button onClick={() => setCreating(true)}>
               <PlusIcon />
-              New provider
+              New Provider
             </Button>
           }
         />
       )}
 
       {entries.length > 0 && (
-        <div className="overflow-hidden rounded-lg border border-border bg-bg">
-          <div className="hidden grid-cols-[minmax(0,1.2fr)_5rem_minmax(0,1fr)_4.5rem_7rem_6.5rem] gap-4 border-b border-border bg-bg-subtle px-4 py-2 text-xs font-medium text-fg-subtle md:grid">
-            <span>Name</span>
-            <span>Type</span>
-            <span>Source</span>
-            <span>Interval</span>
-            <span>Updated</span>
-            <span />
-          </div>
+        <div className="grid gap-3">
           {entries.map(([name, provider]) => (
-            <div
-              key={name}
-              className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-0.5 border-b border-border px-4 py-2.5 last:border-b-0 md:grid-cols-[minmax(0,1.2fr)_5rem_minmax(0,1fr)_4.5rem_7rem_6.5rem]"
-            >
-              <button
-                type="button"
-                onClick={() => setViewing(name)}
-                className="flex min-w-0 items-center gap-2 text-left"
-              >
-                <span className="truncate text-[13px] font-medium text-fg hover:underline">
-                  {name}
-                </span>
-                {provider.disabled && <Badge>disabled</Badge>}
-              </button>
-              <span className="hidden md:block">
-                <Badge mono>{provider.type}</Badge>
-              </span>
-              <span className="col-start-1 row-start-2 truncate font-mono text-xs text-fg-subtle md:col-auto md:row-auto">
-                {source(provider)}
-              </span>
-              <span className="hidden text-xs text-fg-muted tabular-nums md:block">
-                {formatInterval(provider)}
-              </span>
-              <span
-                className="col-start-1 row-start-3 text-xs text-fg-muted tabular-nums md:col-auto md:row-auto"
-                title={
-                  provider.updated_at === null
-                    ? "No successful sync yet"
-                    : formatTime(provider.updated_at)
-                }
-              >
-                <span className="md:hidden">Updated </span>
-                {provider.updated_at === null ? "—" : ago(provider.updated_at)}
-              </span>
-              <div className="col-start-2 row-span-3 row-start-1 flex justify-end md:col-auto md:row-auto">
-                <IconButton
-                  label="Refresh"
-                  size="sm"
-                  disabled={refresh.isPending && refresh.variables === name}
-                  onClick={() => refresh.mutate(name)}
-                >
-                  <RefreshCwIcon
-                    className={
-                      refresh.isPending && refresh.variables === name ? "animate-spin" : undefined
-                    }
-                  />
-                </IconButton>
-                <IconButton label="Edit" size="sm" onClick={() => setEditing(name)}>
-                  <PencilIcon />
-                </IconButton>
-                <Menu
-                  trigger={
-                    <button
-                      type="button"
-                      aria-label="More"
-                      className={buttonClass("ghost", "sm", true)}
+            <Card key={name}>
+              <div className="flex items-start justify-between gap-3 p-4">
+                <div className="grid min-w-0 gap-2">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
+                    <h2 className="min-w-0 truncate text-[15px] font-semibold text-fg">
+                      <button
+                        type="button"
+                        onClick={() => setViewing(name)}
+                        className="hover:underline"
+                      >
+                        {name}
+                      </button>
+                    </h2>
+                    <Badge mono>{provider.type}</Badge>
+                    {provider.disabled && <Badge>Disabled</Badge>}
+                  </div>
+                  <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 text-xs text-fg-muted">
+                    <span className="max-w-full truncate font-mono text-fg-subtle">
+                      {source(provider)}
+                    </span>
+                    {provider.type !== "inline" && <span>{formatInterval(provider)}</span>}
+                    <span
+                      title={
+                        provider.updated_at === null
+                          ? "No successful sync yet"
+                          : formatTime(provider.updated_at)
+                      }
                     >
-                      <MoreHorizontalIcon />
-                    </button>
-                  }
-                  items={[
-                    {
-                      label: "Delete",
-                      icon: <Trash2Icon />,
-                      danger: true,
-                      onSelect: () => setDeleting(name),
-                    },
-                  ]}
-                />
+                      Updated {provider.updated_at === null ? "—" : ago(provider.updated_at)}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex shrink-0 gap-0.5">
+                  <IconButton
+                    label="Refresh"
+                    size="sm"
+                    disabled={refresh.isPending && refresh.variables === name}
+                    onClick={() => refresh.mutate(name)}
+                  >
+                    <RefreshCwIcon
+                      className={
+                        refresh.isPending && refresh.variables === name ? "animate-spin" : undefined
+                      }
+                    />
+                  </IconButton>
+                  <IconButton label="Edit" size="sm" onClick={() => setEditing(name)}>
+                    <PencilIcon />
+                  </IconButton>
+                  <Menu
+                    trigger={
+                      <button
+                        type="button"
+                        aria-label="More"
+                        className={buttonClass("ghost", "sm", true)}
+                      >
+                        <MoreHorizontalIcon />
+                      </button>
+                    }
+                    items={[
+                      {
+                        label: "Delete",
+                        icon: <Trash2Icon />,
+                        danger: true,
+                        onSelect: () => setDeleting(name),
+                      },
+                    ]}
+                  />
+                </div>
               </div>
-            </div>
+            </Card>
           ))}
         </div>
       )}
@@ -379,7 +370,7 @@ function ProviderDialog({
       onOpenChange={(next) => {
         if (next || confirmDiscard()) onOpenChange(next);
       }}
-      title={name ? `Edit ${name}` : "New provider"}
+      title={name ? `Edit ${name}` : "New Provider"}
       width="md"
     >
       {open && (
@@ -529,7 +520,7 @@ function ProviderForm({
         </Field>
       )}
       {type === "inline" && (
-        <Field label="Share links" hint="One per line">
+        <Field label="Share Links" hint="One per line">
           <Textarea
             className="min-h-36 font-mono text-xs"
             value={payload}
@@ -539,7 +530,7 @@ function ProviderForm({
       )}
 
       {type !== "inline" && (
-        <Field label="Refresh every" hint="Seconds; 0 refreshes only by hand">
+        <Field label="Refresh Interval" hint="Seconds; 0 refreshes only by hand">
           <Input
             type="number"
             min={0}
@@ -642,7 +633,7 @@ function HeadersEditor({
   return (
     <div className="grid gap-2">
       <div className="flex items-center justify-between">
-        <span className="text-[13px] font-medium text-fg">Request headers</span>
+        <span className="text-[13px] font-medium text-fg">Request Headers</span>
         <Button
           size="sm"
           variant="ghost"

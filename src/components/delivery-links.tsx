@@ -64,7 +64,10 @@ export function DeliveryLinks({
   };
 
   return (
-    <div className="border-t border-border">
+    <section className="border-t border-border">
+      <h3 className="px-4 pt-3 pb-1 text-2xs font-semibold tracking-wide text-fg-subtle uppercase">
+        Links
+      </h3>
       {links.map((link) => (
         <TokenRow
           key={link.name}
@@ -99,10 +102,10 @@ export function DeliveryLinks({
           className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-[13px] text-fg-muted transition-colors hover:bg-bg-subtle hover:text-fg"
         >
           <KeyRoundIcon className="size-3.5" />
-          {links.length === 0 ? "Add a subscription link" : "Add another link"}
+          {links.length === 0 ? "Add Link" : "Add Another Link"}
         </button>
       )}
-    </div>
+    </section>
   );
 }
 
@@ -135,7 +138,7 @@ function TokenRow({
       <div className="flex shrink-0 items-center">
         {url !== null && (
           <>
-            <CopyButton text={url} label="Copy link" />
+            <CopyButton text={url} label="Copy Link" />
             <a
               href={url}
               target="_blank"

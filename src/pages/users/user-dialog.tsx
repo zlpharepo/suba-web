@@ -170,7 +170,7 @@ export function UserDialog({
                     <span className="max-sm:sr-only">New Credentials</span>
                   </Button>
                 }
-                title={`New credentials for ${user.name}?`}
+                title={`New Credentials for ${user.name}?`}
                 description={
                   userHasShared
                     ? "Managed credentials, including managed inner credentials, change after restart. Shared inbound credentials stay the same. Clients using changed credentials must refresh; subscription links stay the same."

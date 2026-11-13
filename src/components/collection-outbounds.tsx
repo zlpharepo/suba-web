@@ -122,13 +122,7 @@ export function CollectionOutbounds({
       ) : loading ? (
         <Skeleton className="h-24" />
       ) : entries.length === 0 ? (
-        <Empty
-          title={
-            chosen.length === 0
-              ? "Select collections to include their outbounds."
-              : "The selected collections contribute no outbounds."
-          }
-        />
+        <Empty title={chosen.length === 0 ? "Select Collections" : "No Collection Outbounds"} />
       ) : (
         <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
           {entries.map((entry, index) => (

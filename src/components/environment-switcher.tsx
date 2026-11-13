@@ -25,13 +25,15 @@ export function EnvironmentSwitcher({ onSelect }: { onSelect?: () => void }) {
         aria-label="Switch Environment"
         aria-haspopup="dialog"
         aria-expanded={open}
-        className="flex w-full items-center gap-2.5 rounded-md border border-border bg-bg px-2.5 py-2 text-left hover:border-border-strong"
+        className="flex h-12 w-full items-center gap-2 rounded-md px-2 text-left transition-colors hover:bg-bg-muted"
         onClick={() => {
           setSearch("");
           setOpen(true);
         }}
       >
-        <ServerIcon className="size-4 shrink-0 text-fg-muted" />
+        <span className="grid size-7 shrink-0 place-items-center rounded-md border border-border bg-bg">
+          <ServerIcon className="size-3.5 text-fg-muted" />
+        </span>
         <span className="grid min-w-0 flex-1 gap-0.5">
           <span className="truncate text-[13px] font-medium">
             {target.selected?.name ??
@@ -44,7 +46,7 @@ export function EnvironmentSwitcher({ onSelect }: { onSelect?: () => void }) {
         <ChevronsUpDownIcon className="size-3.5 shrink-0 text-fg-subtle" />
       </button>
       <Dialog open={open} onOpenChange={setOpen} title="Select Environment">
-        <div className="grid gap-4">
+        <div className="grid gap-3">
           <div className="relative">
             <SearchIcon className="pointer-events-none absolute top-2 left-2.5 size-4 text-fg-subtle" />
             <Input
@@ -57,7 +59,7 @@ export function EnvironmentSwitcher({ onSelect }: { onSelect?: () => void }) {
             />
           </div>
           {!!target.error && <ErrorNote error={target.error} />}
-          <div className="grid max-h-[50dvh] gap-2 overflow-y-auto">
+          <div className="grid max-h-[50dvh] gap-1.5 overflow-y-auto">
             {environments.map((environment) => {
               const current = (environment?.id ?? "local") === target.selectedId;
               return (
@@ -66,7 +68,7 @@ export function EnvironmentSwitcher({ onSelect }: { onSelect?: () => void }) {
                   type="button"
                   aria-pressed={current}
                   className={cx(
-                    "flex items-center gap-3 rounded-lg border p-3 text-left",
+                    "flex items-center gap-2.5 rounded-md border px-2.5 py-2 text-left",
                     current ? "border-accent/50 bg-accent/5" : "border-border hover:bg-bg-subtle",
                   )}
                   onClick={() => {
@@ -76,8 +78,10 @@ export function EnvironmentSwitcher({ onSelect }: { onSelect?: () => void }) {
                     onSelect?.();
                   }}
                 >
-                  <ServerIcon className="size-4 shrink-0 text-fg-muted" />
-                  <span className="grid min-w-0 flex-1 gap-1">
+                  <span className="grid size-7 shrink-0 place-items-center rounded-md border border-border bg-bg">
+                    <ServerIcon className="size-3.5 text-fg-muted" />
+                  </span>
+                  <span className="grid min-w-0 flex-1 gap-0.5">
                     <span className="truncate text-[13px] font-medium">
                       {environment?.name ?? "Local"}
                     </span>

@@ -3,15 +3,15 @@ import { Link, Outlet, useBlocker, useNavigate } from "@tanstack/react-router";
 import { useIsMutating, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Dialog as BaseDialog } from "@base-ui/react/dialog";
 import {
-  BoxesIcon,
   CpuIcon,
-  GaugeIcon,
+  Layers3Icon,
+  LayoutDashboardIcon,
   LogOutIcon,
   MenuIcon,
   MoonIcon,
+  NetworkIcon,
   RssIcon,
   SunIcon,
-  UsersIcon,
   XIcon,
 } from "lucide-react";
 
@@ -53,14 +53,14 @@ function useNav(): NavItem[] {
     core.isSuccess ||
     (remote !== null && !(core.error instanceof ApiError && core.error.status === 404));
   return [
-    { to: "/", label: "Dashboard", icon: <GaugeIcon /> },
+    { to: "/", label: "Dashboard", icon: <LayoutDashboardIcon /> },
     { to: "/providers", label: "Providers", icon: <RssIcon /> },
-    { to: "/collections", label: "Collections", icon: <BoxesIcon /> },
+    { to: "/collections", label: "Collections", icon: <Layers3Icon /> },
     ...(hasCore
       ? [
           // The inbounds and their users are part of the sing-box module, so
           // their routes go with it.
-          { to: "/inbounds", label: "Inbounds", icon: <UsersIcon /> },
+          { to: "/inbounds", label: "Inbounds", icon: <NetworkIcon /> },
           { to: "/sing-box", label: "sing-box", icon: <CpuIcon /> },
         ]
       : []),
@@ -236,11 +236,11 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           {info.data ? `v${info.data.version}` : ""}
         </span>
         <div className="flex gap-0.5">
-          <IconButton label={dark ? "Light theme" : "Dark theme"} size="sm" onClick={toggle}>
+          <IconButton label={dark ? "Light Theme" : "Dark Theme"} size="sm" onClick={toggle}>
             {dark ? <SunIcon /> : <MoonIcon />}
           </IconButton>
           <IconButton
-            label="Sign out"
+            label="Sign Out"
             size="sm"
             onClick={() => {
               if (confirmDiscard()) logout.mutate();

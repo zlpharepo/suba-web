@@ -343,7 +343,7 @@ function ScalarListField({
         );
       })}
       <AddLink onClick={() => commit([...values, loose ? "" : emptyScalar(item)])}>
-        {values.length === 0 ? "Add value" : "Add another"}
+        {values.length === 0 ? "Add Value" : "Add Another"}
       </AddLink>
     </div>
   );
@@ -962,7 +962,7 @@ function ArrayField({
           />
         </Group>
       ))}
-      <AddLink onClick={() => commit([...entries, defaultFor(tree, item)])}>Add item</AddLink>
+      <AddLink onClick={() => commit([...entries, defaultFor(tree, item)])}>Add Item</AddLink>
     </div>
   );
 }

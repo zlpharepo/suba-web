@@ -70,11 +70,13 @@ export function ObservationSummary({
   filter,
   config,
   className,
+  title,
 }: {
   snapshot: MetricsSnapshot;
   filter: ObservationFilter;
   config?: string;
   className?: string;
+  title?: string;
 }) {
   const { data, failed, now } = snapshot;
   const state = observationStatus(data, failed, now, config);
@@ -82,6 +84,9 @@ export function ObservationSummary({
   if (!counters && state.matches) return null;
   return (
     <div className={cx("grid min-w-0 gap-3", className)}>
+      {title && (
+        <h3 className="text-2xs font-semibold tracking-wide text-fg-subtle uppercase">{title}</h3>
+      )}
       {!state.matches && <Badge>{state.label}</Badge>}
       {counters && (
         <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs tabular-nums sm:grid-cols-3">

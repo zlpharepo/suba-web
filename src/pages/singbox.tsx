@@ -40,6 +40,7 @@ import { toast } from "@/ui/notify";
 export function SingboxPage() {
   const api = useApi();
   const core = useQuery({ queryKey: ["singbox"], queryFn: api.singbox.get });
+  const action = useCoreAction();
   const acting = useIsMutating({ mutationKey: ["singbox", "action"] }) > 0;
   // Polled so a core that dies a moment after it was started is a thing this
   // page can say, rather than a start that looks like it worked.
@@ -57,6 +58,7 @@ export function SingboxPage() {
         actions={
           core.data && (
             <Controls
+              action={action}
               // The polled status is the fresher answer: the module view is a
               // snapshot, and a core that died since it was taken is exactly
               // the case this page has to get right.
@@ -66,15 +68,31 @@ export function SingboxPage() {
           )
         }
       />
-      {core.error && <ErrorNote error={core.error} />}
-      {status.error && <ErrorNote error={status.error} />}
-      {core.data && <ConfigurationWorkspace core={core.data} failure={dead ?? null} />}
+      <div className="mb-5 grid gap-2">
+        {core.error && <ErrorNote error={core.error} />}
+        {status.error && <ErrorNote error={status.error} />}
+        {action.error && (
+          <ErrorNote
+            error={`${coreActionFailure(action.variables ?? "start", action.error)} · ${errorMessage(action.error)}`}
+          />
+        )}
+        {dead && <ErrorNote error={dead} />}
+        {core.data?.note && (
+          <p
+            role="status"
+            className="rounded-md bg-warning-subtle px-3 py-2.5 text-[13px] text-warning"
+          >
+            Restart to Apply Changes
+          </p>
+        )}
+      </div>
+      {core.data && <ConfigurationWorkspace core={core.data} />}
       {core.isPending && <Skeleton className="h-96" />}
     </>
   );
 }
 
-function ConfigurationWorkspace({ core, failure }: { core: Core; failure: string | null }) {
+function ConfigurationWorkspace({ core }: { core: Core }) {
   // Editing is local to this page; runtime settings must keep their actual selection.
   const [editing, setEditing] = useState(core.config);
   const [sectionDraft, setSectionDraft] = useState<SectionDraftStatus>({
@@ -110,9 +128,7 @@ function ConfigurationWorkspace({ core, failure }: { core: Core; failure: string
             onResetSection={() => setSectionRevision((revision) => revision + 1)}
           />
         )}
-        {core.note && <span className="text-xs text-warning">Restart to apply changes</span>}
       </div>
-      {failure && <p className="mb-6 text-[13px] text-danger">{failure}</p>}
       {core.version ? (
         <ConfigEditor
           key={editing}
@@ -146,90 +162,84 @@ function died(status: Running): string | null {
 }
 
 function NoVersion() {
-  return (
-    <Empty
-      icon={<DownloadIcon />}
-      title="Install a sing-box version to start editing its configuration."
-    />
-  );
+  return <Empty icon={<DownloadIcon />} title="Install sing-box" />;
 }
 
 /* ---------------------------------------------------------------- process */
 
-function Controls({ running, hasVersion }: { running: boolean; hasVersion: boolean }) {
+function Controls({
+  running,
+  hasVersion,
+  action: act,
+}: {
+  running: boolean;
+  hasVersion: boolean;
+  action: ReturnType<typeof useCoreAction>;
+}) {
   const [log, setLog] = useState(false);
-  const act = useCoreAction();
   const busy = useIsMutating({ mutationKey: ["singbox", "action"] }) > 0;
   const pending = act.isPending;
   const action = act.variables ?? "start";
 
   return (
-    <div className="grid justify-items-end gap-2">
-      <div className="flex flex-wrap items-center gap-1.5">
-        <span role="status" className="mr-1.5 flex items-center gap-2 text-[13px] text-fg-muted">
-          <Dot tone={running ? "success" : "neutral"} live={running && !pending} />
-          {pending
-            ? { start: "Starting…", restart: "Restarting…", stop: "Stopping…" }[action]
-            : running
-              ? "Running"
-              : "Stopped"}
-        </span>
-        {running ? (
-          <>
-            <IconButton
-              label={pending && action === "restart" ? "Restarting…" : "Restart"}
-              variant="secondary"
-              aria-busy={pending && action === "restart"}
-              disabled={busy}
-              onClick={() => act.mutate("restart")}
-            >
-              {pending && action === "restart" ? (
-                <LoaderCircleIcon className="animate-spin motion-reduce:animate-none" />
-              ) : (
-                <RotateCwIcon />
-              )}
-            </IconButton>
-            <IconButton
-              label={pending && action === "stop" ? "Stopping…" : "Stop"}
-              variant="secondary"
-              aria-busy={pending && action === "stop"}
-              disabled={busy}
-              onClick={() => act.mutate("stop")}
-            >
-              {pending && action === "stop" ? (
-                <LoaderCircleIcon className="animate-spin motion-reduce:animate-none" />
-              ) : (
-                <SquareIcon />
-              )}
-            </IconButton>
-          </>
-        ) : (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span role="status" className="mr-1.5 flex items-center gap-2 text-[13px] text-fg-muted">
+        <Dot tone={running ? "success" : "neutral"} live={running && !pending} />
+        {pending
+          ? { start: "Starting…", restart: "Restarting…", stop: "Stopping…" }[action]
+          : running
+            ? "Running"
+            : "Stopped"}
+      </span>
+      {running ? (
+        <>
           <IconButton
-            label={pending ? "Starting…" : "Start"}
-            variant="primary"
-            aria-busy={pending}
-            disabled={busy || !hasVersion}
-            onClick={() => act.mutate("start")}
+            label={pending && action === "restart" ? "Restarting…" : "Restart"}
+            variant="secondary"
+            aria-busy={pending && action === "restart"}
+            disabled={busy}
+            onClick={() => act.mutate("restart")}
           >
-            {pending ? (
+            {pending && action === "restart" ? (
               <LoaderCircleIcon className="animate-spin motion-reduce:animate-none" />
             ) : (
-              <PlayIcon />
+              <RotateCwIcon />
             )}
           </IconButton>
-        )}
-        <IconButton label="Log" variant="secondary" onClick={() => setLog(true)}>
-          <FileTextIcon />
+          <IconButton
+            label={pending && action === "stop" ? "Stopping…" : "Stop"}
+            variant="secondary"
+            aria-busy={pending && action === "stop"}
+            disabled={busy}
+            onClick={() => act.mutate("stop")}
+          >
+            {pending && action === "stop" ? (
+              <LoaderCircleIcon className="animate-spin motion-reduce:animate-none" />
+            ) : (
+              <SquareIcon />
+            )}
+          </IconButton>
+        </>
+      ) : (
+        <IconButton
+          label={pending ? "Starting…" : "Start"}
+          variant="primary"
+          aria-busy={pending}
+          disabled={busy || !hasVersion}
+          onClick={() => act.mutate("start")}
+        >
+          {pending ? (
+            <LoaderCircleIcon className="animate-spin motion-reduce:animate-none" />
+          ) : (
+            <PlayIcon />
+          )}
         </IconButton>
-        <Generator iconOnly />
-        <LogDialog open={log} onOpenChange={setLog} />
-      </div>
-      {act.error && (
-        <div role="alert" className="max-w-lg text-right text-xs text-danger">
-          <span className="font-medium">{coreActionFailure(action, act.error)}</span>
-          <span className="ml-1.5">{errorMessage(act.error)}</span>
-        </div>
       )}
+      <IconButton label="Log" variant="secondary" onClick={() => setLog(true)}>
+        <FileTextIcon />
+      </IconButton>
+      <Generator iconOnly />
+      <LogDialog open={log} onOpenChange={setLog} />
     </div>
   );
 }
@@ -940,7 +950,7 @@ function AutostartChip({ core }: { core: Core }) {
 
   return (
     <Popover
-      className="w-80"
+      className="w-64"
       trigger={
         <button type="button" className={buttonClass("secondary", "sm")}>
           <PlayIcon className="text-fg-subtle" />
@@ -954,14 +964,8 @@ function AutostartChip({ core }: { core: Core }) {
         <Switch
           checked={core.autostart}
           onChange={(on) => choose.mutate(on)}
-          label="Start Core with SubA"
+          label="Start with SubA"
         />
-        <p className="text-xs text-fg-subtle">
-          The core is assembled and started once, when this server starts, and is then left alone —
-          if it stops later it stays stopped until you start it. A start that cannot go through —
-          the version is not installed, the configuration does not check out, a collection is gone —
-          is written to the log and the server keeps serving, so you can fix it from here.
-        </p>
       </div>
     </Popover>
   );
@@ -995,7 +999,7 @@ function PrivilegesChip({ core }: { core: Core }) {
 
   return (
     <Popover
-      className="w-80"
+      className="w-72"
       trigger={
         <button type="button" className={buttonClass("secondary", "sm")}>
           <ShieldIcon className="text-fg-subtle" />
@@ -1011,12 +1015,9 @@ function PrivilegesChip({ core }: { core: Core }) {
           onChange={(on) => choose.mutate(on ? "root" : "operator")}
           label="Run Core as Root"
         />
-        <p className="text-xs text-fg-subtle">
-          An inbound that creates an interface — <code>tun</code>, or <code>tproxy</code> and{" "}
-          <code>redirect</code> on Linux — needs it, and nothing else does. Off, the core is dropped
-          to the user this instance works for. Either way the server has to have been started as
-          root (<code>--run-as-root</code>), and a start that cannot be what it was asked to be says
-          so.
+        <p className="text-xs leading-relaxed text-fg-subtle">
+          Root is required for TUN, or TProxy / Redirect on Linux. SubA must start with{" "}
+          <code>--run-as-root</code>; otherwise Start is refused.
         </p>
       </div>
     </Popover>

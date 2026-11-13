@@ -39,7 +39,7 @@ export function PatternsEditor({
           {/* `controlClass` carries `w-full`, so the width lives on a wrapper. */}
           <div className="w-24 shrink-0 sm:w-28">
             <Select<PatternKind>
-              aria-label="Match by"
+              aria-label="Match By"
               value={patternKind(pattern)}
               onChange={(kind) => replace(index, makePattern(kind, patternText(pattern)))}
               options={PATTERN_KINDS.map((kind) => ({

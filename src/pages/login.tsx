@@ -39,7 +39,7 @@ export function LoginPage() {
             S
           </span>
           <h1 className="text-xl font-semibold tracking-tight text-fg">
-            {firstLogin ? "Create the administrator" : "Sign in to SubA"}
+            {firstLogin ? "Create Administrator" : "Sign In to SubA"}
           </h1>
         </div>
         <form
@@ -75,7 +75,7 @@ export function LoginPage() {
             disabled={login.isPending}
             className="mt-1 w-full"
           >
-            {firstLogin ? "Create and sign in" : "Sign in"}
+            {firstLogin ? "Create and Sign In" : "Sign In"}
           </Button>
         </form>
       </div>

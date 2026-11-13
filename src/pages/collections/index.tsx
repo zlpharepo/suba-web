@@ -52,7 +52,7 @@ export function CollectionsPage() {
         actions={
           <Button variant="primary" onClick={() => setCreating(true)}>
             <PlusIcon />
-            New collection
+            New Collection
           </Button>
         }
       />
@@ -67,11 +67,11 @@ export function CollectionsPage() {
       {collections.data && entries.length === 0 && (
         <Empty
           icon={<BoxesIcon />}
-          title="No collections yet."
+          title="No Collections"
           action={
             <Button onClick={() => setCreating(true)}>
               <PlusIcon />
-              New collection
+              New Collection
             </Button>
           }
         />
@@ -203,7 +203,7 @@ function CollectionDialog({
       onOpenChange={(next) => {
         if (next || confirmDiscard()) onOpenChange(next);
       }}
-      title={name ? `Edit ${name}` : "New collection"}
+      title={name ? `Edit ${name}` : "New Collection"}
       width="md"
     >
       {open && (
@@ -373,7 +373,7 @@ function PreviewDialog({ name, onClose }: { name: string | null; onClose: () => 
               {content.data.nodes} nodes · {content.data.skipped} skipped
             </span>
           )}
-          {content.data && <CopyButton text={content.data.body} label="Copy document" />}
+          {content.data && <CopyButton text={content.data.body} label="Copy Document" />}
         </div>
         {content.error && <ErrorNote error={content.error} />}
         {content.isPending ? (
