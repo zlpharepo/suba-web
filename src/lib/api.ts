@@ -318,15 +318,14 @@ export function createApi(
         revokeToken: (name: string, label: string) =>
           none("DELETE", `${user(name)}/tokens/${segment(label)}`),
       },
-      // Where clients dial each inbound. Stored per inbound, apart from users,
-      // because one inbound has one address however many users may use it.
+      // Client address and ShadowTLS inner relation, shared by every user of an inbound.
       endpoints: {
         list: () => json<EndpointsView>("GET", "/inbounds/endpoints"),
         put: (
           config: string,
           inbound: string,
           // An omitted field keeps the stored value; null clears it.
-          body: { address?: string | null; port?: number | null },
+          body: { address?: string | null; port?: number | null; inner_inbound?: string | null },
         ) =>
           json<EndpointView>(
             "PUT",

@@ -1,4 +1,5 @@
-// Where clients dial each inbound. One address per (configuration, inbound),
+// Where clients dial each inbound and which proxy a ShadowTLS inbound carries.
+// One endpoint per (configuration, inbound),
 // shared by every user: setting it here changes the node every one of them
 // receives. The stored override is shown when there is one, and otherwise the
 // address a client would get from the instance default, so the operator sees
@@ -27,6 +28,7 @@ import {
 import { Button, IconButton } from "@/ui/button";
 import { Dialog } from "@/ui/dialog";
 import { Field, Input } from "@/ui/input";
+import { Select } from "@/ui/select";
 import { Badge, Card, ErrorNote, Skeleton } from "@/ui/misc";
 import { toast } from "@/ui/notify";
 
@@ -60,6 +62,14 @@ export function EndpointsPanel({ endpoints }: { endpoints: EndpointsView | undef
         <EndpointDialog
           key={entryKey(editing)}
           endpoint={editing}
+          eligibleInner={endpoints.entries
+            .filter(
+              (entry) =>
+                entry.config === editing.config &&
+                entry.host === editing.host &&
+                (entry.modes?.length ?? 0) > 0,
+            )
+            .map((entry) => entry.inbound)}
           publicHost={editing.host ? undefined : endpoints.public_host}
           onClose={() => setEditing(null)}
         />
@@ -139,7 +149,10 @@ function EndpointRow({
   onEdit: () => void;
 }) {
   const effective = effectiveAddress(endpoint, publicHost, listenPort);
-  const stored = endpoint.address !== undefined || endpoint.port !== undefined;
+  const stored =
+    endpoint.address !== undefined ||
+    endpoint.port !== undefined ||
+    endpoint.inner_inbound !== undefined;
 
   return (
     <div className="grid min-w-0 gap-1 px-4 py-2.5">
@@ -147,19 +160,26 @@ function EndpointRow({
         <span className="min-w-0 truncate font-mono text-[13px] text-fg">{endpoint.inbound}</span>
         {stored && (
           <Badge tone="accent">
-            <span className="truncate">Override</span>
+            <span className="truncate">
+              {endpoint.address !== undefined || endpoint.port !== undefined
+                ? "Override"
+                : "Linked"}
+            </span>
           </Badge>
         )}
         <IconButton label="Edit" size="sm" className="ml-auto" onClick={onEdit}>
           <PencilIcon />
         </IconButton>
       </div>
+      {endpoint.inner_inbound && (
+        <span className="font-mono text-xs text-fg-muted">Inner: {endpoint.inner_inbound}</span>
+      )}
       {endpoint.reason ? (
         <>
           <span className="min-w-0 text-xs wrap-break-word text-danger">
             Not exportable: {endpoint.reason}
           </span>
-          {stored && (
+          {(endpoint.address !== undefined || endpoint.port !== undefined) && (
             <span className="flex min-w-0 flex-wrap gap-x-2 font-mono text-xs text-fg-subtle">
               {endpoint.address !== undefined && (
                 <span className="min-w-0 truncate">Stored {endpoint.address}</span>
@@ -190,13 +210,15 @@ function EndpointRow({
   );
 }
 
-/** One inbound's address: the override, or the fields cleared to inherit again. */
+/** One inbound's client address and optional inner relation. */
 function EndpointDialog({
   endpoint,
+  eligibleInner,
   publicHost,
   onClose,
 }: {
   endpoint: EndpointView;
+  eligibleInner: string[];
   publicHost?: string;
   onClose: () => void;
 }) {
@@ -213,10 +235,39 @@ function EndpointDialog({
 
   const [address, setAddress] = useState(endpoint.address ?? "");
   const [port, setPort] = useState(endpoint.port === undefined ? "" : String(endpoint.port));
+  const [innerInbound, setInnerInbound] = useState(endpoint.inner_inbound ?? "none");
+  const inbounds =
+    document.data?.value && typeof document.data.value === "object"
+      ? (document.data.value as { inbounds?: unknown }).inbounds
+      : undefined;
+  const entries = Array.isArray(inbounds) ? (inbounds as Record<string, unknown>[]) : [];
+  const shadowTls = entries.some(
+    (entry) => entry.tag === endpoint.inbound && entry.type === "shadowtls",
+  );
+  const innerOptions = entries
+    .filter((entry) => {
+      const transport = entry.transport;
+      return (
+        typeof entry.tag === "string" &&
+        entry.tag !== endpoint.inbound &&
+        eligibleInner.includes(entry.tag) &&
+        !["shadowtls", "hysteria", "hysteria2", "tuic", "anytls"].includes(String(entry.type)) &&
+        entry.network !== "udp" &&
+        !(
+          transport &&
+          typeof transport === "object" &&
+          (transport as { type?: unknown }).type === "quic"
+        )
+      );
+    })
+    .map((entry) => ({ value: entry.tag as string, label: entry.tag as string }));
 
   const addressProblem = address.trim() === "" ? undefined : addressError(address);
   const parsed = parsePort(port);
-  const dirty = address !== (endpoint.address ?? "") || port !== (endpoint.port?.toString() ?? "");
+  const dirty =
+    address !== (endpoint.address ?? "") ||
+    port !== (endpoint.port?.toString() ?? "") ||
+    innerInbound !== (endpoint.inner_inbound ?? "none");
 
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: usersKey });
@@ -234,6 +285,7 @@ function EndpointDialog({
       api.inbounds.endpoints.put(endpoint.config, endpoint.inbound, {
         address: address.trim() === "" ? null : address.trim(),
         port: parsed.port,
+        ...(shadowTls ? { inner_inbound: innerInbound === "none" ? null : innerInbound } : {}),
       }),
     onSuccess: (entry) => {
       toast.success(`Saved ${endpoint.inbound}`);
@@ -259,7 +311,10 @@ function EndpointDialog({
   const close = () => {
     if (confirmDiscardChanges({ dirty, saving: pending })) onClose();
   };
-  const stored = endpoint.address !== undefined || endpoint.port !== undefined;
+  const stored =
+    endpoint.address !== undefined ||
+    endpoint.port !== undefined ||
+    endpoint.inner_inbound !== undefined;
 
   return (
     <Dialog
@@ -336,6 +391,19 @@ function EndpointDialog({
             onChange={(event) => setPort(event.target.value)}
           />
         </Field>
+
+        {shadowTls && (
+          <Field
+            label="Inner inbound"
+            hint="Binding this outer inbound also authorizes the user on its inner inbound. The subscription contains only the combined node."
+          >
+            <Select
+              value={innerInbound}
+              onChange={setInnerInbound}
+              options={[{ value: "none", label: "Select an inbound" }, ...innerOptions]}
+            />
+          </Field>
+        )}
 
         {endpoint.reason && (
           <p className="text-xs wrap-break-word text-danger">

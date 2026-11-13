@@ -160,7 +160,9 @@ export function InboundUsersPanel({
               <div key={user.user} className="flex flex-wrap items-center gap-2 px-3 py-1.5">
                 <span className="min-w-0 truncate font-mono text-[13px] text-fg">{user.user}</span>
                 <Badge tone={stateBadge(user.state).tone}>{stateBadge(user.state).label}</Badge>
-                <span className="ml-auto text-xs text-warning">Subscription export pending</span>
+                <span className="ml-auto flex min-w-0 items-center">
+                  <ExportActions item={user} unsaved={disabled} />
+                </span>
               </div>
             ))}
           </div>

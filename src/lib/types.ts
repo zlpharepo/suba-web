@@ -363,6 +363,8 @@ export interface EndpointView extends InboundEntry {
   address?: string;
   /** The stored port override, when the operator set one. */
   port?: number;
+  /** The inner proxy carried by this ShadowTLS inbound. */
+  inner_inbound?: string;
   /** Why this inbound cannot be exported at all, when it cannot. */
   reason?: string;
   modes?: ("managed" | "shared")[];
@@ -371,7 +373,7 @@ export interface EndpointView extends InboundEntry {
   managed_warning?: string;
 }
 
-/** Every address override, and the instance default they fall back to. */
+/** Inbound endpoint settings and the instance address default. */
 export interface EndpointsView {
   entries: EndpointView[];
   /** Absent when the operator has set none. */

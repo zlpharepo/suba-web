@@ -173,7 +173,7 @@ export function UserDialog({
                 title={`New credentials for ${user.name}?`}
                 description={
                   userHasShared
-                    ? "Managed credentials change after restart. Shared inbound credentials do not change, so existing clients can keep connecting with them. Subscription links stay the same."
+                    ? "Managed credentials, including managed inner credentials, change after restart. Shared inbound credentials stay the same. Clients using changed credentials must refresh; subscription links stay the same."
                     : "Every inbound gets a new credential for them. Their subscription links stay the same, but each client must refresh after sing-box restarts."
                 }
                 confirmLabel="Replace"
@@ -288,6 +288,14 @@ export function UserDialog({
                               }}
                             />
                           )}
+                          {on && entry.inner_inbound && (
+                            <span className="pl-6 text-xs text-fg-muted">
+                              Carries {entry.inner_inbound}; inner access is automatic.
+                            </span>
+                          )}
+                          {on && entry.reason && (
+                            <span className="pl-6 text-xs text-warning">{entry.reason}</span>
+                          )}
                           {hasModeChoice && modes.length < (entry.modes?.length ?? 0) && (
                             <span className="text-xs text-fg-muted">
                               Mode set by other users of this inbound.
@@ -326,8 +334,9 @@ export function UserDialog({
           )}
           {hasShared && (
             <p className="text-xs text-warning">
-              Shared bindings do not add native users. Removing a binding or replacing this user's
-              credentials does not revoke clients that already have the inbound's credentials.
+              Shared access leaves the inbound credential unchanged. Removing a binding or replacing
+              this user's credentials does not revoke that shared credential; any managed inner
+              credential changes after restart.
             </p>
           )}
           {elsewhere.map((entry) => (

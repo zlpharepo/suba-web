@@ -376,7 +376,8 @@ const TARGET_LABELS: Record<string, string> = {
   links: "Links",
   base64: "Base64",
   "sing-box": "sing-box",
-  clash: "Clash",
+  clash: "Clash / Mihomo",
+  surge: "Surge",
 };
 
 // Fetched only when opened: the subscription carries every credential of the user.

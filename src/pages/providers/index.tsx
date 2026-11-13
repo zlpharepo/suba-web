@@ -321,8 +321,7 @@ function ProviderPanel({
                   >
                     Updated {nodes.data.updated_at === null ? "—" : ago(nodes.data.updated_at)}
                   </span>
-                  {nodes.data.unreadable &&
-                    " · the payload is a clash document, which this build does not read"}
+                  {nodes.data.unreadable && " · the payload is not a valid clash proxies document"}
                 </p>
                 {nodes.data.nodes.length > 0 && (
                   <div className="divide-y divide-border rounded-md border border-border">
