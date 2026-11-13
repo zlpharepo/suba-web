@@ -191,7 +191,7 @@ const SELECTION_KEY = "suba.environment";
 
 export function readEnvironment(): string {
   try {
-    const id = localStorage.getItem(SELECTION_KEY);
+    const id = sessionStorage.getItem(SELECTION_KEY);
     return id && UUID.test(id) ? id : "local";
   } catch {
     return "local";
@@ -200,8 +200,8 @@ export function readEnvironment(): string {
 
 export function rememberEnvironment(environment: Environment | null): void {
   try {
-    localStorage.setItem(SELECTION_KEY, environment?.id ?? "local");
+    sessionStorage.setItem(SELECTION_KEY, environment?.id ?? "local");
   } catch {
-    // Storage can be unavailable in private browsing. The current selection remains usable.
+    // Storage can be unavailable. The current selection remains usable.
   }
 }
