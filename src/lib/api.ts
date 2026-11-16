@@ -313,7 +313,7 @@ export function createApi(
         put: (name: string, body: { inbounds: InboundEntry[]; collections: string[] }) =>
           none("PUT", user(name), body),
         remove: (name: string) => none("DELETE", user(name)),
-        renewCredentials: (name: string) => none("DELETE", `${user(name)}/credentials`),
+        renewCredentials: (name: string) => none("POST", `${user(name)}/credentials/rotate`),
         content: (name: string, target?: string) => artifact(`${user(name)}/content`, target),
         mintToken: (name: string, label: string) =>
           json<DeliveryToken>("PUT", `${user(name)}/tokens/${segment(label)}`),
