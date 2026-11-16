@@ -127,7 +127,11 @@ const routeTree = rootRoute.addChildren([
 ]);
 
 // Hash history keeps the UI's paths away from root-level delivery routes.
-export const router = createRouter({ routeTree, history: createHashHistory() });
+export const router = createRouter({
+  routeTree,
+  history: createHashHistory(),
+  scrollToTopSelectors: ["main"],
+});
 
 declare module "@tanstack/react-router" {
   interface Register {

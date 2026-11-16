@@ -128,8 +128,8 @@ function ApplicationShell() {
 
   return (
     <DraftProtection.Provider value={{ report, confirmDiscard }}>
-      <div className="min-h-dvh bg-bg-subtle lg:flex">
-        <aside className="sticky top-0 hidden h-dvh w-56 shrink-0 flex-col border-r border-border lg:flex">
+      <div className="min-h-dvh bg-bg-subtle lg:flex lg:h-dvh lg:overflow-clip">
+        <aside className="hidden w-56 shrink-0 flex-col overflow-y-auto overscroll-y-none border-r border-border lg:flex">
           <Sidebar />
         </aside>
 
@@ -158,7 +158,10 @@ function ApplicationShell() {
           </BaseDialog.Root>
         </header>
 
-        <main className="min-w-0 flex-1 lg:bg-bg">
+        <main
+          tabIndex={0}
+          className="min-w-0 flex-1 focus-visible:-outline-offset-2 lg:overflow-y-auto lg:overscroll-y-none lg:bg-bg"
+        >
           <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
             <Outlet />
           </div>
