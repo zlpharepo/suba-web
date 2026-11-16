@@ -19,7 +19,7 @@ import { useConfirmDiscard } from "@/lib/draft-protection";
 import { cx } from "@/lib/cx";
 import { bytes, dateTime, rate } from "@/lib/format";
 import { EnvironmentActions, EnvironmentDialog } from "@/components/environment-actions";
-import { EdgeConnection } from "@/components/edge-connection";
+import { AgentConnection } from "@/components/agent-connection";
 import { Button, IconButton } from "@/ui/button";
 import { Dialog } from "@/ui/dialog";
 import { PageHeader } from "@/ui/layout";
@@ -77,8 +77,8 @@ function EnvironmentsOverview() {
         >
           <div className="grid gap-4">
             <p className="text-[13px] text-fg-muted">
-              {deleting.mode === "edge"
-                ? t("overview.deleteEdgeImpact")
+              {deleting.mode === "agent"
+                ? t("overview.deleteAgentImpact")
                 : t("overview.deleteDirectImpact")}
             </p>
             {remove.error && <ErrorNote error={remove.error} />}
@@ -115,8 +115,8 @@ function EnvironmentCard({
   const confirmDiscard = useConfirmDiscard();
   const api = createApi(environment ?? undefined);
   const id = environment?.id ?? "local";
-  const edge = environment?.mode === "edge";
-  const available = !edge || environment.connection?.state === "online";
+  const agent = environment?.mode === "agent";
+  const available = !agent || environment.connection?.state === "online";
   const metrics = useQuery({
     queryKey: ["environment", id, "metrics"],
     queryFn: api.system.metrics,
@@ -134,13 +134,13 @@ function EnvironmentCard({
   const providers = useQuery({
     queryKey: ["environment", id, "providers"],
     queryFn: api.providers.list,
-    enabled: !edge,
+    enabled: !agent,
     retry: false,
   });
   const collections = useQuery({
     queryKey: ["environment", id, "collections"],
     queryFn: api.collections.list,
-    enabled: !edge,
+    enabled: !agent,
     retry: false,
   });
   const data = available && !metrics.error ? metrics.data : undefined;
@@ -149,7 +149,7 @@ function EnvironmentCard({
   const disk = data?.disk
     ? percent(data.disk.total - data.disk.available, data.disk.total)
     : undefined;
-  const lastSeen = edge ? environment.connection?.last_seen : metrics.dataUpdatedAt;
+  const lastSeen = agent ? environment.connection?.last_seen : metrics.dataUpdatedAt;
   const address = environment ? environment.endpoint : window.location.origin;
   return (
     <article
@@ -168,7 +168,7 @@ function EnvironmentCard({
             </h2>
             <span className="flex shrink-0 items-center gap-1.5">
               <Badge>
-                {edge
+                {agent
                   ? t("overview.agent")
                   : environment
                     ? t("overview.direct")
@@ -227,8 +227,8 @@ function EnvironmentCard({
           >
             {address ?? "—"}
           </span>
-          {edge && (
-            <EdgeConnection
+          {agent && (
+            <AgentConnection
               status={environment.connection}
               failed={!!target.error}
               updatedAt={target.updatedAt}
@@ -236,12 +236,12 @@ function EnvironmentCard({
             />
           )}
           <span className="basis-full whitespace-nowrap">
-            {edge ? t("overview.lastHeartbeat") : t("overview.lastOnline")} ·{" "}
+            {agent ? t("overview.lastHeartbeat") : t("overview.lastOnline")} ·{" "}
             {lastSeen ? dateTime(lastSeen) : "—"}
           </span>
         </div>
         {metrics.error && <ErrorNote error={metrics.error} />}
-        {!edge && (
+        {!agent && (
           <div className="flex min-h-10 items-center gap-4 border-t border-border pt-2.5 text-xs text-fg-muted">
             <span>
               <span className="mr-1.5 font-medium text-fg">

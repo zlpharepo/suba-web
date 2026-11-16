@@ -19,7 +19,7 @@ import {
 import { ApiError, api as localApi, createApi } from "@/lib/api";
 import { TargetContext, useTarget } from "@/lib/target";
 import { readEnvironment, rememberEnvironment, type Environment } from "@/lib/environments";
-import { EDGE_POLL_INTERVAL } from "@/lib/edge";
+import { AGENT_POLL_INTERVAL } from "@/lib/agent";
 import { EnvironmentSwitcher } from "@/components/environment-switcher";
 import { LanguageButton } from "@/components/language-button";
 import { cx } from "@/lib/cx";
@@ -80,7 +80,7 @@ export function AppLayout() {
   const environments = useQuery({
     queryKey: ["environments"],
     queryFn: localApi.environments.list,
-    refetchInterval: EDGE_POLL_INTERVAL,
+    refetchInterval: AGENT_POLL_INTERVAL,
     retry: false,
   });
   const selected = environments.data?.find((item) => item.id === selectedId) ?? null;

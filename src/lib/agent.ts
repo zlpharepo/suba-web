@@ -1,6 +1,6 @@
-import type { EdgeStatus } from "./environments.ts";
+import type { AgentStatus } from "./environments.ts";
 
-export const EDGE_POLL_INTERVAL = 5000;
+export const AGENT_POLL_INTERVAL = 5000;
 export type ProxyAction = "keep" | "replace" | "remove";
 
 export function explicitProxy(value: string): string {
@@ -42,7 +42,7 @@ export function proxyDisplay(value?: string): string | undefined {
   }
 }
 
-export type EdgeStatusKey =
+export type AgentStatusKey =
   | "environments.statusUnavailable"
   | "environments.statusStale"
   | "environments.disabled"
@@ -51,12 +51,12 @@ export type EdgeStatusKey =
   | "environments.offline"
   | "environments.unauthorized";
 
-export function edgeStatusKey(
-  status: EdgeStatus | undefined,
+export function agentStatusKey(
+  status: AgentStatus | undefined,
   failed: boolean,
   updatedAt: number,
   now = Date.now(),
-): EdgeStatusKey {
+): AgentStatusKey {
   if (failed || !status) return "environments.statusUnavailable";
   if (now - updatedAt > 15000) return "environments.statusStale";
   if (
@@ -64,7 +64,7 @@ export function edgeStatusKey(
     (!status.last_seen || now - status.last_seen > 45000 || status.last_seen > now + 1000)
   )
     return "environments.statusStale";
-  const keys: Record<EdgeStatus["state"], EdgeStatusKey> = {
+  const keys: Record<AgentStatus["state"], AgentStatusKey> = {
     disabled: "environments.disabled",
     connecting: "environments.connecting",
     online: "environments.online",
@@ -74,8 +74,8 @@ export function edgeStatusKey(
   return keys[status.state];
 }
 
-export function edgeFailure(
-  state: EdgeStatus["state"],
+export function agentFailure(
+  state: AgentStatus["state"],
 ): "environments.authorizationFailed" | "environments.connectionUnavailable" | undefined {
   if (state === "unauthorized") return "environments.authorizationFailed";
   if (state === "offline") return "environments.connectionUnavailable";

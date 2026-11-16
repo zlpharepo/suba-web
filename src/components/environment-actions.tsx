@@ -146,7 +146,7 @@ export function EnvironmentDialog({
         ? await api.environments.update(
             host.id,
             name.trim(),
-            host.mode === "edge"
+            host.mode === "agent"
               ? endpoint.trim()
                 ? managerEndpoint(endpoint)
                 : null
@@ -178,7 +178,7 @@ export function EnvironmentDialog({
         <>
           <Field
             label={
-              host.mode === "edge" ? t("environments.publicEndpoint") : t("environments.endpoint")
+              host.mode === "agent" ? t("environments.publicEndpoint") : t("environments.endpoint")
             }
           >
             <Input
@@ -270,7 +270,7 @@ function InvitationDialog({
       setInvitation(
         await api.peers.invite(
           name.trim(),
-          mode === "edge" ? managerEndpoint(endpoint) : directEndpoint(endpoint),
+          mode === "agent" ? managerEndpoint(endpoint) : directEndpoint(endpoint),
           mode,
         ),
       );
@@ -298,7 +298,7 @@ function InvitationDialog({
     <div className="grid gap-4">
       {!invitation ? (
         <form className="grid gap-4" onSubmit={(event) => void generate(event)}>
-          <Field label={mode === "edge" ? t("providers.name") : t("environments.callerName")}>
+          <Field label={mode === "agent" ? t("providers.name") : t("environments.callerName")}>
             <Input
               value={name}
               onChange={(event) => setName(event.target.value)}
@@ -308,7 +308,7 @@ function InvitationDialog({
             />
           </Field>
           <Field
-            label={mode === "edge" ? t("environments.managerUrl") : t("environments.publicUrl")}
+            label={mode === "agent" ? t("environments.managerUrl") : t("environments.publicUrl")}
           >
             <Input
               value={endpoint}
@@ -324,7 +324,7 @@ function InvitationDialog({
       ) : (
         <>
           <Fingerprint value={invitation.identity.fingerprint} />
-          {mode === "edge" && (
+          {mode === "agent" && (
             <div
               role="group"
               aria-label={t("environments.deploymentMethod")}
@@ -344,19 +344,19 @@ function InvitationDialog({
           )}
           <Field
             label={
-              mode === "edge" ? t("environments.initialPairing") : t("environments.invitationJson")
+              mode === "agent" ? t("environments.initialPairing") : t("environments.invitationJson")
             }
           >
             <div className="relative">
               <Textarea
                 aria-label={
-                  mode === "edge"
+                  mode === "agent"
                     ? t("environments.agentCommand")
                     : t("environments.invitationJson")
                 }
                 className="font-mono text-xs pr-12"
                 value={
-                  mode === "edge"
+                  mode === "agent"
                     ? deployment === "cli"
                       ? agentCommand(invitation)
                       : deployment === "docker"
@@ -365,13 +365,13 @@ function InvitationDialog({
                     : JSON.stringify(invitation, null, 2)
                 }
                 readOnly
-                rows={mode === "edge" ? (deployment === "compose" ? 12 : 5) : 10}
+                rows={mode === "agent" ? (deployment === "compose" ? 12 : 5) : 10}
                 spellCheck={false}
               />
               <div className="absolute top-1.5 right-1.5">
                 <CopyButton
                   text={
-                    mode === "edge"
+                    mode === "agent"
                       ? deployment === "cli"
                         ? agentCommand(invitation)
                         : deployment === "docker"
@@ -380,7 +380,7 @@ function InvitationDialog({
                       : JSON.stringify(invitation, null, 2)
                   }
                   label={
-                    mode === "edge"
+                    mode === "agent"
                       ? deployment === "compose"
                         ? t("environments.copyCompose")
                         : deployment === "docker"
@@ -438,7 +438,7 @@ function NewEnvironmentDrawer({ onClose }: { onClose: () => void }) {
           aria-label={t("environments.connectionMode")}
           className="grid grid-cols-2 rounded-md bg-bg-muted p-1"
         >
-          {(["direct", "edge"] as const).map((value) => (
+          {(["direct", "agent"] as const).map((value) => (
             <Button
               key={value}
               aria-pressed={mode === value}
@@ -454,7 +454,7 @@ function NewEnvironmentDrawer({ onClose }: { onClose: () => void }) {
         {mode === "direct" ? (
           <EnvironmentDialog embedded onClose={onClose} />
         ) : (
-          <InvitationDialog embedded mode="edge" onClose={onClose} />
+          <InvitationDialog embedded mode="agent" onClose={onClose} />
         )}
       </div>
     </Dialog>

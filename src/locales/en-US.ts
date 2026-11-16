@@ -52,10 +52,10 @@ const enUS = {
     pairingToken: "invitation.secret: expected a valid pairing token",
     environmentId: "environment.id: expected a valid UUID",
     endpointAbsolute: "endpoint: expected an absolute URL",
-    endpointEdgeScheme: "endpoint: expected HTTP or HTTPS",
+    endpointAgentScheme: "endpoint: expected HTTP or HTTPS",
     endpointDirectScheme: "endpoint: HTTPS is required except for literal loopback addresses",
     endpointShape: "endpoint: credentials, query parameters and fragments are not allowed",
-    expectedEdgeInvitation: "invitation.mode: expected an Agent invitation",
+    expectedAgentInvitation: "invitation.mode: expected an Agent invitation",
     expectedDirectInvitation: "invitation.mode: expected a Direct invitation",
     subscriptionPath: "subscription.path: expected an absolute resource path",
     invitationJson: "invitation: expected valid JSON",
@@ -64,13 +64,13 @@ const enUS = {
     invitationId: "invitation.id: expected a valid UUID",
     invitationIdentity: "invitation.identity: expected a valid public identity",
     invitationEndpoint: "invitation.endpoint: expected a URL",
-    invitationMode: "invitation.mode: expected direct or edge",
+    invitationMode: "invitation.mode: expected direct or agent",
     invitationSecret: "invitation.secret: required",
     invitationExpiry: "invitation.expires_at: expired or invalid",
-    edgeConflict: "edge: disconnect the configured manager before connecting again",
-    edgeSettings: "edge: invalid invitation or connection settings",
-    edgeAuthorization: "edge: authorization failed; check the session and manager trust",
-    edgeRequest: "edge: request failed; check the endpoint, explicit proxy and network",
+    agentConflict: "agent: disconnect the configured manager before connecting again",
+    agentSettings: "agent: invalid invitation or connection settings",
+    agentAuthorization: "agent: authorization failed; check the session and manager trust",
+    agentRequest: "agent: request failed; check the endpoint, explicit proxy and network",
   },
   login: {
     createAdministrator: "Create Administrator",
@@ -104,7 +104,7 @@ const enUS = {
   },
   overview: {
     deleteEnvironment: "Delete {{name}}?",
-    deleteEdgeImpact:
+    deleteAgentImpact:
       "This disconnects the Agent and revokes its trust. The running core and its last successful configuration stay on the Agent.",
     deleteDirectImpact:
       "This removes the connection. To revoke access, remove this instance from Direct Access on the remote environment.",

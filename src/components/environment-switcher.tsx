@@ -42,7 +42,7 @@ export function EnvironmentSwitcher({ onSelect }: { onSelect?: () => void }) {
               (target.selectedId === "local" ? t("overview.local") : t("environments.unavailable"))}
           </span>
           <span className="truncate text-2xs text-fg-subtle">
-            {target.selected?.mode === "edge"
+            {target.selected?.mode === "agent"
               ? t("overview.agent")
               : (target.selected?.endpoint ?? t("overview.manager"))}
           </span>

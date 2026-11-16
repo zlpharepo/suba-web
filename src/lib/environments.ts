@@ -4,16 +4,16 @@ export interface Identity {
   fingerprint: string;
 }
 
-export type EnvironmentMode = "direct" | "edge";
+export type EnvironmentMode = "direct" | "agent";
 
-export interface EdgeStatus {
+export interface AgentStatus {
   state: "disabled" | "connecting" | "online" | "offline" | "unauthorized";
   reason?: string;
   connected_at?: number;
   last_seen?: number;
 }
 
-export interface EdgeView extends EdgeStatus {
+export interface AgentView extends AgentStatus {
   manager: { identity: Identity; endpoint: string } | null;
   proxy_configured: boolean;
   proxy_endpoint?: string;
@@ -35,7 +35,7 @@ export type Environment = {
   identity: Identity;
 } & (
   | { mode: "direct"; endpoint: string; connection?: never }
-  | { mode: "edge"; endpoint: string | null; connection?: EdgeStatus }
+  | { mode: "agent"; endpoint: string | null; connection?: AgentStatus }
 );
 
 export interface TrustedPeer {
@@ -47,7 +47,7 @@ export interface TrustedPeer {
 
 export function pageEnvironment(host: Environment | null, path: string): Environment | null {
   if (path === "/") return null;
-  return host?.mode === "edge" && path !== "/sing-box" ? null : host;
+  return host?.mode === "agent" && path !== "/sing-box" ? null : host;
 }
 
 export function agentCommand(invitation: Invitation): string {
@@ -60,7 +60,7 @@ function shellQuote(value: string): string {
 }
 
 function agentArguments(invitation: Invitation): [string, string] {
-  requireInvitationMode(invitation, "edge");
+  requireInvitationMode(invitation, "agent");
   const endpoint = managerEndpoint(invitation.endpoint);
   const id = environmentId(invitation.id);
   if (!/^[a-f\d]{64}$/i.test(invitation.secret)) throw new Error("errors.pairingToken");
@@ -115,7 +115,7 @@ export function directEndpoint(value: string): string {
 }
 
 export function managerEndpoint(value: string): string {
-  return endpoint(value, "edge");
+  return endpoint(value, "agent");
 }
 
 function endpoint(value: string, mode: EnvironmentMode): string {
@@ -132,9 +132,11 @@ function endpoint(value: string, mode: EnvironmentMode): string {
       /^\[::1\](?::\d+)?$/.test(authority));
   if (
     url.protocol !== "https:" &&
-    !(url.protocol === "http:" && (mode === "edge" || literalLoopback))
+    !(url.protocol === "http:" && (mode === "agent" || literalLoopback))
   ) {
-    throw new Error(mode === "edge" ? "errors.endpointEdgeScheme" : "errors.endpointDirectScheme");
+    throw new Error(
+      mode === "agent" ? "errors.endpointAgentScheme" : "errors.endpointDirectScheme",
+    );
   }
   if (
     !authority ||
@@ -156,7 +158,7 @@ function endpoint(value: string, mode: EnvironmentMode): string {
 export function requireInvitationMode(invitation: Invitation, mode: EnvironmentMode): Invitation {
   if ((invitation.mode ?? "direct") !== mode)
     throw new Error(
-      mode === "edge" ? "errors.expectedEdgeInvitation" : "errors.expectedDirectInvitation",
+      mode === "agent" ? "errors.expectedAgentInvitation" : "errors.expectedDirectInvitation",
     );
   return invitation;
 }
@@ -201,9 +203,9 @@ export function parseInvitation(text: string, now = Date.now() / 1000): Invitati
     throw new Error("errors.invitationIdentity");
   }
   if (typeof invitation.endpoint !== "string") throw new Error("errors.invitationEndpoint");
-  if (invitation.mode !== undefined && invitation.mode !== "direct" && invitation.mode !== "edge")
+  if (invitation.mode !== undefined && invitation.mode !== "direct" && invitation.mode !== "agent")
     throw new Error("errors.invitationMode");
-  if (invitation.mode === "edge") managerEndpoint(invitation.endpoint);
+  if (invitation.mode === "agent") managerEndpoint(invitation.endpoint);
   else directEndpoint(invitation.endpoint);
   if (typeof invitation.secret !== "string" || !invitation.secret.trim())
     throw new Error("errors.invitationSecret");

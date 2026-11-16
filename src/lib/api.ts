@@ -41,7 +41,7 @@ import {
   environmentId,
   requireInvitationMode,
   subscriptionUrl,
-  type EdgeView,
+  type AgentView,
   type EnvironmentMode,
   type Environment,
   type Identity,
@@ -187,7 +187,7 @@ export function createApi(
   const endpoint = host
     ? host.endpoint === null
       ? null
-      : host.mode === "edge"
+      : host.mode === "agent"
         ? managerEndpoint(host.endpoint)
         : directEndpoint(host.endpoint)
     : undefined;
@@ -393,22 +393,22 @@ export const api = {
     list: () => json<TrustedPeer[]>("GET", "/peers"),
     invite: (name: string, endpoint: string, mode?: EnvironmentMode) =>
       json<Invitation>("POST", "/peers/invitations", { name, endpoint, ...(mode ? { mode } : {}) }),
-    edge: {
-      get: () => edgeRequest(() => json<EdgeView>("GET", "/peers/edge")),
+    agent: {
+      get: () => agentRequest(() => json<AgentView>("GET", "/peers/agent")),
       connect: (invitation: Invitation, proxy?: string | null) => {
-        requireInvitationMode(invitation, "edge");
-        return edgeRequest(() => json<EdgeView>("POST", "/peers/edge", { invitation, proxy }));
+        requireInvitationMode(invitation, "agent");
+        return agentRequest(() => json<AgentView>("POST", "/peers/agent", { invitation, proxy }));
       },
       update: (settings: { endpoint?: string; proxy?: string | null }) =>
-        edgeRequest(() => json<EdgeView>("PUT", "/peers/edge", settings)),
-      disconnect: () => edgeRequest(() => none("DELETE", "/peers/edge")),
+        agentRequest(() => json<AgentView>("PUT", "/peers/agent", settings)),
+      disconnect: () => agentRequest(() => none("DELETE", "/peers/agent")),
     },
     revokeInvitation: (id: string) => none("DELETE", `/peers/invitations/${environmentId(id)}`),
     revoke: (id: string) => none("DELETE", `/peers/${environmentId(id)}`),
   },
 };
 
-async function edgeRequest<T>(request: () => Promise<T>): Promise<T> {
+async function agentRequest<T>(request: () => Promise<T>): Promise<T> {
   try {
     return await request();
   } catch (error) {
@@ -416,12 +416,12 @@ async function edgeRequest<T>(request: () => Promise<T>): Promise<T> {
     const status = error instanceof ApiError ? error.status : 0;
     const reason =
       status === 409
-        ? "errors.edgeConflict"
+        ? "errors.agentConflict"
         : status === 400
-          ? "errors.edgeSettings"
+          ? "errors.agentSettings"
           : status === 401 || status === 403
-            ? "errors.edgeAuthorization"
-            : "errors.edgeRequest";
+            ? "errors.agentAuthorization"
+            : "errors.agentRequest";
     throw new ApiError(status, reason);
   }
 }
