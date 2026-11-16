@@ -53,8 +53,6 @@ const zhCN: TranslationShape<typeof enUS> = {
     seconds: "{{value}} 秒",
   },
   errors: {
-    proxyUrl: "proxy：需要绝对 HTTP 或 HTTPS URL",
-    proxyShape: "proxy：HTTP 或 HTTPS 地址不能包含路径、查询参数或片段",
     pairingToken: "invitation.secret：需要有效的配对令牌",
     environmentId: "environment.id：需要有效的 UUID",
     endpointAbsolute: "endpoint：需要绝对 URL",
@@ -73,10 +71,6 @@ const zhCN: TranslationShape<typeof enUS> = {
     invitationMode: "invitation.mode：需要 direct 或 agent",
     invitationSecret: "invitation.secret：不能为空",
     invitationExpiry: "invitation.expires_at：已过期或无效",
-    agentConflict: "agent：请先断开已连接的 Manager，再重新连接",
-    agentSettings: "agent：邀请或连接设置无效",
-    agentAuthorization: "agent：授权失败，请检查会话及 Manager 信任关系",
-    agentRequest: "agent：请求失败，请检查端点、显式代理及网络",
   },
   login: {
     createAdministrator: "创建管理员",

@@ -47,8 +47,6 @@ const enUS = {
     seconds: "{{value}}s",
   },
   errors: {
-    proxyUrl: "proxy: expected an absolute HTTP or HTTPS URL",
-    proxyShape: "proxy: expected HTTP or HTTPS without a path, query or fragment",
     pairingToken: "invitation.secret: expected a valid pairing token",
     environmentId: "environment.id: expected a valid UUID",
     endpointAbsolute: "endpoint: expected an absolute URL",
@@ -67,10 +65,6 @@ const enUS = {
     invitationMode: "invitation.mode: expected direct or agent",
     invitationSecret: "invitation.secret: required",
     invitationExpiry: "invitation.expires_at: expired or invalid",
-    agentConflict: "agent: disconnect the configured manager before connecting again",
-    agentSettings: "agent: invalid invitation or connection settings",
-    agentAuthorization: "agent: authorization failed; check the session and manager trust",
-    agentRequest: "agent: request failed; check the endpoint, explicit proxy and network",
   },
   login: {
     createAdministrator: "Create Administrator",

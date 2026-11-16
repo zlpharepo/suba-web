@@ -41,7 +41,6 @@ import {
   environmentId,
   requireInvitationMode,
   subscriptionUrl,
-  type AgentView,
   type EnvironmentMode,
   type Environment,
   type Identity,
@@ -393,38 +392,10 @@ export const api = {
     list: () => json<TrustedPeer[]>("GET", "/peers"),
     invite: (name: string, endpoint: string, mode?: EnvironmentMode) =>
       json<Invitation>("POST", "/peers/invitations", { name, endpoint, ...(mode ? { mode } : {}) }),
-    agent: {
-      get: () => agentRequest(() => json<AgentView>("GET", "/peers/agent")),
-      connect: (invitation: Invitation, proxy?: string | null) => {
-        requireInvitationMode(invitation, "agent");
-        return agentRequest(() => json<AgentView>("POST", "/peers/agent", { invitation, proxy }));
-      },
-      update: (settings: { endpoint?: string; proxy?: string | null }) =>
-        agentRequest(() => json<AgentView>("PUT", "/peers/agent", settings)),
-      disconnect: () => agentRequest(() => none("DELETE", "/peers/agent")),
-    },
     revokeInvitation: (id: string) => none("DELETE", `/peers/invitations/${environmentId(id)}`),
     revoke: (id: string) => none("DELETE", `/peers/${environmentId(id)}`),
   },
 };
-
-async function agentRequest<T>(request: () => Promise<T>): Promise<T> {
-  try {
-    return await request();
-  } catch (error) {
-    // Proxy errors must not retain or display a server-echoed credential URL.
-    const status = error instanceof ApiError ? error.status : 0;
-    const reason =
-      status === 409
-        ? "errors.agentConflict"
-        : status === 400
-          ? "errors.agentSettings"
-          : status === 401 || status === 403
-            ? "errors.agentAuthorization"
-            : "errors.agentRequest";
-    throw new ApiError(status, reason);
-  }
-}
 
 export function errorMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);

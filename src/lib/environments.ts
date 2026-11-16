@@ -13,12 +13,6 @@ export interface AgentStatus {
   last_seen?: number;
 }
 
-export interface AgentView extends AgentStatus {
-  manager: { identity: Identity; endpoint: string } | null;
-  proxy_configured: boolean;
-  proxy_endpoint?: string;
-}
-
 export interface Invitation {
   mode?: EnvironmentMode;
   version: 1;
