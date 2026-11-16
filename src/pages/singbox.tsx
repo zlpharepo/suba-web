@@ -103,11 +103,22 @@ function ConfigurationWorkspace({ core }: { core: Core }) {
     saving: false,
   });
   const [sectionRevision, setSectionRevision] = useState(0);
+  const [versionsOpen, setVersionsOpen] = useState(false);
+  const openVersions = () => setVersionsOpen(true);
 
   return (
     <>
       <div className="mb-6 flex flex-wrap items-center gap-2">
-        <VersionChip current={core.version} />
+        <button
+          type="button"
+          aria-haspopup="dialog"
+          onClick={openVersions}
+          className={cx(buttonClass("secondary", "sm"), "font-mono")}
+        >
+          <span className="font-sans text-fg-subtle">{t("singbox.version")}</span>
+          {core.version ?? t("singbox.none")}
+          <ChevronDownIcon className="!size-3.5 text-fg-subtle" />
+        </button>
         <ConfigChip
           core={core}
           editing={editing}
@@ -141,8 +152,16 @@ function ConfigurationWorkspace({ core }: { core: Core }) {
           onDraftStatus={setSectionDraft}
         />
       ) : (
-        <NoVersion />
+        <Empty
+          title={
+            <Button variant="primary" aria-haspopup="dialog" onClick={openVersions}>
+              <DownloadIcon />
+              {t("singbox.installSingbox")}
+            </Button>
+          }
+        />
       )}
+      <VersionsDialog open={versionsOpen} onOpenChange={setVersionsOpen} current={core.version} />
     </>
   );
 }
@@ -167,11 +186,6 @@ function died(status: Running, t: ReturnType<typeof useTranslation>["t"]): strin
   return said
     ? t("singbox.coreExitedWithLog", { reason: how, log: stripAnsi(said) })
     : t("singbox.coreExited", { reason: how });
-}
-
-function NoVersion() {
-  const { t } = useTranslation();
-  return <Empty icon={<DownloadIcon />} title={t("singbox.installSingbox")} />;
 }
 
 /* ---------------------------------------------------------------- process */
@@ -328,26 +342,6 @@ function LogDialog({
 }
 
 /* ---------------------------------------------------------------- version */
-
-function VersionChip({ current }: { current: string | null }) {
-  const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
-
-  return (
-    <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className={cx(buttonClass("secondary", "sm"), "font-mono")}
-      >
-        <span className="font-sans text-fg-subtle">{t("singbox.version")}</span>
-        {current ?? t("singbox.none")}
-        <ChevronDownIcon className="!size-3.5 text-fg-subtle" />
-      </button>
-      <VersionsDialog open={open} onOpenChange={setOpen} current={current} />
-    </>
-  );
-}
 
 function VersionsDialog({
   open,
