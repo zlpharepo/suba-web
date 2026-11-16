@@ -295,7 +295,7 @@ function ProviderPanel({
               type="button"
               onClick={() => setTab(value)}
               className={cx(
-                "flex-1 rounded-[5px] px-3 py-1 font-medium capitalize transition-colors",
+                "flex-1 rounded-[5px] px-3 py-1 font-medium whitespace-nowrap capitalize transition-colors",
                 tab === value ? "bg-bg text-fg shadow-sm" : "text-fg-muted hover:text-fg",
               )}
             >
