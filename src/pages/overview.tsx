@@ -20,6 +20,7 @@ import { cx } from "@/lib/cx";
 import { bytes, dateTime, rate } from "@/lib/format";
 import { EnvironmentActions, EnvironmentDialog } from "@/components/environment-actions";
 import { AgentConnection } from "@/components/agent-connection";
+import { ProcessUsage } from "@/components/process-usage";
 import { Button, IconButton } from "@/ui/button";
 import { Dialog } from "@/ui/dialog";
 import { PageHeader } from "@/ui/layout";
@@ -146,7 +147,7 @@ function EnvironmentCard({
       aria-label={environment?.name ?? t("overview.local")}
       aria-current={current ? "true" : undefined}
       className={cx(
-        "min-w-0 overflow-hidden rounded-lg border",
+        "flex min-w-0 flex-col overflow-hidden rounded-lg border",
         current ? "border-accent/50 bg-accent/[0.02]" : "border-border bg-bg",
       )}
     >
@@ -249,7 +250,7 @@ function EnvironmentCard({
           </div>
         )}
       </div>
-      <div className="grid grid-cols-2 gap-x-5 gap-y-3 border-t border-border px-4 py-3.5 sm:grid-cols-4">
+      <div className="mt-auto grid grid-cols-2 gap-x-5 gap-y-3 border-t border-border px-4 py-3.5 sm:grid-cols-4">
         <Stat
           label="CPU"
           value={data?.cpu.usage == null ? "—" : `${data.cpu.usage.toFixed(0)}%`}
@@ -290,6 +291,10 @@ function EnvironmentCard({
             )
           }
         />
+      </div>
+      <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 border-t border-border px-4 py-2.5">
+        <span className="text-xs font-medium text-fg">SubA</span>
+        <ProcessUsage usage={data?.process} />
       </div>
     </article>
   );

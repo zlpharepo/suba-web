@@ -20,13 +20,21 @@ import { ConfigEditor, type SectionDraftStatus } from "@/components/config-edito
 import { FullConfigJson } from "@/components/full-config-json";
 import { EnableObservation } from "@/components/enable-observation";
 import { Generator } from "@/components/generator";
+import { ProcessUsage } from "@/components/process-usage";
 import { errorMessage } from "@/lib/api";
 import { useApi } from "@/lib/target";
 import { cx } from "@/lib/cx";
 import { useConfirmDiscard, useDraftProtection } from "@/lib/draft-protection";
 import { coreActionFailure, useCoreAction } from "@/lib/use-core-action";
 import { ago, bytes, stripAnsi } from "@/lib/format";
-import type { ConfigView, Core, Privilege, Running, VersionView } from "@/lib/types";
+import type {
+  ConfigView,
+  Core,
+  Privilege,
+  ProcessMetrics,
+  Running,
+  VersionView,
+} from "@/lib/types";
 import { Button, IconButton } from "@/ui/button";
 import { buttonClass } from "@/ui/styles";
 import { Confirm, Dialog } from "@/ui/dialog";
@@ -65,6 +73,7 @@ export function SingboxPage() {
               // snapshot, and a core that died since it was taken is exactly
               // the case this page has to get right.
               running={status.data?.running ?? core.data.running}
+              usage={status.failureCount === 0 ? status.data?.process : null}
               hasVersion={core.data.version !== null}
             />
           )
@@ -192,10 +201,12 @@ function died(status: Running, t: ReturnType<typeof useTranslation>["t"]): strin
 
 function Controls({
   running,
+  usage,
   hasVersion,
   action: act,
 }: {
   running: boolean;
+  usage?: ProcessMetrics | null;
   hasVersion: boolean;
   action: ReturnType<typeof useCoreAction>;
 }) {
@@ -204,21 +215,55 @@ function Controls({
   const busy = useIsMutating({ mutationKey: ["singbox", "action"] }) > 0;
   const pending = act.isPending;
   const action = act.variables ?? "start";
+  const statusLabel = pending
+    ? {
+        start: t("singbox.starting"),
+        restart: t("singbox.restarting"),
+        stop: t("singbox.stopping"),
+      }[action]
+    : running
+      ? t("singbox.running")
+      : t("singbox.stopped");
+  const showUsage = running && !pending;
+  const indicator = (
+    <>
+      <Dot tone={running ? "success" : "neutral"} live={showUsage} />
+      {statusLabel}
+    </>
+  );
 
   return (
     <div className="flex flex-wrap items-center gap-1.5">
-      <span role="status" className="mr-1.5 flex items-center gap-2 text-[13px] text-fg-muted">
-        <Dot tone={running ? "success" : "neutral"} live={running && !pending} />
-        {pending
-          ? {
-              start: t("singbox.starting"),
-              restart: t("singbox.restarting"),
-              stop: t("singbox.stopping"),
-            }[action]
-          : running
-            ? t("singbox.running")
-            : t("singbox.stopped")}
+      <span
+        role="status"
+        className={cx(
+          "mr-1.5 items-center gap-2 text-[13px] text-fg-muted",
+          showUsage ? "sr-only sm:not-sr-only sm:flex" : "flex",
+        )}
+      >
+        {indicator}
       </span>
+      {showUsage && (
+        <>
+          <div className="mr-1.5 hidden sm:block">
+            <ProcessUsage usage={usage} />
+          </div>
+          <div className="sm:hidden">
+            <Popover
+              label="sing-box"
+              className="sm:hidden"
+              trigger={
+                <Button variant="ghost">
+                  {indicator}
+                  <ChevronDownIcon className="!size-3.5" />
+                </Button>
+              }
+            >
+              <ProcessUsage usage={usage} />
+            </Popover>
+          </div>
+        </>
+      )}
       {running ? (
         <>
           <IconButton

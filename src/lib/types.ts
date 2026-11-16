@@ -85,6 +85,11 @@ export interface CollectionSummary extends Collection {
   links: DeliveryToken[];
 }
 
+export interface ProcessMetrics {
+  cpu_usage: number | null;
+  memory_bytes: number;
+}
+
 export interface Metrics {
   host: {
     name: string | null;
@@ -107,6 +112,7 @@ export interface Metrics {
     receive_rate: number | null;
     transmit_rate: number | null;
   };
+  process?: ProcessMetrics | null;
 }
 
 export interface CollectionNodes {
@@ -185,6 +191,7 @@ export interface Running {
   running: boolean;
   pid: number | null;
   started_at: number | null;
+  process?: ProcessMetrics | null;
   exits: Exit[];
   log: string[];
 }
