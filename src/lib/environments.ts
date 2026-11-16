@@ -52,7 +52,7 @@ export function pageEnvironment(host: Environment | null, path: string): Environ
 
 export function agentCommand(invitation: Invitation): string {
   const [endpoint, token] = agentArguments(invitation);
-  return `EDGE_AGENT=true MANAGER_API_URL=${shellQuote(endpoint)} AGENT_TOKEN=${shellQuote(token)} suba`;
+  return `SUBA_AGENT=true SUBA_MANAGER_API_URL=${shellQuote(endpoint)} SUBA_AGENT_TOKEN=${shellQuote(token)} suba`;
 }
 
 function shellQuote(value: string): string {
@@ -75,9 +75,9 @@ export function agentDockerCommand(invitation: Invitation): string {
   const [endpoint, token] = agentArguments(invitation);
   return [
     `docker run -d --name ${name} --restart unless-stopped`,
-    "-e EDGE_AGENT=true",
-    `-e MANAGER_API_URL=${shellQuote(endpoint)}`,
-    `-e AGENT_TOKEN=${shellQuote(token)}`,
+    "-e SUBA_AGENT=true",
+    `-e SUBA_MANAGER_API_URL=${shellQuote(endpoint)}`,
+    `-e SUBA_AGENT_TOKEN=${shellQuote(token)}`,
     `-v ${name}-config:/app/config -v ${name}-data:/app/data`,
     agentImage,
   ].join(" \\\n  ");
@@ -91,9 +91,9 @@ services:
     image: ${agentImage}
     restart: unless-stopped
     environment:
-      EDGE_AGENT: "true"
-      MANAGER_API_URL: ${JSON.stringify(endpoint)}
-      AGENT_TOKEN: ${JSON.stringify(token)}
+      SUBA_AGENT: "true"
+      SUBA_MANAGER_API_URL: ${JSON.stringify(endpoint)}
+      SUBA_AGENT_TOKEN: ${JSON.stringify(token)}
     volumes:
       - suba-agent-config:/app/config
       - suba-agent-data:/app/data
