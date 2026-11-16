@@ -30,6 +30,7 @@ import { Generator } from "@/components/generator";
 import { InboundBadges, InboundUsersPanel } from "@/components/inbound-users";
 import { ReferenceDiagnostics } from "@/components/reference-diagnostics";
 import { RawField, SchemaForm } from "@/components/schema-form";
+import { SortableConfigCards } from "@/components/sortable-config-cards";
 import { ApiError, errorMessage } from "@/lib/api";
 import { useApi } from "@/lib/target";
 import type { CollectionBindingContext } from "@/lib/collection-bindings";
@@ -620,6 +621,8 @@ function SplitView({
               item={card.item}
               references={references}
               entries={entriesOf(card.name)}
+              reorderDisabled={save.isPending || editing !== null}
+              onReorder={(entries) => setDraft({ ...object, [card.name]: entries })}
               onAdd={() => setEditing({ path: card.name, index: null })}
               onEdit={(index) => setEditing({ path: card.name, index })}
               onRemove={(index) =>
@@ -729,6 +732,8 @@ function EntriesView({
           item={item}
           references={references}
           entries={entries}
+          reorderDisabled={save.isPending || editing !== null}
+          onReorder={setDraft}
           details={
             inbounds
               ? (entry, index) => (
@@ -793,6 +798,8 @@ function CardList({
   onAdd,
   onEdit,
   onRemove,
+  onReorder,
+  reorderDisabled,
   details,
 }: {
   /** Where the list sits in the document, e.g. `dns.servers`. */
@@ -804,6 +811,8 @@ function CardList({
   onAdd: () => void;
   onEdit: (index: number) => void;
   onRemove: (index: number) => void;
+  onReorder: (entries: JsonObject[]) => void;
+  reorderDisabled: boolean;
   /** What a card says beyond its entry, such as the users SubA adds to an inbound. */
   details?: (entry: JsonObject, index: number) => ReactNode;
 }) {
@@ -829,12 +838,17 @@ function CardList({
       {entries.length === 0 ? (
         <Empty title={t("editor.noEntries", { name: sectionTitle })} />
       ) : (
-        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-          {entries.map((entry, index) => (
+        <SortableConfigCards
+          entries={entries}
+          label={title}
+          disabled={reorderDisabled}
+          onReorder={onReorder}
+        >
+          {(entry, index, handle) => (
             <ConfigEntryCard
-              key={index}
               entry={entry}
               index={index}
+              dragHandle={handle}
               titled={titled}
               missingReferences={missingReferences(tree, item, entry, references)}
               collectionContext={path === "outbounds" ? collectionContext : undefined}
@@ -854,8 +868,8 @@ function CardList({
                 />
               }
             />
-          ))}
-        </div>
+          )}
+        </SortableConfigCards>
       )}
     </div>
   );

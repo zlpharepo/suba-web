@@ -22,6 +22,7 @@ export function ConfigEntryCard({
   onOpen,
   details,
   actions,
+  dragHandle,
   collectionContext,
   missingReferences = [],
 }: {
@@ -31,6 +32,7 @@ export function ConfigEntryCard({
   onOpen: () => void;
   details?: ReactNode;
   actions?: ReactNode;
+  dragHandle?: ReactNode;
   collectionContext?: CollectionBindingContext;
   missingReferences?: MissingReference[];
 }) {
@@ -79,26 +81,29 @@ export function ConfigEntryCard({
           {details}
         </span>
       </button>
-      <div className="col-start-2 row-span-2 row-start-1 flex shrink-0 items-center opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 max-sm:opacity-100">
-        <Popover
-          openOnHover
-          align="end"
-          className="w-136 p-3"
-          trigger={
-            <button
-              type="button"
-              aria-label={t("configEntry.showJson")}
-              className="rounded-sm p-1 text-fg-subtle transition-colors hover:bg-bg-muted hover:text-fg"
-            >
-              <BracesIcon className="size-3.5" />
-            </button>
-          }
-        >
-          <pre className="max-h-80 overflow-y-auto font-mono text-xs break-all whitespace-pre-wrap text-fg">
-            {JSON.stringify(entry, null, 2)}
-          </pre>
-        </Popover>
-        {actions}
+      <div className="col-start-2 row-span-2 row-start-1 flex items-center">
+        <div className="flex items-center opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 max-sm:opacity-100">
+          <Popover
+            openOnHover
+            align="end"
+            className="w-136 p-3"
+            trigger={
+              <button
+                type="button"
+                aria-label={t("configEntry.showJson")}
+                className="rounded-sm p-1 text-fg-subtle transition-colors hover:bg-bg-muted hover:text-fg"
+              >
+                <BracesIcon className="size-3.5" />
+              </button>
+            }
+          >
+            <pre className="max-h-80 overflow-y-auto font-mono text-xs break-all whitespace-pre-wrap text-fg">
+              {JSON.stringify(entry, null, 2)}
+            </pre>
+          </Popover>
+          {actions}
+        </div>
+        {dragHandle}
       </div>
       {previewTags && (
         <div className="mt-1 min-w-0">
