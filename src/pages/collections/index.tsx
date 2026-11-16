@@ -4,7 +4,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { BoxesIcon, EyeIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
 
 import { DeliveryLinks } from "@/components/delivery-links";
-import { CopyButton, PatternsEditor } from "@/components/shared";
+import { PatternsEditor } from "@/components/shared";
+import { SubscriptionOutput } from "@/components/subscription-output";
 import { errorMessage } from "@/lib/api";
 import {
   confirmDiscardChanges,
@@ -30,7 +31,7 @@ export function CollectionsPage() {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
-  const [previewing, setPreviewing] = useState<string | null>(null);
+  const [previewing, setPreviewing] = useState<{ name: string; url?: string } | null>(null);
 
   const collections = useQuery({
     queryKey: ["collections"],
@@ -86,7 +87,7 @@ export function CollectionsPage() {
             name={name}
             collection={collection}
             onEdit={() => setEditing(name)}
-            onPreview={() => setPreviewing(name)}
+            onPreview={(url) => setPreviewing({ name, url })}
             onDelete={() => remove.mutate(name)}
           />
         ))}
@@ -99,7 +100,11 @@ export function CollectionsPage() {
         name={editing ?? undefined}
         collection={editing ? collections.data?.[editing] : undefined}
       />
-      <PreviewDialog name={previewing} onClose={() => setPreviewing(null)} />
+      <PreviewDialog
+        name={previewing?.name ?? null}
+        url={previewing?.url}
+        onClose={() => setPreviewing(null)}
+      />
     </>
   );
 }
@@ -114,7 +119,7 @@ function CollectionCard({
   name: string;
   collection: CollectionSummary;
   onEdit: () => void;
-  onPreview: () => void;
+  onPreview: (url?: string) => void;
   onDelete: () => void;
 }) {
   const { t } = useTranslation();
@@ -150,7 +155,7 @@ function CollectionCard({
           </div>
         </div>
         <div className="flex shrink-0 gap-0.5">
-          <IconButton label={t("collections.preview")} onClick={onPreview}>
+          <IconButton label={t("collections.preview")} onClick={() => onPreview()}>
             <EyeIcon />
           </IconButton>
           <IconButton label={t("overview.edit")} onClick={onEdit}>
@@ -169,18 +174,27 @@ function CollectionCard({
           />
         </div>
       </div>
-      <Tokens name={name} links={collection.links} />
+      <Tokens name={name} links={collection.links} onPreview={onPreview} />
     </Card>
   );
 }
 
-function Tokens({ name, links }: { name: string; links: DeliveryToken[] }) {
+function Tokens({
+  name,
+  links,
+  onPreview,
+}: {
+  name: string;
+  links: DeliveryToken[];
+  onPreview: (url: string) => void;
+}) {
   const api = useApi();
   const queryClient = useQueryClient();
 
   return (
     <DeliveryLinks
       links={links}
+      onPreview={onPreview}
       mint={(label) => api.collections.mintToken(name, label)}
       revoke={(label) => api.collections.revokeToken(name, label)}
       onChange={() => void queryClient.invalidateQueries({ queryKey: ["collections"] })}
@@ -335,7 +349,15 @@ function CollectionForm({
 const DEFAULT_TARGET = "base64";
 
 // Fetched only when opened: the artifact carries every node's credentials.
-function PreviewDialog({ name, onClose }: { name: string | null; onClose: () => void }) {
+function PreviewDialog({
+  name,
+  url,
+  onClose,
+}: {
+  name: string | null;
+  url?: string;
+  onClose: () => void;
+}) {
   const { t } = useTranslation();
   const api = useApi();
   const info = useQuery({
@@ -382,20 +404,14 @@ function PreviewDialog({ name, onClose }: { name: string | null; onClose: () => 
               })}
             </span>
           )}
-          {content.data && (
-            <CopyButton text={content.data.body} label={t("collections.copyDocument")} />
-          )}
         </div>
-        {content.error && <ErrorNote error={content.error} />}
-        {content.isPending ? (
-          <Skeleton className="h-48" />
-        ) : (
-          content.data && (
-            <pre className="max-h-[40vh] overflow-auto rounded-md bg-bg-muted p-3 font-mono text-xs break-all whitespace-pre-wrap text-fg">
-              {content.data.body || t("collections.emptyDocument")}
-            </pre>
-          )
-        )}
+        <SubscriptionOutput
+          url={url}
+          target={target}
+          body={content.data?.body}
+          pending={content.isPending}
+          error={content.error}
+        />
 
         {nodes.data && nodes.data.nodes.length > 0 && (
           <div className="grid gap-1">

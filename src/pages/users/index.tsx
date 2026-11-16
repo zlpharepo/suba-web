@@ -14,7 +14,7 @@ import {
 
 import { DeliveryLinks } from "@/components/delivery-links";
 import { ExportActions } from "@/components/export-actions";
-import { CopyButton } from "@/components/shared";
+import { SubscriptionOutput } from "@/components/subscription-output";
 import { ObservationSummary } from "@/components/observation";
 import { useObservationMetrics, type MetricsSnapshot } from "@/lib/use-observation";
 import { coreActionFailure, useCoreAction } from "@/lib/use-core-action";
@@ -48,7 +48,7 @@ export function UsersPage() {
   const [tab, setTab] = useState<Tab>("users");
   // `""` opens a new one; a name opens that one.
   const [editingUser, setEditingUser] = useState<string | null>(null);
-  const [previewing, setPreviewing] = useState<string | null>(null);
+  const [previewing, setPreviewing] = useState<{ name: string; url?: string } | null>(null);
   const observation = useObservationMetrics(tab === "users");
 
   const core = useQuery({ queryKey: ["singbox"], queryFn: api.singbox.get });
@@ -151,7 +151,7 @@ export function UsersPage() {
                 user={user}
                 inUse={inUse}
                 onEdit={ready ? () => setEditingUser(user.name) : undefined}
-                onPreview={() => setPreviewing(user.name)}
+                onPreview={(url) => setPreviewing({ name: user.name, url })}
                 observation={observation}
               />
             ))}
@@ -175,7 +175,8 @@ export function UsersPage() {
         />
       )}
       <SubscriptionDialog
-        user={heldUsers.find((user) => user.name === previewing) ?? null}
+        user={heldUsers.find((user) => user.name === previewing?.name) ?? null}
+        url={previewing?.url}
         onClose={() => setPreviewing(null)}
       />
     </>
@@ -279,7 +280,7 @@ function UserCard({
   user: UserView;
   inUse?: string;
   onEdit?: () => void;
-  onPreview: () => void;
+  onPreview: (url?: string) => void;
 }) {
   const { t } = useTranslation();
   const api = useApi();
@@ -309,7 +310,7 @@ function UserCard({
           )}
         </div>
         <div className="flex shrink-0 gap-0.5">
-          <IconButton label={t("users.previewSubscription")} onClick={onPreview}>
+          <IconButton label={t("users.previewSubscription")} onClick={() => onPreview()}>
             <EyeIcon />
           </IconButton>
           <IconButton label={t("overview.edit")} disabled={!onEdit} onClick={onEdit}>
@@ -331,6 +332,7 @@ function UserCard({
       />
       <DeliveryLinks
         links={user.links}
+        onPreview={onPreview}
         mint={(label) => api.inbounds.users.mintToken(user.name, label)}
         revoke={(label) => api.inbounds.users.revokeToken(user.name, label)}
         onChange={() => void queryClient.invalidateQueries({ queryKey: usersKey })}
@@ -414,7 +416,15 @@ const TARGET_LABELS: Record<string, string> = {
 };
 
 // Fetched only when opened: the subscription carries every credential of the user.
-function SubscriptionDialog({ user, onClose }: { user: UserView | null; onClose: () => void }) {
+function SubscriptionDialog({
+  user,
+  url,
+  onClose,
+}: {
+  user: UserView | null;
+  url?: string;
+  onClose: () => void;
+}) {
   const { t } = useTranslation();
   const api = useApi();
   const info = useQuery({ queryKey: ["system", "info"], queryFn: api.system.info });
@@ -452,20 +462,14 @@ function SubscriptionDialog({ user, onClose }: { user: UserView | null; onClose:
               })}
             </span>
           )}
-          {content.data && (
-            <CopyButton text={content.data.body} label={t("collections.copyDocument")} />
-          )}
         </div>
-        {content.error && <ErrorNote error={content.error} />}
-        {content.isPending ? (
-          <Skeleton className="h-48" />
-        ) : (
-          content.data && (
-            <pre className="max-h-[40vh] overflow-auto rounded-md bg-bg-muted p-3 font-mono text-xs break-all whitespace-pre-wrap text-fg">
-              {content.data.body || t("collections.emptyDocument")}
-            </pre>
-          )
-        )}
+        <SubscriptionOutput
+          url={url}
+          target={target}
+          body={content.data?.body}
+          pending={content.isPending}
+          error={content.error}
+        />
       </div>
     </Dialog>
   );

@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useMutation } from "@tanstack/react-query";
 import {
   DownloadIcon,
-  ExternalLinkIcon,
+  EyeIcon,
   KeyRoundIcon,
   MoreHorizontalIcon,
   RotateCwIcon,
@@ -15,7 +15,7 @@ import { errorMessage } from "@/lib/api";
 import { useDraftProtection } from "@/lib/draft-protection";
 import { useApi } from "@/lib/target";
 import type { DeliveryToken } from "@/lib/types";
-import { Button } from "@/ui/button";
+import { Button, IconButton } from "@/ui/button";
 import { Dialog } from "@/ui/dialog";
 import { Input } from "@/ui/input";
 import { Menu } from "@/ui/popover";
@@ -28,12 +28,14 @@ export function DeliveryLinks({
   mint,
   revoke,
   onChange,
+  onPreview,
 }: {
   links: DeliveryToken[];
   /** Mints a link under `label`; an existing one is replaced, which is how a link rotates. */
   mint: (label: string) => Promise<unknown>;
   revoke: (label: string) => Promise<unknown>;
   onChange: () => void;
+  onPreview: (url: string) => void;
 }) {
   const { t } = useTranslation();
   const [adding, setAdding] = useState(false);
@@ -74,6 +76,7 @@ export function DeliveryLinks({
         <TokenRow
           key={link.name}
           link={link}
+          onPreview={onPreview}
           onRotate={() => minting.mutate(link.name)}
           onRevoke={() => revoking.mutate(link.name)}
         />
@@ -113,10 +116,12 @@ export function DeliveryLinks({
 
 function TokenRow({
   link,
+  onPreview,
   onRotate,
   onRevoke,
 }: {
   link: DeliveryToken;
+  onPreview: (url: string) => void;
   onRotate: () => void;
   onRevoke: () => void;
 }) {
@@ -138,17 +143,15 @@ function TokenRow({
       <div className="flex shrink-0 items-center">
         {url !== null && (
           <>
-            <CopyButton text={url} label={t("delivery.copyLink")} />
-            <a
-              href={url}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label={t("delivery.open")}
-              title={t("delivery.open")}
-              className={buttonClass("ghost", "sm", true)}
+            <IconButton
+              size="sm"
+              label={t("collections.preview")}
+              aria-haspopup="dialog"
+              onClick={() => onPreview(url)}
             >
-              <ExternalLinkIcon />
-            </a>
+              <EyeIcon />
+            </IconButton>
+            <CopyButton text={url} label={t("delivery.copyLink")} />
           </>
         )}
         <Menu
