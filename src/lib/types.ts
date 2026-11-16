@@ -144,6 +144,11 @@ export interface SystemInfo extends SystemStatus {
   targets: TargetView[];
 }
 
+export interface SystemSummary {
+  version: string;
+  counts?: { providers: number; collections: number };
+}
+
 export interface Core {
   managed?: boolean;
   version: string | null;

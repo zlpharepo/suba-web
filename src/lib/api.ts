@@ -28,6 +28,7 @@ import type {
   Saved,
   SystemInfo,
   SystemStatus,
+  SystemSummary,
   UserView,
   Versioned,
   VersionView,
@@ -197,6 +198,7 @@ export function createApi(
     system: {
       status: () => json<SystemStatus>("GET", "/system/status"),
       info: () => json<SystemInfo>("GET", "/system/info"),
+      summary: () => json<SystemSummary>("GET", "/system/summary"),
       metrics: () => json<Metrics>("GET", "/system/metrics"),
     },
 

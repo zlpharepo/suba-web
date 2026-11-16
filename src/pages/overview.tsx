@@ -124,25 +124,15 @@ function EnvironmentCard({
     refetchInterval: 3000,
     retry: false,
   });
-  const info = useQuery({
-    queryKey: ["environment", id, "info"],
-    queryFn: api.system.info,
+  const summary = useQuery({
+    queryKey: ["environment", id, "summary"],
+    queryFn: api.system.summary,
     enabled: available,
     refetchInterval: 15000,
     retry: false,
   });
-  const providers = useQuery({
-    queryKey: ["environment", id, "providers"],
-    queryFn: api.providers.list,
-    enabled: !agent,
-    retry: false,
-  });
-  const collections = useQuery({
-    queryKey: ["environment", id, "collections"],
-    queryFn: api.collections.list,
-    enabled: !agent,
-    retry: false,
-  });
+  const counts = summary.data?.counts;
+  const error = available ? (metrics.error ?? summary.error) : null;
   const data = available && !metrics.error ? metrics.data : undefined;
   const current = target.selectedId === id;
   const memory = data && percent(data.memory.used, data.memory.total);
@@ -174,7 +164,7 @@ function EnvironmentCard({
                     ? t("overview.direct")
                     : t("overview.manager")}
               </Badge>
-              {info.data && <Badge mono>v{info.data.version}</Badge>}
+              {summary.data && <Badge mono>v{summary.data.version}</Badge>}
             </span>
           </div>
           <div className="flex shrink-0 items-center gap-1">
@@ -240,19 +230,15 @@ function EnvironmentCard({
             {lastSeen ? dateTime(lastSeen) : "—"}
           </span>
         </div>
-        {metrics.error && <ErrorNote error={metrics.error} />}
+        {error && <ErrorNote error={error} />}
         {!agent && (
           <div className="flex min-h-10 items-center gap-4 border-t border-border pt-2.5 text-xs text-fg-muted">
             <span>
-              <span className="mr-1.5 font-medium text-fg">
-                {providers.data ? Object.keys(providers.data).length : "—"}
-              </span>{" "}
+              <span className="mr-1.5 font-medium text-fg">{counts?.providers ?? "—"}</span>{" "}
               {t("common.providers")}
             </span>
             <span>
-              <span className="mr-1.5 font-medium text-fg">
-                {collections.data ? Object.keys(collections.data).length : "—"}
-              </span>{" "}
+              <span className="mr-1.5 font-medium text-fg">{counts?.collections ?? "—"}</span>{" "}
               {t("common.collections")}
             </span>
             {!environment && (
