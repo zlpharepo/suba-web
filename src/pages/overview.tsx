@@ -223,9 +223,9 @@ function EnvironmentCard({
           <span
             className="max-w-full truncate font-mono"
             title={address ?? undefined}
-            aria-label={t("overview.address")}
+            aria-label={address === null ? undefined : t("overview.address")}
           >
-            {address ?? "—"}
+            {address ?? (agent ? "WebSocket" : "—")}
           </span>
           {agent && (
             <AgentConnection
