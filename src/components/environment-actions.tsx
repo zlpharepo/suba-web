@@ -447,7 +447,7 @@ function NewEnvironmentDrawer({ onClose }: { onClose: () => void }) {
                 if (value !== mode && confirmDiscard()) setMode(value);
               }}
             >
-              {value === "direct" ? t("overview.direct") : t("overview.edge")}
+              {value === "direct" ? t("overview.direct") : t("overview.agent")}
             </Button>
           ))}
         </div>

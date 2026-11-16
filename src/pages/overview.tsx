@@ -169,7 +169,7 @@ function EnvironmentCard({
             <span className="flex shrink-0 items-center gap-1.5">
               <Badge>
                 {edge
-                  ? t("overview.edge")
+                  ? t("overview.agent")
                   : environment
                     ? t("overview.direct")
                     : t("overview.manager")}

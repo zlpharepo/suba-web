@@ -43,7 +43,7 @@ export function EnvironmentSwitcher({ onSelect }: { onSelect?: () => void }) {
           </span>
           <span className="truncate text-2xs text-fg-subtle">
             {target.selected?.mode === "edge"
-              ? t("overview.edge")
+              ? t("overview.agent")
               : (target.selected?.endpoint ?? t("overview.manager"))}
           </span>
         </span>
@@ -91,7 +91,7 @@ export function EnvironmentSwitcher({ onSelect }: { onSelect?: () => void }) {
                     </span>
                     <span className="truncate text-xs text-fg-subtle">
                       {environment?.endpoint ??
-                        (environment ? t("overview.edge") : t("overview.manager"))}
+                        (environment ? t("overview.agent") : t("overview.manager"))}
                     </span>
                   </span>
                   {current && (
