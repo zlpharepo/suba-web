@@ -101,7 +101,7 @@ export function DeliveryLinks({
         <button
           type="button"
           onClick={() => setAdding(true)}
-          className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-[13px] text-fg-muted transition-colors hover:bg-bg-subtle hover:text-fg"
+          className="flex w-full items-center gap-2 rounded-b-lg px-4 py-2.5 text-left text-[13px] text-fg-muted transition-colors hover:bg-bg-subtle hover:text-fg"
         >
           <KeyRoundIcon className="size-3.5" />
           {links.length === 0 ? t("delivery.addLink") : t("delivery.addAnother")}
