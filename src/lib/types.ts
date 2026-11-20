@@ -150,6 +150,11 @@ export interface SystemInfo extends SystemStatus {
   targets: TargetView[];
 }
 
+export interface SystemSettings {
+  subscription_prefix: string;
+  github_token_configured: boolean;
+}
+
 export interface SystemSummary {
   version: string;
   counts?: { providers: number; collections: number };

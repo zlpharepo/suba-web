@@ -27,6 +27,7 @@ import type {
   Running,
   Saved,
   SystemInfo,
+  SystemSettings,
   SystemStatus,
   SystemSummary,
   UserView,
@@ -352,11 +353,9 @@ export const api = {
       none("PUT", "/account/password", { current_password, new_password }),
   },
   settings: {
-    get: () => json<{ subscription_prefix: string }>("GET", "/system/settings"),
-    update: (subscription_prefix: string) =>
-      json<{ subscription_prefix: string }>("PUT", "/system/settings", {
-        subscription_prefix,
-      }),
+    get: () => json<SystemSettings>("GET", "/system/settings"),
+    update: (change: { subscription_prefix?: string; github_token?: string | null }) =>
+      json<SystemSettings>("PUT", "/system/settings", change),
   },
   web: {
     status: () =>

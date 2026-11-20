@@ -59,7 +59,7 @@ export function SettingsPage() {
             )}
           </Card>
         </section>
-        <UpdatesPanel />
+        <UpdatesPanel githubTokenConfigured={settings.data?.github_token_configured} />
         <SessionActions />
       </div>
     </div>
@@ -120,7 +120,7 @@ function SessionActions() {
   );
 }
 
-function UpdatesPanel() {
+function UpdatesPanel({ githubTokenConfigured }: { githubTokenConfigured?: boolean }) {
   const { t } = useTranslation();
   const { localClient } = useTarget();
   const web = useQuery(
@@ -183,8 +183,66 @@ function UpdatesPanel() {
           {system.error && <ErrorNote error={system.error} />}
           <p className="text-xs text-fg-muted">{t("settings.serverUpgrade")}</p>
         </div>
+        {githubTokenConfigured !== undefined && (
+          <div className="border-t border-border pt-5">
+            <GitHubTokenForm configured={githubTokenConfigured} />
+          </div>
+        )}
       </Card>
     </section>
+  );
+}
+
+function GitHubTokenForm({ configured }: { configured: boolean }) {
+  const { t } = useTranslation();
+  const { localClient } = useTarget();
+  const [token, setToken] = useState("");
+  const next = token.trim();
+  const save = useMutation({
+    mutationFn: (clear: boolean) => api.settings.update({ github_token: clear ? null : next }),
+    onSuccess: async () => {
+      setToken("");
+      await Promise.all([
+        localClient.invalidateQueries({ queryKey: ["system", "settings"] }),
+        localClient.invalidateQueries({ queryKey: ["system", "web"] }),
+        localClient.invalidateQueries({ queryKey: ["singbox", "releases"] }),
+      ]);
+    },
+  });
+  useDraftProtection({ dirty: token !== "", saving: save.isPending });
+
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    if (next && !save.isPending) save.mutate(false);
+  };
+
+  return (
+    <form className="grid gap-4" onSubmit={submit}>
+      <Field label={t("settings.githubToken")}>
+        <Input
+          type="password"
+          autoComplete="off"
+          autoCapitalize="none"
+          spellCheck={false}
+          value={token}
+          onChange={(event) => setToken(event.target.value)}
+          placeholder={configured ? t("settings.githubTokenConfigured") : undefined}
+          maxLength={4096}
+          disabled={save.isPending}
+        />
+      </Field>
+      {save.error && <ErrorNote error={save.error} />}
+      <div className="flex flex-wrap gap-2">
+        <Button type="submit" variant="primary" disabled={!next || save.isPending}>
+          {t("common.save")}
+        </Button>
+        {configured && (
+          <Button type="button" disabled={save.isPending} onClick={() => save.mutate(true)}>
+            {t("settings.removeGitHubToken")}
+          </Button>
+        )}
+      </div>
+    </form>
   );
 }
 
@@ -329,14 +387,12 @@ function PasswordForm() {
 
 function PrefixForm({ initial }: { initial: string }) {
   const { t } = useTranslation();
-  const queryClient = useQueryClient();
+  const { localClient } = useTarget();
   const [prefix, setPrefix] = useState(initial);
   const dirty = prefix !== initial;
   const save = useMutation({
-    mutationFn: () => api.settings.update(prefix),
-    onSuccess: (settings) => {
-      queryClient.setQueryData(["system", "settings"], settings);
-    },
+    mutationFn: () => api.settings.update({ subscription_prefix: prefix }),
+    onSuccess: () => localClient.invalidateQueries({ queryKey: ["system", "settings"] }),
   });
   useDraftProtection({ dirty, saving: save.isPending });
 
