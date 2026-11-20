@@ -17,7 +17,7 @@ export function Toaster({ children }: { children: ReactNode }) {
     <Toast.Provider toastManager={toastManager} limit={3}>
       {children}
       <Toast.Portal>
-        <Toast.Viewport className="fixed right-3 bottom-3 left-3 z-[60] mx-auto sm:right-5 sm:bottom-5 sm:left-auto sm:w-[22rem]">
+        <Toast.Viewport className="fixed right-3 bottom-3 left-3 z-60 mx-auto sm:right-5 sm:bottom-5 sm:left-auto sm:w-88">
           <ToastList />
         </Toast.Viewport>
       </Toast.Portal>
@@ -38,10 +38,10 @@ function ToastList() {
         className={cx(
           "[--gap:0.5rem] [--offset-y:calc(var(--toast-offset-y)*-1+calc(var(--toast-index)*var(--gap)*-1)+var(--toast-swipe-movement-y))]",
           "absolute right-0 bottom-0 left-0 z-[calc(1000-var(--toast-index))] w-full rounded-md bg-bg shadow-popover select-none",
-          "[transform:translateX(var(--toast-swipe-movement-x))_translateY(calc(var(--toast-swipe-movement-y)-(var(--toast-index)*0.5rem)))_scale(calc(1-var(--toast-index)*0.04))]",
+          "transform-[translateX(var(--toast-swipe-movement-x))_translateY(calc(var(--toast-swipe-movement-y)-(var(--toast-index)*0.5rem)))_scale(calc(1-var(--toast-index)*0.04))]",
           "transition-[transform,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
-          "data-expanded:[transform:translateX(var(--toast-swipe-movement-x))_translateY(var(--offset-y))]",
-          "data-starting-style:[transform:translateY(120%)] data-ending-style:opacity-0 data-limited:opacity-0",
+          "data-expanded:transform-[translateX(var(--toast-swipe-movement-x))_translateY(var(--offset-y))]",
+          "data-starting-style:transform-[translateY(120%)] data-ending-style:opacity-0 data-limited:opacity-0",
         )}
       >
         <Toast.Content className="flex items-start gap-3 px-3.5 py-3 transition-opacity data-behind:opacity-0 data-expanded:opacity-100">

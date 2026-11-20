@@ -148,7 +148,7 @@ function EnvironmentCard({
       aria-current={current ? "true" : undefined}
       className={cx(
         "flex min-w-0 flex-col overflow-hidden rounded-lg border",
-        current ? "border-accent/50 bg-accent/[0.02]" : "border-border bg-bg",
+        current ? "border-accent/50 bg-accent/2" : "border-border bg-bg",
       )}
     >
       <div className="grid gap-3 p-4">

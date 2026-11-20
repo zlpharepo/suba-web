@@ -39,7 +39,7 @@ export function LoginPage() {
       <div className="absolute top-4 right-4">
         <LanguageButton />
       </div>
-      <div className="w-full max-w-[22rem]">
+      <div className="w-full max-w-88">
         <div className="mb-8 flex flex-col items-center gap-4 text-center">
           <span className="grid size-10 place-items-center rounded-lg bg-fg text-base font-bold text-bg">
             S

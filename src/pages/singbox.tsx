@@ -126,7 +126,7 @@ function ConfigurationWorkspace({ core }: { core: Core }) {
         >
           <span className="font-sans text-fg-subtle">{t("singbox.version")}</span>
           {core.version ?? t("singbox.none")}
-          <ChevronDownIcon className="!size-3.5 text-fg-subtle" />
+          <ChevronDownIcon className="size-3.5! text-fg-subtle" />
         </button>
         <ConfigChip
           core={core}
@@ -250,7 +250,7 @@ function Controls({
               trigger={
                 <Button variant="ghost">
                   {indicator}
-                  <ChevronDownIcon className="!size-3.5" />
+                  <ChevronDownIcon className="size-3.5!" />
                 </Button>
               }
             >
@@ -746,7 +746,7 @@ function ConfigChip({
         >
           <span className="text-fg-subtle">{t("singbox.config")}</span>
           <span className="font-mono">{editing}</span>
-          <ChevronDownIcon className="!size-3.5 text-fg-subtle" />
+          <ChevronDownIcon className="size-3.5! text-fg-subtle" />
         </button>
         <FullConfigJson
           key={editing}
@@ -1059,7 +1059,7 @@ function AutostartChip({ core }: { core: Core }) {
           <PlayIcon className="text-fg-subtle" />
           <span className="text-fg-subtle">{t("singbox.autostart")}</span>
           {core.autostart ? t("singbox.on") : t("singbox.off")}
-          <ChevronDownIcon className="!size-3.5 text-fg-subtle" />
+          <ChevronDownIcon className="size-3.5! text-fg-subtle" />
         </button>
       }
     >
@@ -1108,7 +1108,7 @@ function PrivilegesChip({ core }: { core: Core }) {
           <ShieldIcon className="text-fg-subtle" />
           <span className="text-fg-subtle">{t("singbox.privileges")}</span>
           {core.privilege === "root" ? t("singbox.root") : t("singbox.operator")}
-          <ChevronDownIcon className="!size-3.5 text-fg-subtle" />
+          <ChevronDownIcon className="size-3.5! text-fg-subtle" />
         </button>
       }
     >

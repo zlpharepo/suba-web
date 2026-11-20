@@ -178,7 +178,7 @@ export function ConnectionsPanel({ active, host }: { active: boolean; host?: Env
             >
               <table
                 aria-label={t("users.connections")}
-                className={`w-full min-w-[60rem] text-left text-xs ${state.live ? "" : "text-fg-muted"}`}
+                className={`w-full min-w-240 text-left text-xs ${state.live ? "" : "text-fg-muted"}`}
               >
                 <caption className="sr-only">{t("connections.caption")}</caption>
                 <thead className="border-b border-border bg-bg-subtle">
