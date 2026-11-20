@@ -160,7 +160,6 @@ export interface Core {
   version: string | null;
   config: string;
   privilege: Privilege;
-  collections: string[];
   /** Whether the core starts with the server, rather than only on demand. */
   autostart: boolean;
   installed: boolean;

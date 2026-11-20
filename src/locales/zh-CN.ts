@@ -549,7 +549,6 @@ const zhCN: TranslationShape<typeof enUS> = {
   collectionOutbounds: {
     title: "集合出站",
     refresh: "刷新集合出站",
-    updateFailed: "无法更新集合关联。",
     collectionsLoadFailed: "无法加载集合。",
     retryCollections: "重试加载集合",
     noCollections: "暂无集合。",

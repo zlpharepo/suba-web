@@ -33,7 +33,7 @@ import { RawField, SchemaForm } from "@/components/schema-form";
 import { SortableConfigCards } from "@/components/sortable-config-cards";
 import { ApiError, errorMessage } from "@/lib/api";
 import { useApi } from "@/lib/target";
-import type { CollectionBindingContext } from "@/lib/collection-bindings";
+import { COLLECTION_BINDINGS, type CollectionBindingContext } from "@/lib/collection-bindings";
 import { configKey } from "@/lib/config-json";
 import { cx } from "@/lib/cx";
 import {
@@ -109,7 +109,7 @@ export function ConfigEditor({
 }) {
   const { t } = useTranslation();
   const api = useApi();
-  const { collections } = core;
+  const queryClient = useQueryClient();
   const schema = useQuery({
     queryKey: ["singbox", "schema"],
     queryFn: api.singbox.schema,
@@ -120,11 +120,59 @@ export function ConfigEditor({
     queryKey: configKey(name),
     queryFn: () => api.singbox.config(name),
   });
+  const selection = config.data?.value[COLLECTION_BINDINGS];
+  const collections =
+    Array.isArray(selection) && selection.every((name) => typeof name === "string")
+      ? selection
+      : [];
   const references = useQuery({
     queryKey: referenceKey(name, collections),
     queryFn: () => api.singbox.references(name),
+    enabled: Boolean(config.data),
     retry: false,
   });
+  const choose = useMutation({
+    mutationFn: ({ document, names }: { document: Versioned<JsonObject>; names: string[] }) => {
+      if (!document.etag) throw new Error("configuration: reload before saving");
+      return names.length
+        ? api.singbox.writeSection(name, COLLECTION_BINDINGS, names, document.etag)
+        : api.singbox.deleteSection(name, COLLECTION_BINDINGS, document.etag);
+    },
+    onSuccess: async (saved, { document, names }) => {
+      await queryClient.cancelQueries({ queryKey: configKey(name) });
+      queryClient.setQueryData(configKey(name), {
+        value: sectionDocument(
+          document.value,
+          COLLECTION_BINDINGS,
+          names.length ? names : undefined,
+        ),
+        etag: saved.etag,
+      });
+      void queryClient.invalidateQueries({ queryKey: configKey(name) });
+      void queryClient.invalidateQueries({
+        queryKey: ["singbox", "references", name],
+        refetchType: "none",
+      });
+      if (saved.value.warnings.length) {
+        toast.error(t("editor.savedWithWarning", { reason: saved.value.warnings.join("; ") }));
+      }
+    },
+    onError: (error) => {
+      saveError(error, t);
+      if (error instanceof ApiError && error.status === 412) void config.refetch();
+    },
+  });
+  const [draftStatus, setDraftStatus] = useState<SectionDraftStatus>({
+    dirty: false,
+    saving: false,
+  });
+  useDraftProtection({ dirty: false, saving: choose.isPending });
+  useLayoutEffect(
+    () =>
+      onDraftStatus({ dirty: draftStatus.dirty, saving: draftStatus.saving || choose.isPending }),
+    [onDraftStatus, draftStatus, choose.isPending],
+  );
+  useLayoutEffect(() => () => onDraftStatus({ dirty: false, saving: false }), [onDraftStatus]);
   const catalog = references.isError ? EMPTY_CATALOG : (references.data?.tags ?? EMPTY_CATALOG);
   const generated = useMemo(
     () => catalog.filter((entry) => entry.source === "collection" && entry.space === "outbound"),
@@ -146,6 +194,7 @@ export function ConfigEditor({
   if (schema.error) return <ErrorNote error={schema.error} />;
   if (config.error) return <ErrorNote error={config.error} />;
   if (!tree || !config.data) return <Skeleton className="h-96" />;
+  const document = config.data;
 
   return (
     <div className="grid gap-6 lg:grid-cols-[11rem_minmax(0,1fr)]">
@@ -195,7 +244,9 @@ export function ConfigEditor({
       <div className="min-w-0">
         {section === "outbounds" && !core.managed ? (
           <CollectionOutbounds
-            core={core}
+            chosen={collections}
+            disabled={!document.etag || draftStatus.dirty || draftStatus.saving || choose.isPending}
+            onChoose={(names) => choose.mutate({ document, names })}
             entries={generated}
             indexOffset={
               Array.isArray(config.data.value.outbounds) ? config.data.value.outbounds.length : 0
@@ -239,15 +290,17 @@ export function ConfigEditor({
                   }
             }
           >
-            <DraftStatus.Provider value={onDraftStatus}>
-              <Section
-                // Full JSON refreshes the saved document; an old form must not write it back.
-                key={`${name}:${section}:${revision}`}
-                config={name}
-                tree={tree}
-                name={section}
-                document={config.data}
-              />
+            <DraftStatus.Provider value={setDraftStatus}>
+              <fieldset disabled={choose.isPending} className="min-w-0">
+                <Section
+                  // Full JSON refreshes the saved document; an old form must not write it back.
+                  key={`${name}:${section}:${revision}`}
+                  config={name}
+                  tree={tree}
+                  name={section}
+                  document={document}
+                />
+              </fieldset>
             </DraftStatus.Provider>
           </CollectionBindings.Provider>
         </ReferenceCatalog.Provider>

@@ -243,7 +243,6 @@ export function createApi(
         version?: string | null;
         config: string;
         privilege: Privilege;
-        collections: string[];
         autostart?: boolean;
       }) => json<Core>("PUT", "/cores/sing-box", settings),
       status: (tail?: number) =>

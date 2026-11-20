@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { RefreshCwIcon } from "lucide-react";
 
@@ -7,15 +7,16 @@ import { ConfigEntryCard } from "@/components/config-entry-card";
 import { CopyButton } from "@/components/shared";
 import { useApi } from "@/lib/target";
 import { cx } from "@/lib/cx";
-import type { Core, Tag } from "@/lib/types";
+import type { Tag } from "@/lib/types";
 import { Button, IconButton } from "@/ui/button";
 import { Dialog } from "@/ui/dialog";
 import { Badge, Empty, Skeleton } from "@/ui/misc";
-import { toast } from "@/ui/notify";
 import { Checkbox } from "@/ui/toggle";
 
 export function CollectionOutbounds({
-  core,
+  chosen,
+  disabled,
+  onChoose,
   entries,
   indexOffset,
   loading,
@@ -23,7 +24,9 @@ export function CollectionOutbounds({
   failed,
   onRefresh,
 }: {
-  core: Core;
+  chosen: string[];
+  disabled: boolean;
+  onChoose: (collections: string[]) => void;
   entries: Tag[];
   /** Runtime assembly appends these after the saved document's outbounds. */
   indexOffset: number;
@@ -34,25 +37,12 @@ export function CollectionOutbounds({
 }) {
   const { t } = useTranslation();
   const api = useApi();
-  const queryClient = useQueryClient();
   const known = useQuery({
     queryKey: ["collections"],
     queryFn: api.collections.list,
   });
-  const chosen = core.collections;
   const names = Object.keys(known.data ?? {}).sort();
   const choices = [...names, ...chosen.filter((name) => !names.includes(name))];
-  const choose = useMutation({
-    mutationFn: (collections: string[]) =>
-      api.singbox.choose({
-        version: core.version,
-        config: core.config,
-        privilege: core.privilege,
-        collections,
-      }),
-    onSuccess: (updated) => queryClient.setQueryData(["singbox"], updated),
-    onError: () => toast.error(t("collectionOutbounds.updateFailed")),
-  });
   const [selected, setSelected] = useState<{ path: string; tag: string } | null>(null);
   // Catalog paths are positional; a refreshed row must not become another node.
   const preview = entries.find(
@@ -97,11 +87,11 @@ export function CollectionOutbounds({
           {choices.map((name) => (
             <Checkbox
               key={name}
-              disabled={choose.isPending}
+              disabled={disabled}
               checked={chosen.includes(name)}
               className="min-w-0 max-w-full"
               onChange={(checked) =>
-                choose.mutate(checked ? [...chosen, name] : chosen.filter((held) => held !== name))
+                onChoose(checked ? [...chosen, name] : chosen.filter((held) => held !== name))
               }
               label={
                 <span

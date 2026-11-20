@@ -482,7 +482,6 @@ function VersionsDialog({
         version,
         config: core.data?.config ?? "default",
         privilege: core.data?.privilege ?? "operator",
-        collections: core.data?.collections ?? [],
       }),
     onSuccess: invalidate,
     onError: (error) => toast.error(errorMessage(error)),
@@ -781,7 +780,6 @@ function ConfigsDialog({
         version: core.version,
         config,
         privilege: core.privilege,
-        collections: core.collections,
       }),
     onSuccess: (updated) => {
       queryClient.setQueryData(["singbox"], updated);
@@ -812,7 +810,6 @@ function ConfigsDialog({
             version: core.version,
             config: target.name,
             privilege: core.privilege,
-            collections: core.collections,
           });
           queryClient.setQueryData(["singbox"], updated);
         }
@@ -1024,7 +1021,6 @@ function AutostartChip({ core }: { core: Core }) {
         version: core.version,
         config: core.config,
         privilege: core.privilege,
-        collections: core.collections,
         autostart,
       }),
     onSuccess: (updated) => queryClient.setQueryData(["singbox"], updated),
@@ -1075,7 +1071,6 @@ function PrivilegesChip({ core }: { core: Core }) {
         version: core.version,
         config: core.config,
         privilege,
-        collections: core.collections,
       }),
     onSuccess: (updated) => queryClient.setQueryData(["singbox"], updated),
     onError: (error) => toast.error(errorMessage(error)),

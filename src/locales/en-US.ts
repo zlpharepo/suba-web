@@ -552,7 +552,6 @@ const enUS = {
   collectionOutbounds: {
     title: "Collection Outbounds",
     refresh: "Refresh Collection Outbounds",
-    updateFailed: "Could not update the collection association.",
     collectionsLoadFailed: "Collections could not be loaded.",
     retryCollections: "Retry Collections",
     noCollections: "No collections yet.",
