@@ -279,7 +279,6 @@ const enUS = {
   },
   singbox: {
     applyChanges: "Restart to Apply Changes",
-    startRestartConfig: "Start / Restart: {{name}}",
     coreExited: "The core exited with {{reason}}",
     coreExitedWithLog: "The core exited with {{reason}}: {{log}}",
     exitSignal: "signal {{value}}",

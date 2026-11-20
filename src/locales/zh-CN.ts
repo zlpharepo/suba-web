@@ -280,7 +280,6 @@ const zhCN: TranslationShape<typeof enUS> = {
   },
   singbox: {
     applyChanges: "重启后应用变更",
-    startRestartConfig: "启动或重启时使用：{{name}}",
     coreExited: "内核已退出：{{reason}}",
     coreExitedWithLog: "内核已退出：{{reason}}；{{log}}",
     exitSignal: "信号 {{value}}",

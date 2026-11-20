@@ -135,11 +135,6 @@ function ConfigurationWorkspace({ core }: { core: Core }) {
           section={sectionDraft}
           onResetSection={() => setSectionRevision((revision) => revision + 1)}
         />
-        {editing !== core.config && (
-          <span className="text-xs text-fg-muted">
-            {t("singbox.startRestartConfig", { name: core.config })}
-          </span>
-        )}
         <PrivilegesChip core={core} />
         <AutostartChip core={core} />
         {core.version && (
