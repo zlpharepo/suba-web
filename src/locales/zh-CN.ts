@@ -84,6 +84,7 @@ const zhCN: TranslationShape<typeof enUS> = {
     confirmPassword: "确认密码",
     currentPassword: "当前密码",
     deliveryPrefix: "分发前缀",
+    githubMirror: "GitHub 镜像",
     githubToken: "GitHub 令牌",
     githubTokenConfigured: "已配置",
     newPassword: "新密码",

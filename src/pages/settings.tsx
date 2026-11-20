@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { api, session } from "@/lib/api";
 import { useConfirmDiscard, useDraftProtection } from "@/lib/draft-protection";
 import { useTarget } from "@/lib/target";
+import type { SystemSettings } from "@/lib/types";
 import { Button } from "@/ui/button";
 import { Field, Input } from "@/ui/input";
 import { PageHeader } from "@/ui/layout";
@@ -59,7 +60,7 @@ export function SettingsPage() {
             )}
           </Card>
         </section>
-        <UpdatesPanel githubTokenConfigured={settings.data?.github_token_configured} />
+        <UpdatesPanel settings={settings.data} />
         <SessionActions />
       </div>
     </div>
@@ -120,7 +121,7 @@ function SessionActions() {
   );
 }
 
-function UpdatesPanel({ githubTokenConfigured }: { githubTokenConfigured?: boolean }) {
+function UpdatesPanel({ settings }: { settings?: SystemSettings }) {
   const { t } = useTranslation();
   const { localClient } = useTarget();
   const web = useQuery(
@@ -183,13 +184,68 @@ function UpdatesPanel({ githubTokenConfigured }: { githubTokenConfigured?: boole
           {system.error && <ErrorNote error={system.error} />}
           <p className="text-xs text-fg-muted">{t("settings.serverUpgrade")}</p>
         </div>
-        {githubTokenConfigured !== undefined && (
-          <div className="border-t border-border pt-5">
-            <GitHubTokenForm configured={githubTokenConfigured} />
+        {settings && (
+          <div className="grid gap-5 border-t border-border pt-5">
+            {settings.github_mirror !== undefined && (
+              <GitHubMirrorForm
+                key={settings.github_mirror}
+                initial={settings.github_mirror ?? ""}
+              />
+            )}
+            <GitHubTokenForm configured={settings.github_token_configured} />
           </div>
         )}
       </Card>
     </section>
+  );
+}
+
+function GitHubMirrorForm({ initial }: { initial: string }) {
+  const { t } = useTranslation();
+  const { localClient } = useTarget();
+  const [draft, setDraft] = useState(initial);
+  const next = draft.trim();
+  const dirty = next !== initial;
+  const save = useMutation({
+    mutationFn: (mirror: string | null) => api.settings.update({ github_mirror: mirror }),
+    onSuccess: async (settings) => {
+      setDraft(settings.github_mirror ?? "");
+      await Promise.all([
+        localClient.invalidateQueries({ queryKey: ["system", "settings"] }),
+        localClient.invalidateQueries({ queryKey: ["system", "web"] }),
+        localClient.invalidateQueries({ queryKey: ["singbox", "releases"] }),
+      ]);
+    },
+  });
+  useDraftProtection({ dirty, saving: save.isPending });
+
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    if (dirty && !save.isPending) save.mutate(next || null);
+  };
+
+  return (
+    <form className="grid gap-4" onSubmit={submit}>
+      <Field label={t("settings.githubMirror")}>
+        <Input
+          type="url"
+          autoComplete="off"
+          autoCapitalize="none"
+          spellCheck={false}
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          placeholder="https://mirror.example.invalid/"
+          maxLength={4096}
+          disabled={save.isPending}
+        />
+      </Field>
+      {save.error && <ErrorNote error={save.error} />}
+      <div className="flex flex-wrap gap-2">
+        <Button type="submit" variant="primary" disabled={!dirty || save.isPending}>
+          {t("common.save")}
+        </Button>
+      </div>
+    </form>
   );
 }
 

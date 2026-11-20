@@ -153,6 +153,7 @@ export interface SystemInfo extends SystemStatus {
 export interface SystemSettings {
   subscription_prefix: string;
   github_token_configured: boolean;
+  github_mirror: string | null;
 }
 
 export interface SystemSummary {

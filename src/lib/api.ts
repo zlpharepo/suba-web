@@ -354,8 +354,11 @@ export const api = {
   },
   settings: {
     get: () => json<SystemSettings>("GET", "/system/settings"),
-    update: (change: { subscription_prefix?: string; github_token?: string | null }) =>
-      json<SystemSettings>("PUT", "/system/settings", change),
+    update: (change: {
+      subscription_prefix?: string;
+      github_token?: string | null;
+      github_mirror?: string | null;
+    }) => json<SystemSettings>("PUT", "/system/settings", change),
   },
   web: {
     status: () =>

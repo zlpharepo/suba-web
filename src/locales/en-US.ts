@@ -78,6 +78,7 @@ const enUS = {
     confirmPassword: "Confirm Password",
     currentPassword: "Current Password",
     deliveryPrefix: "Delivery Prefix",
+    githubMirror: "GitHub Mirror",
     githubToken: "GitHub Token",
     githubTokenConfigured: "Configured",
     newPassword: "New Password",
