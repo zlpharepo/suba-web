@@ -17,18 +17,23 @@ const tones: Record<Tone, string> = {
 export function Badge({
   tone = "neutral",
   mono,
+  wrap,
   children,
   className,
 }: {
   tone?: Tone;
   mono?: boolean;
+  wrap?: boolean;
   children: ReactNode;
   className?: string;
 }) {
   return (
     <span
       className={cx(
-        "inline-flex h-5 shrink-0 items-center gap-1 rounded-sm px-1.5 text-2xs font-medium whitespace-nowrap",
+        "inline-flex shrink-0 items-center gap-1 rounded-sm px-1.5 text-2xs font-medium",
+        wrap
+          ? "min-h-5 max-w-full py-0.5 wrap-anywhere whitespace-normal"
+          : "h-5 whitespace-nowrap",
         mono && "font-mono",
         tones[tone],
         className,

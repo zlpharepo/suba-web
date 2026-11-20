@@ -148,7 +148,7 @@ function CollectionCard({
               </Badge>
             ))}
             {filters.map(({ pattern, sign }, index) => (
-              <Badge key={index} mono tone="accent">
+              <Badge key={index} mono tone="accent" wrap>
                 {sign} {patternKind(pattern)}:{patternText(pattern)}
               </Badge>
             ))}
