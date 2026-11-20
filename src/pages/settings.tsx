@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -173,6 +173,7 @@ function UpdatesPanel({ settings }: { settings?: SystemSettings }) {
             </div>
           )}
           {update.error && <ErrorNote error={update.error} />}
+          <WebUpload disabled={update.isPending} />
         </div>
         <div className="grid gap-2 border-t border-border pt-5">
           <div className="flex items-center justify-between gap-3">
@@ -197,6 +198,62 @@ function UpdatesPanel({ settings }: { settings?: SystemSettings }) {
         )}
       </Card>
     </section>
+  );
+}
+
+function WebUpload({ disabled }: { disabled: boolean }) {
+  const { t } = useTranslation();
+  const [archive, setArchive] = useState<File | null>(null);
+  const [version, setVersion] = useState("");
+  const upload = useMutation({
+    mutationFn: (file: File) => api.web.upload(file, version.trim()),
+    onSuccess: () => {
+      setArchive(null);
+      setVersion("");
+    },
+  });
+  const uploaded = upload.isSuccess;
+  useEffect(() => {
+    if (!uploaded) return;
+    // Let the navigation guard observe the cleared draft and settled mutation.
+    const reload = window.requestAnimationFrame(() => window.location.reload());
+    return () => window.cancelAnimationFrame(reload);
+  }, [uploaded]);
+  useDraftProtection({ dirty: archive !== null || version !== "", saving: upload.isPending });
+
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    if (archive && !disabled && !upload.isPending) upload.mutate(archive);
+  };
+
+  return (
+    <form className="grid gap-3 pt-2" onSubmit={submit}>
+      <Field label={t("settings.webArchive")}>
+        <Input
+          type="file"
+          accept=".gz,.tgz"
+          className="h-auto py-1.5"
+          disabled={disabled || upload.isPending}
+          onChange={(event) => setArchive(event.target.files?.[0] ?? null)}
+          required
+        />
+      </Field>
+      <Field label={t("settings.webVersionOptional")}>
+        <Input
+          value={version}
+          maxLength={64}
+          placeholder="1.2.3"
+          disabled={disabled || upload.isPending}
+          onChange={(event) => setVersion(event.target.value)}
+        />
+      </Field>
+      {upload.error && <ErrorNote error={upload.error} />}
+      <div>
+        <Button size="sm" type="submit" disabled={!archive || disabled || upload.isPending}>
+          {t(upload.isPending ? "settings.uploadingWeb" : "settings.uploadWeb")}
+        </Button>
+      </div>
+    </form>
   );
 }
 

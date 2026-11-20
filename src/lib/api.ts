@@ -106,12 +106,14 @@ function transport(prefix: string) {
     const headers: Record<string, string> = {};
     const token = session.get();
     if (token) headers.Authorization = `Bearer ${token}`;
-    if (body !== undefined) headers["Content-Type"] = "application/json";
+    const archive = body instanceof Blob;
+    if (body !== undefined)
+      headers["Content-Type"] = archive ? "application/gzip" : "application/json";
 
     const response = await fetch(`${prefix}${path}`, {
       method,
       headers,
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: archive ? body : body === undefined ? undefined : JSON.stringify(body),
     });
 
     if (response.ok) return response;
@@ -261,6 +263,8 @@ export function createApi(
         json<VersionView>("GET", `/cores/sing-box/versions/${segment(version)}`),
       install: (version: string) =>
         json<VersionView>("POST", `/cores/sing-box/versions/${segment(version)}`),
+      upload: (file: File) =>
+        json<VersionView>("POST", `/cores/sing-box/versions?filename=${segment(file.name)}`, file),
       schema: () => json<JsonSchema>("GET", "/cores/sing-box/schema"),
       references: (name: string) =>
         json<References>("GET", `/cores/sing-box/configs/${segment(name)}/references`),
@@ -368,6 +372,12 @@ export const api = {
       ),
     install: () =>
       json<{ installed_version: string; latest_version: string }>("POST", "/system/web"),
+    upload: (file: File, version: string) =>
+      json<{ installed_version: string | null; latest_version: string | null }>(
+        "PUT",
+        version ? `/system/web?version=${segment(version)}` : "/system/web",
+        file,
+      ),
   },
   auth: {
     login: (username: string, password: string) =>

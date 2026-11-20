@@ -22,7 +22,7 @@ import { EnableObservation } from "@/components/enable-observation";
 import { Generator } from "@/components/generator";
 import { ProcessUsage } from "@/components/process-usage";
 import { errorMessage } from "@/lib/api";
-import { useApi } from "@/lib/target";
+import { useApi, useTarget } from "@/lib/target";
 import { cx } from "@/lib/cx";
 import { useConfirmDiscard, useDraftProtection } from "@/lib/draft-protection";
 import { coreActionFailure, useCoreAction } from "@/lib/use-core-action";
@@ -394,6 +394,8 @@ function VersionsDialog({
 }) {
   const { t } = useTranslation();
   const api = useApi();
+  const { host } = useTarget();
+  const uploadInput = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
   const versions = useQuery({
     queryKey: ["singbox", "versions"],
@@ -414,13 +416,16 @@ function VersionsDialog({
   const picked = release ?? releases.data?.stable ?? null;
   const core = useQuery({ queryKey: ["singbox"], queryFn: api.singbox.get });
   const install = useMutation({
-    mutationFn: (version: string) => api.singbox.install(version),
-    onMutate: async (version) => {
+    mutationFn: (source: string | File) =>
+      typeof source === "string" ? api.singbox.install(source) : api.singbox.upload(source),
+    onMutate: async (source) => {
       observedInstall.current = null;
       setWatching(null);
-      await queryClient.cancelQueries({
-        queryKey: ["singbox", "version", version],
-      });
+      if (typeof source === "string") {
+        await queryClient.cancelQueries({
+          queryKey: ["singbox", "version", source],
+        });
+      }
     },
     onSuccess: (view) => {
       observedInstall.current = view.version;
@@ -508,6 +513,7 @@ function VersionsDialog({
       .map((item) => item.version),
   );
   const installing = install.isPending || installationState === "downloading";
+  const uploading = install.isPending && typeof install.variables !== "string";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange} title={t("singbox.versions")} width="md">
@@ -576,6 +582,29 @@ function VersionsDialog({
                   <DownloadIcon />
                 )}
                 {installing ? t("singbox.installing") : t("singbox.install")}
+              </Button>
+            </div>
+          )}
+          {host === null && (
+            <div>
+              <input
+                ref={uploadInput}
+                type="file"
+                accept=".gz"
+                hidden
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  event.target.value = "";
+                  if (file && !installing) install.mutate(file);
+                }}
+              />
+              <Button
+                size="sm"
+                aria-busy={uploading}
+                disabled={installing}
+                onClick={() => uploadInput.current?.click()}
+              >
+                {t(uploading ? "singbox.uploadingCore" : "singbox.uploadCore")}
               </Button>
             </div>
           )}
